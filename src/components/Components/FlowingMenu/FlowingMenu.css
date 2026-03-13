@@ -58,7 +58,7 @@
   top: 0;
   left: 50%;
   width: 100vw;
-  margin-left: -50vw; /* Precise breakout to full viewport width */
+  transform: translateX(-50%); /* Centering relative to parent */
   bottom: 0;
   pointer-events: none;
   background: #0ea5e9;
@@ -72,13 +72,13 @@
   /* Smooth Erase Effect - ensuring distinct fade zones at edges */
   -webkit-mask-image: linear-gradient(to right,
       rgba(0, 0, 0, 0) 0%,
-      rgba(0, 0, 0, 1) 10%,
-      rgba(0, 0, 0, 1) 90%,
+      rgba(0, 0, 0, 1) 15%,
+      rgba(0, 0, 0, 1) 85%,
       rgba(0, 0, 0, 0) 100%);
   mask-image: linear-gradient(to right,
       rgba(0, 0, 0, 0) 0%,
-      rgba(0, 0, 0, 1) 10%,
-      rgba(0, 0, 0, 1) 90%,
+      rgba(0, 0, 0, 1) 15%,
+      rgba(0, 0, 0, 1) 85%,
       rgba(0, 0, 0, 0) 100%);
 }
 
