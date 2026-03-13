@@ -1,0 +1,4 @@
+inside the folder run
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+and then 
+npm run dev
