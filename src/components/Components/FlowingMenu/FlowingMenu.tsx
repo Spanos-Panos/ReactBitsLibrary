@@ -27,6 +27,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
   const itemRef = React.useRef<HTMLDivElement>(null);
   const marqueeRef = React.useRef<HTMLDivElement>(null);
   const marqueeInnerRef = React.useRef<HTMLDivElement>(null);
+  const [isTransitioning, setIsTransitioning] = React.useState(false);
 
   const animationDefaults: gsap.TweenVars = { duration: 0.4, ease: "power2.out" };
 
@@ -48,6 +49,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
   };
 
   const handleMouseEnter = (ev: React.MouseEvent<HTMLDivElement>) => {
+    if (isTransitioning) return;
     if (!itemRef.current || !marqueeRef.current || !marqueeInnerRef.current)
       return;
     const rect = itemRef.current.getBoundingClientRect();
@@ -62,7 +64,6 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
     gsap.killTweensOf([marqueeRef.current, marqueeInnerRef.current, content]);
 
     tl.set(marqueeRef.current, {
-      xPercent: -50,
       yPercent: edge === "top" ? -100 : 100,
       autoAlpha: 1
     }, 0)
@@ -72,6 +73,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
   };
 
   const handleMouseLeave = (ev: React.MouseEvent<HTMLDivElement>) => {
+    if (isTransitioning) return;
     if (!itemRef.current || !marqueeRef.current || !marqueeInnerRef.current)
       return;
     const rect = itemRef.current.getBoundingClientRect();
@@ -87,6 +89,38 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
       .to(content, { opacity: 1, duration: 0.2 }, 0);
   };
 
+  const handleItemClick = () => {
+    if (isTransitioning || !marqueeRef.current) return;
+    
+    setIsTransitioning(true);
+    
+    // Stop all active hover animations
+    gsap.killTweensOf([marqueeRef.current, marqueeInnerRef.current]);
+
+    // Transition to full screen
+    const tl = gsap.timeline({
+      onComplete: () => {
+        onClick();
+      }
+    });
+
+    tl.to(marqueeRef.current, {
+      duration: 4,
+      height: "100vh",
+      top: "50%",
+      yPercent: -50,
+      width: "100vw",
+      left: "50%",
+      xPercent: -50,
+      position: "fixed",
+      backgroundColor: "#0ea5e9", // Ensure it's the solid brand color
+      ease: "power2.inOut",
+      zIndex: 9999,
+      webkitMaskImage: "none", // Remove mask for full screen coverage
+      maskImage: "none"
+    });
+  };
+
   const repeatedMarqueeContent = React.useMemo(() => {
     return Array.from({ length: 8 }).map((_, idx) => (
       <React.Fragment key={idx}>
@@ -99,7 +133,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
     <div className="flowing-menu__item" ref={itemRef}>
       <div
         className="flowing-menu__item-link"
-        onClick={onClick}
+        onClick={handleItemClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
