@@ -31,6 +31,19 @@ function App() {
   const [activeFileIndex, setActiveFileIndex] = useState(0);
   const [generateStatus, setGenerateStatus] = useState<string>("");
 
+  // Performance / Low Power Mode
+  const [lowPowerMode, setLowPowerMode] = useState(() => {
+    return localStorage.getItem("lowPowerMode") === "true";
+  });
+
+  const toggleLowPowerMode = () => {
+    setLowPowerMode(prev => {
+      const next = !prev;
+      localStorage.setItem("lowPowerMode", String(next));
+      return next;
+    });
+  };
+
   // Chat UI states
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: "system" | "user"; text: string }[]>([
@@ -117,13 +130,23 @@ function App() {
   return (
     <div className="app-root">
       <div className="background-container">
-        <Iridescence
-          color={[0, 0.7, 0.7]}
-          mouseReact={false}
-          amplitude={0.1}
-          speed={0.3}
-        />
+        {!lowPowerMode && (
+          <Iridescence
+            color={[0, 0.7, 0.7]}
+            mouseReact={false}
+            amplitude={0.1}
+            speed={0.3}
+          />
+        )}
       </div>
+
+      <button 
+        className={`performance-toggle ${lowPowerMode ? 'active' : ''}`}
+        onClick={toggleLowPowerMode}
+        title={lowPowerMode ? "Disable Low Power Mode" : "Enable Low Power Mode"}
+      >
+        {lowPowerMode ? "🚀 High Perf" : "🔋 Low Power"}
+      </button>
       <div className="scene-container">
         {/* Gallery Scene */}
         <section className={`scene ${view === "gallery" ? "" : "hidden-left"}`}>

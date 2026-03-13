@@ -1,4 +1,9 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const electron = require("electron");
+const app = electron.app;
+const BrowserWindow = electron.BrowserWindow;
+const ipcMain = electron.ipcMain;
+const dialog = electron.dialog;
+
 const path = require("node:path");
 
 const isDev = process.env.NODE_ENV === "development";

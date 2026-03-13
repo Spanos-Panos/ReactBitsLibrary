@@ -1,5 +1,51 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap');
 
+.performance-toggle {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 1000;
+  padding: 0.6rem 1.2rem;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+  color: #94a3b8;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.performance-toggle:hover {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: #3b82f6;
+  color: #f1f5f9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.performance-toggle.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+/* Global low power mode optimizations */
+.app-root.low-power {
+  background: #000;
+}
+
+.app-root.low-power .background-container {
+  display: none;
+}
+
+
 html,
 body {
   margin: 0;
