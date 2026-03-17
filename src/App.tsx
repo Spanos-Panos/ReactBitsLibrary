@@ -31,6 +31,7 @@ function App() {
   const [componentFiles, setComponentFiles] = useState<{ name: string; content: string }[]>([]);
   const [activeFileIndex, setActiveFileIndex] = useState(0);
   const [generateStatus, setGenerateStatus] = useState<string>("");
+  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
 
   // Performance / Low Power Mode
   const [lowPowerMode, setLowPowerMode] = useState(() => {
@@ -197,38 +198,49 @@ function App() {
                     />
                   </div>
 
-                  <div className="comp-grid">
-                    {filtered.map((item) => (
-                      <div key={item.id} className="comp-card" onClick={() => handleSelectComponent(item.id)}>
-                        <div className="comp-card-hover-bg"></div>
-                        <div className="comp-card-content">
-                          <span className="comp-category">{item.category}</span>
-                          <SplitText
-                            text={item.name}
-                            className="comp-title"
-                            delay={70}
-                            duration={1}
-                            ease="power3.out"
-                            splitType="chars"
-                            onLetterAnimationComplete={() => {
-                              console.log("Animation complete for:", item.name);
-                              const toast = document.createElement("div");
-                              toast.className = "completion-toast";
-                              toast.innerText = `Animation Complete: ${item.name}`;
-                              document.body.appendChild(toast);
-                              setTimeout(() => toast.remove(), 2000);
-                            }}
-                          />
+                  <div className="split-view-container">
+                    <div className="component-list-pane" onMouseLeave={() => setHoveredComponentId(null)}>
+                      {filtered.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className={`split-list-item ${hoveredComponentId === item.id ? 'hovered' : ''}`}
+                          onMouseEnter={() => setHoveredComponentId(item.id)}
+                          onClick={() => handleSelectComponent(item.id)}
+                        >
+                          <div className="split-list-item-content">
+                            <span className="split-list-item-title">{item.name}</span>
+                          </div>
+                          <span className="split-list-item-arrow">→</span>
                         </div>
-                        <div className="comp-card-arrow">→</div>
-                      </div>
-                    ))}
-                    {filtered.length === 0 && (
-                      <div className="empty-state">
-                        <h2>No results found</h2>
-                        <p>Try searching for something else or changing categories.</p>
-                      </div>
-                    )}
+                      ))}
+                      {filtered.length === 0 && (
+                        <div className="empty-state">
+                          <p>No components found.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="component-preview-pane">
+                      {hoveredComponentId ? (
+                        <div className="preview-placeholder">
+                          <header className="preview-header">
+                            <h3>{filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview'}</h3>
+                            <div className="mock-tabs">
+                              <span className="mock-tab active">React</span>
+                              <span className="mock-tab">CSS</span>
+                              <span className="mock-tab">Tailwind</span>
+                            </div>
+                          </header>
+                          <div className="preview-box">
+                            <span className="preview-text">Preview Coming Soon</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="preview-empty">
+                          <p>Hover over a component to preview</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
