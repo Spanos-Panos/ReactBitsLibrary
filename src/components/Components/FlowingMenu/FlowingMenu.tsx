@@ -12,22 +12,33 @@ interface FlowingMenuProps {
 }
 
 const FlowingMenu: React.FC<FlowingMenuProps> = ({ items = [] }) => {
+  const [isTransitioning, setIsTransitioning] = React.useState(false);
+
   return (
     <div className="flowing-menu-wrap">
-      <nav className="flowing-menu">
+      <nav className="flowing-menu" style={{ pointerEvents: isTransitioning ? 'none' : 'auto' }}>
         {items.map((item, idx) => (
-          <MenuItem key={idx} {...item} />
+          <MenuItem 
+            key={idx} 
+            {...item} 
+            isTransitioning={isTransitioning} 
+            onTransitionStart={() => setIsTransitioning(true)} 
+          />
         ))}
       </nav>
     </div>
   );
 };
 
-const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
+interface InternalMenuItemProps extends MenuItemProps {
+  isTransitioning: boolean;
+  onTransitionStart: () => void;
+}
+
+const MenuItem: React.FC<InternalMenuItemProps> = ({ text, onClick, isTransitioning, onTransitionStart }) => {
   const itemRef = React.useRef<HTMLDivElement>(null);
   const marqueeRef = React.useRef<HTMLDivElement>(null);
   const marqueeInnerRef = React.useRef<HTMLDivElement>(null);
-  const [isTransitioning, setIsTransitioning] = React.useState(false);
 
   const animationDefaults: gsap.TweenVars = { duration: 0.4, ease: "power2.out" };
 
@@ -92,7 +103,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
   const handleItemClick = () => {
     if (isTransitioning || !marqueeRef.current) return;
     
-    setIsTransitioning(true);
+    onTransitionStart();
     
     // Stop all active hover animations
     gsap.killTweensOf([marqueeRef.current, marqueeInnerRef.current]);
