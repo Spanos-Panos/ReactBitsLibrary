@@ -151,7 +151,7 @@ function App() {
       <div className="scene-container">
         {/* Gallery Scene */}
         <section className={`scene ${view === "gallery" ? "" : "hidden-left"}`}>
-          <main className="gallery-container">
+          <main className={`gallery-container ${activeCategory === "all" ? "no-scroll" : ""}`}>
             <div className="filter-bar">
               <GradientText
                 colors={["#40ffaa", "#4079ff", "#40ffaa", "#4079ff", "#40ffaa"]}

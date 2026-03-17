@@ -197,10 +197,15 @@ body {
 /* Gallery View */
 .gallery-container {
   flex: 1;
-  overflow: hidden; /* Prevent both vertical and horizontal scrolling on the main menu */
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 2rem 4rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+}
+
+.gallery-container.no-scroll {
+  overflow: hidden; /* Prevent both vertical and horizontal scrolling on the home main menu */
 }
 
 .filter-bar {
