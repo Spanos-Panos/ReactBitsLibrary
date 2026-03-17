@@ -14,6 +14,8 @@
   position: relative;
   width: 100%;
   overflow: visible;
+  /* Maintain stack order normally, but elevate during transition via JS */
+  z-index: 1; 
 }
 
 .flowing-menu__item-link {

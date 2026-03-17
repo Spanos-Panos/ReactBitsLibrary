@@ -130,8 +130,14 @@ const MenuItem: React.FC<InternalMenuItemProps> = ({ text, onClick, isTransition
       xPercent: 0,
       yPercent: 0,
       margin: 0,
-      zIndex: 9999
+      zIndex: 99999 // High z-index for the marquee itself
     });
+
+    // Elevate the parent container's z-index so the fixed marquee isn't trapped
+    // behind sibling menu items that have z-index: 1 from CSS
+    if (itemRef.current) {
+      tl.set(itemRef.current, { zIndex: 100 }, 0);
+    }
 
     const content = itemRef.current?.querySelector(".flowing-menu__item-content");
 
