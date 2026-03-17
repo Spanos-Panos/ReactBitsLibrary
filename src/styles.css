@@ -309,6 +309,8 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.1);
   border-radius: 12px;
   cursor: pointer;
+  transform: translateZ(0); /* Force hardware accel to prevent repaint flash */
+  will-change: transform, background-color, border-color;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -347,6 +349,7 @@ body {
 .component-preview-pane {
   background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(148, 163, 184, 0.15);
   border-radius: 16px;
   height: 60vh;
@@ -355,6 +358,7 @@ body {
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  transform: translateZ(0); /* Prevent sibling hover transforms from flashing this filter */
 }
 
 .preview-placeholder {
