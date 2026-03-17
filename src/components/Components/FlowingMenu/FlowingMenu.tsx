@@ -97,6 +97,9 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
     // Stop all active hover animations
     gsap.killTweensOf([marqueeRef.current, marqueeInnerRef.current]);
 
+    // Capture exact current coordinates to prevent teleporting
+    const rect = marqueeRef.current.getBoundingClientRect();
+
     // Transition to full screen
     const tl = gsap.timeline({
       onComplete: () => {
@@ -104,18 +107,29 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
       }
     });
 
+    // Seemlessly snap to fixed position before animating
+    tl.set(marqueeRef.current, {
+      position: "fixed",
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+      x: 0,
+      y: 0,
+      xPercent: 0,
+      yPercent: 0,
+      margin: 0,
+      zIndex: 9999
+    });
+
     tl.to(marqueeRef.current, {
       duration: 4,
-      height: "100vh",
-      top: "50%",
-      yPercent: -50,
+      top: 0,
+      left: 0,
       width: "100vw",
-      left: "50%",
-      xPercent: -50,
-      position: "fixed",
+      height: "100vh",
       backgroundColor: "#0ea5e9", // Ensure it's the solid brand color
       ease: "power2.inOut",
-      zIndex: 9999,
       webkitMaskImage: "none", // Remove mask for full screen coverage
       maskImage: "none"
     });
