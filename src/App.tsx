@@ -183,7 +183,7 @@ function App() {
                         { id: 'Backgrounds', label: 'Backgrounds' }
                       ]}
                       activeId={activeCategory}
-                      onItemClick={(id) => {
+                      onItemClick={(id: string) => {
                         if (id === 'home') {
                           setActiveCategory('all');
                         } else {
