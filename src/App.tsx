@@ -23,6 +23,16 @@ function groupByCategory(items: ReactBitsItem[]): Record<string, ReactBitsItem[]
   }, {});
 }
 
+const GRADIENT_COLORS = ["#40ffaa", "#4079ff", "#40ffaa", "#4079ff", "#40ffaa"];
+
+const PILL_NAV_ITEMS = [
+  { id: 'home', label: 'Home' },
+  { id: 'Components', label: 'Components' },
+  { id: 'Animations', label: 'Animations' },
+  { id: 'TextAnimations', label: 'Text Animations' },
+  { id: 'Backgrounds', label: 'Backgrounds' }
+];
+
 function App() {
   const [items] = useState<ReactBitsItem[]>(manifest);
   const [view, setView] = useState<"gallery" | "detail">("gallery");
@@ -154,7 +164,7 @@ function App() {
           <main className={`gallery-container ${activeCategory === "all" ? "no-scroll" : ""}`}>
             <div className="filter-bar">
               <GradientText
-                colors={["#40ffaa", "#4079ff", "#40ffaa", "#4079ff", "#40ffaa"]}
+                colors={GRADIENT_COLORS}
                 animationSpeed={10}
                 showBorder={false}
                 className="modern-title"
@@ -175,13 +185,7 @@ function App() {
                 <div className="sub-menu-container">
                   <div className="back-nav-container" style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
                     <PillNav
-                      items={[
-                        { id: 'home', label: 'Home' },
-                        { id: 'Components', label: 'Components' },
-                        { id: 'Animations', label: 'Animations' },
-                        { id: 'TextAnimations', label: 'Text Animations' },
-                        { id: 'Backgrounds', label: 'Backgrounds' }
-                      ]}
+                      items={PILL_NAV_ITEMS}
                       activeId={activeCategory}
                       onItemClick={(id: string) => {
                         if (id === 'home') {
