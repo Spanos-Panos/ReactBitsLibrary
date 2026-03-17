@@ -123,7 +123,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ text, onClick }) => {
     });
 
     tl.to(marqueeRef.current, {
-      duration: 4,
+      duration: 1.5,
       top: 0,
       left: 0,
       width: "100vw",
