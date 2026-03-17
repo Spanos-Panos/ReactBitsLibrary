@@ -80,7 +80,6 @@ function App() {
 
   const handleSelectComponent = (id: string) => {
     setSelectedId(id);
-    setView("detail");
     setGenerateStatus("");
   };
 
@@ -221,27 +220,84 @@ function App() {
                     </div>
 
                     <div className="component-preview-pane">
-                      <div className="preview-placeholder">
-                        <header className="preview-header">
-                          <h3>
-                            {hoveredComponentId 
-                              ? (filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview')
-                              : 'Select a component'}
-                          </h3>
-                          <div className="mock-tabs" style={{ opacity: hoveredComponentId ? 1 : 0.3, transition: 'opacity 0.3s' }}>
-                            <span className="mock-tab active">React</span>
-                            <span className="mock-tab">CSS</span>
-                            <span className="mock-tab">Tailwind</span>
+                      {selected ? (
+                        <div className="preview-content-active">
+                          <header className="preview-header">
+                            <div className="header-title-row">
+                              <h3>{selected.name}</h3>
+                              <span className="tag">{selected.category}</span>
+                            </div>
+                            <div className="inspector-tabs">
+                              {componentFiles.map((f, i) => (
+                                <div
+                                  key={i}
+                                  className={`inspector-tab ${activeFileIndex === i ? "active" : ""}`}
+                                  onClick={() => setActiveFileIndex(i)}
+                                >
+                                  {f.name}
+                                </div>
+                              ))}
+                              <div
+                                className={`inspector-tab ${activeFileIndex === -1 ? "active" : ""}`}
+                                onClick={() => setActiveFileIndex(-1)}
+                              >
+                                Usage
+                              </div>
+                            </div>
+                          </header>
+
+                          <div className="code-viewer preview-code-box">
+                            <pre className="code-view">
+                              {activeFileIndex === -1
+                                ? selected.usageMarkdown
+                                : componentFiles[activeFileIndex]?.content || "No content available."}
+                            </pre>
                           </div>
-                        </header>
-                        <div className="preview-box">
-                          <span className="preview-text">
-                            {hoveredComponentId 
-                              ? 'Preview Coming Soon' 
-                              : 'Hover over a component to view information'}
-                          </span>
+
+                          <div className="action-buttons preview-actions">
+                            <button className="primary-btn" onClick={handleGenerate}>
+                              Generate Project with {selected.name}
+                            </button>
+                            <button
+                              className="secondary-btn"
+                              onClick={() => {
+                                const content = activeFileIndex === -1 ? selected.usageMarkdown : componentFiles[activeFileIndex]?.content || "";
+                                navigator.clipboard.writeText(content);
+                                alert("Copied to clipboard!");
+                              }}
+                            >
+                              Copy Code
+                            </button>
+                          </div>
+                          {generateStatus && (
+                            <div className="status-toast">
+                              {generateStatus}
+                            </div>
+                          )}
                         </div>
-                      </div>
+                      ) : (
+                        <div className="preview-placeholder">
+                          <header className="preview-header">
+                            <h3>
+                              {hoveredComponentId 
+                                ? (filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview')
+                                : 'Select a component'}
+                            </h3>
+                            <div className="mock-tabs" style={{ opacity: hoveredComponentId ? 1 : 0.3, transition: 'opacity 0.3s' }}>
+                              <span className="mock-tab active">React</span>
+                              <span className="mock-tab">CSS</span>
+                              <span className="mock-tab">Tailwind</span>
+                            </div>
+                          </header>
+                          <div className="preview-box">
+                            <span className="preview-text">
+                              {hoveredComponentId 
+                                ? 'Click to view code and information' 
+                                : 'Hover over a component to view information'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -250,85 +306,7 @@ function App() {
           </main>
         </section>
 
-        {/* Detail Scene */}
-        <section className={`scene detail-view ${view === "detail" ? "" : "hidden-right"}`}>
-          {selected && (
-            <>
-              <nav className="detail-nav">
-                <button className="back-btn" onClick={handleBackToGallery}>
-                  <span>←</span> Back to Showcase
-                </button>
-                <div style={{ textAlign: "right" }}>
-                  <h2 style={{ margin: 0, fontSize: "1.2rem" }}>{selected.name}</h2>
-                  <span className="tag">{selected.category}</span>
-                </div>
-              </nav>
 
-              <main className="detail-main">
-                <div className="inspector-side">
-                  <div className="inspector-tabs">
-                    {componentFiles.map((f, i) => (
-                      <div
-                        key={i}
-                        className={`inspector-tab ${activeFileIndex === i ? "active" : ""}`}
-                        onClick={() => setActiveFileIndex(i)}
-                      >
-                        {f.name}
-                      </div>
-                    ))}
-                    <div
-                      className={`inspector-tab ${activeFileIndex === -1 ? "active" : ""}`}
-                      onClick={() => setActiveFileIndex(-1)}
-                    >
-                      Usage
-                    </div>
-                  </div>
-
-                  <div className="code-viewer">
-                    <pre className="code-view">
-                      {activeFileIndex === -1
-                        ? selected.usageMarkdown
-                        : componentFiles[activeFileIndex]?.content || "No content available."}
-                    </pre>
-                  </div>
-
-                  <div className="action-buttons">
-                    <button className="primary-btn" onClick={handleGenerate}>
-                      Generate Project with {selected.name}
-                    </button>
-                    <button
-                      className="secondary-btn"
-                      onClick={() => {
-                        const content = activeFileIndex === -1 ? selected.usageMarkdown : componentFiles[activeFileIndex].content;
-                        navigator.clipboard.writeText(content);
-                        alert("Copied to clipboard!");
-                      }}
-                    >
-                      Copy Code
-                    </button>
-                  </div>
-                  {generateStatus && (
-                    <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                      <div style={{ padding: '0.8rem', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '0.5rem', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>
-                        {generateStatus}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="showcase-side">
-                  <div className="preview-container">
-                    <div className="preview-placeholder">
-                      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✨</div>
-                      <h3>Component Preview</h3>
-                      <p>Full-screen interactive previews coming soon.</p>
-                    </div>
-                  </div>
-                </div>
-              </main>
-            </>
-          )}
-        </section>
       </div>
 
       {/* Floating Action Button */}
