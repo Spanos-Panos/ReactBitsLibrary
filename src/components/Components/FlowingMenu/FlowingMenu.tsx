@@ -114,7 +114,29 @@ const MenuItem: React.FC<InternalMenuItemProps> = ({ text, onClick, isTransition
     // Transition to full screen
     const tl = gsap.timeline({
       onComplete: () => {
+        // Create a temporary overlay clone to bridge the component unmount 
+        // and smoothly fade out over the newly rendered view
+        const overlay = document.createElement("div");
+        overlay.style.position = "fixed";
+        overlay.style.top = "0";
+        overlay.style.left = "0";
+        overlay.style.width = "100vw";
+        overlay.style.height = "100vh";
+        overlay.style.backgroundColor = "#0ea5e9";
+        overlay.style.zIndex = "99999";
+        overlay.style.pointerEvents = "none";
+        document.body.appendChild(overlay);
+
+        // Tell parent to change the view (which unmounts this menu)
         onClick();
+
+        // Fade away the global overlay to reveal the new page smoothly
+        gsap.to(overlay, {
+          opacity: 0,
+          duration: 0.8,
+          ease: "power2.inOut",
+          onComplete: () => overlay.remove()
+        });
       }
     });
 
