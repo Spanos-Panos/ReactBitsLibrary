@@ -133,6 +133,8 @@ const MenuItem: React.FC<InternalMenuItemProps> = ({ text, onClick, isTransition
       zIndex: 9999
     });
 
+    const content = itemRef.current?.querySelector(".flowing-menu__item-content");
+
     tl.to(marqueeRef.current, {
       duration: 1.5,
       top: 0,
@@ -143,7 +145,15 @@ const MenuItem: React.FC<InternalMenuItemProps> = ({ text, onClick, isTransition
       ease: "power2.inOut",
       webkitMaskImage: "none", // Remove mask for full screen coverage
       maskImage: "none"
-    });
+    }, 0); // Start at timeline 0
+
+    if (content) {
+      tl.to(content, {
+        opacity: 0,
+        duration: 0.5, // Fade out quickly as it expands
+        ease: "power2.out"
+      }, 0); // Start at same time as expansion
+    }
   };
 
   const repeatedMarqueeContent = React.useMemo(() => {
