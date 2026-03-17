@@ -221,25 +221,27 @@ function App() {
                     </div>
 
                     <div className="component-preview-pane">
-                      {hoveredComponentId ? (
-                        <div className="preview-placeholder">
-                          <header className="preview-header">
-                            <h3>{filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview'}</h3>
-                            <div className="mock-tabs">
-                              <span className="mock-tab active">React</span>
-                              <span className="mock-tab">CSS</span>
-                              <span className="mock-tab">Tailwind</span>
-                            </div>
-                          </header>
-                          <div className="preview-box">
-                            <span className="preview-text">Preview Coming Soon</span>
+                      <div className="preview-placeholder">
+                        <header className="preview-header">
+                          <h3>
+                            {hoveredComponentId 
+                              ? (filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview')
+                              : 'Select a component'}
+                          </h3>
+                          <div className="mock-tabs" style={{ opacity: hoveredComponentId ? 1 : 0.3, transition: 'opacity 0.3s' }}>
+                            <span className="mock-tab active">React</span>
+                            <span className="mock-tab">CSS</span>
+                            <span className="mock-tab">Tailwind</span>
                           </div>
+                        </header>
+                        <div className="preview-box">
+                          <span className="preview-text">
+                            {hoveredComponentId 
+                              ? 'Preview Coming Soon' 
+                              : 'Hover over a component to view information'}
+                          </span>
                         </div>
-                      ) : (
-                        <div className="preview-empty">
-                          <p>Hover over a component to preview</p>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
