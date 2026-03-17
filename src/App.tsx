@@ -33,6 +33,8 @@ const PILL_NAV_ITEMS = [
   { id: 'Backgrounds', label: 'Backgrounds' }
 ];
 
+const IRIDESCENCE_COLOR: [number, number, number] = [0, 0.7, 0.7];
+
 function App() {
   const [items] = useState<ReactBitsItem[]>(manifest);
   const [view, setView] = useState<"gallery" | "detail">("gallery");
@@ -143,7 +145,7 @@ function App() {
       <div className="background-container">
         {!lowPowerMode && (
           <Iridescence
-            color={[0, 0.7, 0.7]}
+            color={IRIDESCENCE_COLOR}
             mouseReact={false}
             amplitude={0.1}
             speed={0.3}
