@@ -160,6 +160,14 @@ const MenuItem: React.FC<InternalMenuItemProps> = ({ text, onClick, isTransition
         ease: "power2.out"
       }, 0); // Start at same time as expansion
     }
+
+    if (marqueeInnerRef.current) {
+      tl.to(marqueeInnerRef.current, {
+        opacity: 0,
+        duration: 0.5,
+        ease: "power2.out"
+      }, 0);
+    }
   };
 
   const repeatedMarqueeContent = React.useMemo(() => {
