@@ -3,6 +3,7 @@ import manifest from "./reactbits-manifest.json";
 import Iridescence from "./components/Backgrounds/Iridescence/Iridescence";
 import GradientText from "./components/TextAnimations/GradientText/GradientText";
 import FlowingMenu from "./components/Components/FlowingMenu/FlowingMenu";
+import PillNav from "./components/Components/PillNav/PillNav";
 import SplitText from "./components/TextAnimations/SplitText/SplitText";
 
 type ReactBitsItem = (typeof manifest)[number];
@@ -172,11 +173,28 @@ function App() {
                 />
               ) : (
                 <div className="sub-menu-container">
-                  <div className="back-nav-container">
-                    <button className="back-to-types" onClick={() => setActiveCategory("all")}>
-                      ← Back to Types
-                    </button>
-                    <span className="current-sub-category">{CATEGORY_LABELS[activeCategory]}</span>
+                  <div className="back-nav-container" style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
+                    <PillNav
+                      items={[
+                        { id: 'home', label: 'Home' },
+                        { id: 'Components', label: 'Components' },
+                        { id: 'Animations', label: 'Animations' },
+                        { id: 'TextAnimations', label: 'Text Animations' },
+                        { id: 'Backgrounds', label: 'Backgrounds' }
+                      ]}
+                      activeId={activeCategory}
+                      onItemClick={(id) => {
+                        if (id === 'home') {
+                          setActiveCategory('all');
+                        } else {
+                          setActiveCategory(id);
+                        }
+                      }}
+                      baseColor="#94a3b8"
+                      pillColor="rgba(15, 23, 42, 0.6)"
+                      hoveredPillTextColor="#ffffff"
+                      pillTextColor="#e2e8f0"
+                    />
                   </div>
 
                   <div className="comp-grid">
