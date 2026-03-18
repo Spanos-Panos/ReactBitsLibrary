@@ -46,6 +46,10 @@ function App() {
   const [packageManager, setPackageManager] = useState<"pnpm" | "npm" | "yarn" | "bun">("pnpm");
   const [generateStatus, setGenerateStatus] = useState<string>("");
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
+  const [parsedInstallData, setParsedInstallData] = useState<{
+    cli: Record<string, string>;
+    manual: Record<string, string>;
+  }>({ cli: {}, manual: {} });
 
   // Performance / Low Power Mode
   const [lowPowerMode, setLowPowerMode] = useState(() => {
@@ -83,7 +87,6 @@ function App() {
     if (selected && (window as any).reactBitsApi?.getComponentFiles) {
       const files = (window as any).reactBitsApi.getComponentFiles(selected.category, selected.name);
       setComponentFiles(files);
-      // Try to find the .tsx or .jsx file to show first
       const mainIdx = files.findIndex((f: any) => f.name.endsWith(".tsx") || f.name.endsWith(".jsx"));
       setActiveFileIndex(mainIdx !== -1 ? mainIdx : 0);
     } else {
@@ -91,6 +94,48 @@ function App() {
       setActiveFileIndex(0);
     }
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!selected) {
+      setParsedInstallData({ cli: {}, manual: {} });
+      return;
+    }
+
+    const installPath = `ReactBitsComponents/${selected.id}/${selected.name}Install.md`;
+    
+    // In a real dev environment, we'd fetch this. We'll simulate the parsing logic.
+    fetch(installPath)
+      .then(res => res.text())
+      .then(text => {
+        const sections = text.split(/Install\s+/i);
+        const data: any = { cli: {}, manual: {} };
+
+        sections.forEach(sec => {
+          const lower = sec.toLowerCase();
+          if (lower.startsWith('cli')) {
+            const lines = sec.split('\n');
+            lines.forEach(l => {
+              if (l.includes('=')) {
+                const [k, v] = l.split('=').map(s => s.trim());
+                if (k && v) data.cli[k.toLowerCase()] = v;
+              }
+            });
+          } else if (lower.startsWith('manual')) {
+            const lines = sec.split('\n');
+            lines.forEach(l => {
+              if (l.includes('=')) {
+                const [k, v] = l.split('=').map(s => s.trim());
+                if (k && v) data.manual[k.toLowerCase()] = v;
+              }
+            });
+          }
+        });
+        setParsedInstallData(data);
+      })
+      .catch(() => {
+        setParsedInstallData({ cli: {}, manual: {} });
+      });
+  }, [selected]);
 
   const handleSelectComponent = (id: string) => {
     setSelectedId(id);
@@ -277,32 +322,26 @@ function App() {
                                 </button>
                               </div>
 
-                              {installTab === 'cli' && (
-                                <div className="tertiary-tabs">
-                                  {["pnpm", "npm", "yarn", "bun"].map((pm) => (
-                                    <button
-                                      key={pm}
-                                      className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`}
-                                      onClick={() => setPackageManager(pm as any)}
-                                    >
-                                      {pm}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                              <div className="tertiary-tabs">
+                                {["pnpm", "npm", "yarn", "bun"].map((pm) => (
+                                  <button
+                                    key={pm}
+                                    className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`}
+                                    onClick={() => setPackageManager(pm as any)}
+                                  >
+                                    {pm}
+                                  </button>
+                                ))}
+                              </div>
 
                               <div className="code-viewer preview-code-box installation-code-box">
                                 <pre className="code-view">
                                   {installTab === 'manual' ? (
-                                    `// Manual Installation Placeholder
-// Step 1: Copy component code
-// Step 2: Install dependencies: Lucide React, Framer Motion
-// ...`
+                                    parsedInstallData.manual[packageManager] || parsedInstallData.manual['npm'] || parsedInstallData.manual['pnpm'] || `// Manual Installation
+// 1. Copy the component code from the tabs above.
+// 2. Install required dependencies (usually Lucide React and Framer Motion).`
                                   ) : (
-                                    `# CLI Installation Placeholder (${packageManager})
-# ${packageManager} add lucide-react framer-motion
-# npx react-bits add ${selected.id}
-# ...`
+                                    parsedInstallData.cli[packageManager] || parsedInstallData.cli['npm'] || parsedInstallData.cli['pnpm'] || `# CLI Installation\r\nnpx react-bits add ${selected.id}`
                                   )}
                                 </pre>
                               </div>
