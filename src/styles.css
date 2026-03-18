@@ -591,6 +591,63 @@ body {
   height: 100%;
 }
 
+.installation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sub-tabs, .tertiary-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.sub-tab, .tertiary-tab {
+  background: rgba(30, 41, 59, 0.3);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sub-tab:hover, .tertiary-tab:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #f1f5f9;
+}
+
+.sub-tab.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+}
+
+.tertiary-tabs {
+  padding-left: 1rem;
+}
+
+.tertiary-tab {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  text-transform: lowercase;
+}
+
+.tertiary-tab.active {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.installation-code-box {
+  margin-top: 0 !important;
+}
+
 .preview-actions {
   display: flex;
   gap: 1rem;

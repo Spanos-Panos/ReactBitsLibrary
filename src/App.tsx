@@ -41,7 +41,9 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | "all">("all");
   const [componentFiles, setComponentFiles] = useState<{ name: string; content: string }[]>([]);
-  const [activeFileIndex, setActiveFileIndex] = useState(0);
+  const [activeFileIndex, setActiveFileIndex] = useState(0); // 0=first file, -1=Usage, -2=Install
+  const [installTab, setInstallTab] = useState<"cli" | "manual">("cli");
+  const [packageManager, setPackageManager] = useState<"pnpm" | "npm" | "yarn" | "bun">("pnpm");
   const [generateStatus, setGenerateStatus] = useState<string>("");
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
 
@@ -153,7 +155,7 @@ function App() {
         )}
       </div>
 
-      <button 
+      <button
         className={`performance-toggle ${lowPowerMode ? 'active' : ''}`}
         onClick={toggleLowPowerMode}
         title={lowPowerMode ? "Disable Low Power Mode" : "Enable Low Power Mode"}
@@ -206,8 +208,8 @@ function App() {
                   <div className="split-view-container">
                     <div className="component-list-pane" onMouseLeave={() => setHoveredComponentId(null)}>
                       {filtered.map((item) => (
-                        <div 
-                          key={item.id} 
+                        <div
+                          key={item.id}
                           className={`split-list-item ${hoveredComponentId === item.id ? 'hovered' : ''}`}
                           onMouseEnter={() => setHoveredComponentId(item.id)}
                           onClick={() => handleSelectComponent(item.id)}
@@ -249,16 +251,71 @@ function App() {
                               >
                                 Usage
                               </div>
+                              <div
+                                className={`inspector-tab ${activeFileIndex === -2 ? "active" : ""}`}
+                                onClick={() => setActiveFileIndex(-2)}
+                              >
+                                Install
+                              </div>
                             </div>
                           </header>
 
-                          <div className="code-viewer preview-code-box">
-                            <pre className="code-view">
-                              {activeFileIndex === -1
-                                ? selected.usageMarkdown
-                                : componentFiles[activeFileIndex]?.content || "No content available."}
-                            </pre>
-                          </div>
+                          {activeFileIndex === -2 ? (
+                            <div className="installation-panel">
+                              <div className="sub-tabs">
+                                <button 
+                                  className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`}
+                                  onClick={() => setInstallTab('cli')}
+                                >
+                                  CLI
+                                </button>
+                                <button 
+                                  className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`}
+                                  onClick={() => setInstallTab('manual')}
+                                >
+                                  Manual
+                                </button>
+                              </div>
+
+                              {installTab === 'cli' && (
+                                <div className="tertiary-tabs">
+                                  {["pnpm", "npm", "yarn", "bun"].map((pm) => (
+                                    <button
+                                      key={pm}
+                                      className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`}
+                                      onClick={() => setPackageManager(pm as any)}
+                                    >
+                                      {pm}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="code-viewer preview-code-box installation-code-box">
+                                <pre className="code-view">
+                                  {installTab === 'manual' ? (
+                                    `// Manual Installation Placeholder
+// Step 1: Copy component code
+// Step 2: Install dependencies: Lucide React, Framer Motion
+// ...`
+                                  ) : (
+                                    `# CLI Installation Placeholder (${packageManager})
+# ${packageManager} add lucide-react framer-motion
+# npx react-bits add ${selected.id}
+# ...`
+                                  )}
+                                </pre>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="code-viewer preview-code-box">
+                              <pre className="code-view">
+                                {activeFileIndex === -1
+                                  ? selected.usageMarkdown
+                                  : componentFiles[activeFileIndex]?.content || "No content available."}
+                              </pre>
+                            </div>
+                          )}
 
                           <div className="action-buttons preview-actions">
                             <button className="primary-btn" onClick={handleGenerate}>
@@ -285,7 +342,7 @@ function App() {
                         <div className="preview-placeholder">
                           <header className="preview-header">
                             <h3>
-                              {hoveredComponentId 
+                              {hoveredComponentId
                                 ? (filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview')
                                 : 'Select a component'}
                             </h3>
@@ -297,8 +354,8 @@ function App() {
                           </header>
                           <div className="preview-box">
                             <span className="preview-text">
-                              {hoveredComponentId 
-                                ? 'Click to view code and information' 
+                              {hoveredComponentId
+                                ? 'Click to view code and information'
                                 : 'Hover over a component to view information'}
                             </span>
                           </div>
@@ -374,4 +431,3 @@ function App() {
 }
 
 export default App;
-
