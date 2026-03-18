@@ -347,18 +347,20 @@ body {
 }
 
 .component-preview-pane {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.4);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.1);
   border-radius: 16px;
   height: 60vh;
   min-height: 450px;
-  padding: 2rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-  transform: translateZ(0); /* Prevent sibling hover transforms from flashing this filter */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  transform: translateZ(0);
+  min-width: 0; /* Crucial: allows grid child to be smaller than its content */
+  overflow: hidden;
 }
 
 .preview-placeholder {
@@ -587,7 +589,8 @@ body {
   font-family: 'Fira Code', monospace;
   font-size: 0.9rem;
   color: #e2e8f0;
-  white-space: pre;
+  white-space: pre-wrap; /* Allow wrapping to prevent horizontal expansion */
+  word-break: break-word;
   height: 100%;
 }
 
