@@ -107,29 +107,31 @@ function App() {
     fetch(installPath)
       .then(res => res.text())
       .then(text => {
-        const sections = text.split(/Install\s+/i);
-        const data: any = { cli: {}, manual: {} };
+        const data: { cli: Record<string, string>; manual: Record<string, string> } = { cli: {}, manual: {} };
+        let currentBlock: 'cli' | 'manual' | null = null;
 
-        sections.forEach(sec => {
-          const lower = sec.toLowerCase();
-          if (lower.startsWith('cli')) {
-            const lines = sec.split('\n');
-            lines.forEach(l => {
-              if (l.includes('=')) {
-                const [k, v] = l.split('=').map(s => s.trim());
-                if (k && v) data.cli[k.toLowerCase()] = v;
+        const lines = text.split(/\r?\n/);
+        lines.forEach(line => {
+          const trimmed = line.trim();
+          const lower = trimmed.toLowerCase();
+
+          if (lower === 'cli') {
+            currentBlock = 'cli';
+          } else if (lower === 'manual') {
+            currentBlock = 'manual';
+          } else if (trimmed.includes('=')) {
+            const eqIndex = trimmed.indexOf('=');
+            if (eqIndex !== -1 && currentBlock) {
+              const k = trimmed.substring(0, eqIndex).trim().toLowerCase();
+              const v = trimmed.substring(eqIndex + 1).trim();
+              if (k && v) {
+                data[currentBlock][k] = v;
               }
-            });
-          } else if (lower.startsWith('manual')) {
-            const lines = sec.split('\n');
-            lines.forEach(l => {
-              if (l.includes('=')) {
-                const [k, v] = l.split('=').map(s => s.trim());
-                if (k && v) data.manual[k.toLowerCase()] = v;
-              }
-            });
+            }
           }
         });
+        
+        console.log("Parsed Install Data:", data);
         setParsedInstallData(data);
       })
       .catch(() => {
@@ -337,11 +339,9 @@ function App() {
                               <div className="code-viewer preview-code-box installation-code-box">
                                 <pre className="code-view">
                                   {installTab === 'manual' ? (
-                                    parsedInstallData.manual[packageManager] || parsedInstallData.manual['npm'] || parsedInstallData.manual['pnpm'] || `// Manual Installation
-// 1. Copy the component code from the tabs above.
-// 2. Install required dependencies (usually Lucide React and Framer Motion).`
+                                    parsedInstallData.manual[packageManager] || `// No manual instructions found for ${packageManager}.`
                                   ) : (
-                                    parsedInstallData.cli[packageManager] || parsedInstallData.cli['npm'] || parsedInstallData.cli['pnpm'] || `# CLI Installation\r\nnpx react-bits add ${selected.id}`
+                                    parsedInstallData.cli[packageManager] || `# No CLI command found for ${packageManager}.\nnpx react-bits add ${selected.id}`
                                   )}
                                 </pre>
                               </div>
