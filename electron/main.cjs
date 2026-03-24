@@ -14,6 +14,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -21,6 +22,9 @@ function createWindow() {
       sandbox: false
     },
   });
+
+  mainWindow.maximize();
+  mainWindow.show();
 
   mainWindow.setMenu(null);
 
