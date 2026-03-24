@@ -104,12 +104,22 @@ async function generateViteReact(options) {
   const allCode = [usageCode, ...componentFiles.map(f => f.content)].join('\n');
   
   // Simple regex to find imports from node_modules (non-relative imports)
-  const importRegex = /import\s+.*\s+from\s+['"]([^.@\/][^'"]+)['"]/g;
+  // We exclude imports starting with . or /
+  const importRegex = /import\s+.*\s+from\s+['"]([^./][^'"]+)['"]/g;
   let match;
   while ((match = importRegex.exec(allCode)) !== null) {
-    const pkg = match[1].split('/')[0]; // Extract base package name (e.g., @radix-ui/react-slot -> @radix-ui)
+    const fullPkg = match[1];
+    let pkg = "";
+    if (fullPkg.startsWith('@')) {
+      // Scoped package: @org/name -> we need the first two segments
+      const parts = fullPkg.split('/');
+      pkg = parts.slice(0, 2).join('/');
+    } else {
+      pkg = fullPkg.split('/')[0];
+    }
+    
     // Filter out built-ins or already handled ones
-    if (pkg && pkg !== 'react' && pkg !== 'react-dom' && !pkg.startsWith('.')) {
+    if (pkg && pkg !== 'react' && pkg !== 'react-dom' && !pkg.startsWith('.') && !pkg.startsWith('@/')) {
       discoveredDeps.add(pkg);
     }
   }
@@ -118,6 +128,11 @@ async function generateViteReact(options) {
   if (allCode.includes('lucide')) discoveredDeps.add('lucide-react');
   if (allCode.includes('framer-motion')) discoveredDeps.add('framer-motion');
   if (allCode.includes('canvas-confetti')) discoveredDeps.add('canvas-confetti');
+  
+  // Three.js projects often need 'three' core if using r3f
+  if (Array.from(discoveredDeps).some(d => d.startsWith('@react-three'))) {
+    discoveredDeps.add('three');
+  }
 
   const depList = Array.from(discoveredDeps).join(' ');
   notify(`Installing boilerplate and discovered dependencies via ${packageManager}...`);
