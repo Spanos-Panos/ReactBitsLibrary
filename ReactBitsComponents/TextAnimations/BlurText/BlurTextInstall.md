@@ -10,4 +10,4 @@ MANUAL
 pnpm = pnpm add motion
 npm = npm install motion
 yarn = yarn add motion
-bun = bun add motion
+bun =  bun add motion         

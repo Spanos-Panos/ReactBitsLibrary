@@ -10,4 +10,4 @@ MANUAL
 pnpm = pnpm add three @react-three/fiber @react-three/drei
 npm = npm install three @react-three/fiber @react-three/drei
 yarn = yarn add three @react-three/fiber @react-three/drei
-bun =   bun add three @react-three/fiber @react-three/drei     
+bun =   bun add three @react-three/fiber @react-three/drei
