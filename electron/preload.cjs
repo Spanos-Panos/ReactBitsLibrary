@@ -24,6 +24,16 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   generatePlayground(category, name, usageCode, componentFiles, options) {
     return ipcRenderer.invoke("generate-playground", category, name, usageCode, componentFiles, options);
   },
+  onGenerateProgress(callback) {
+    ipcRenderer.on("generate-progress", (event, message) => {
+      callback(message);
+    });
+  },
+  onGenerateLog(callback) {
+    ipcRenderer.on("generate-log", (event, message) => {
+      callback(message);
+    });
+  },
   selectDirectory() {
     return ipcRenderer.invoke("select-directory");
   }

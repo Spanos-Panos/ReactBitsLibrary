@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import manifest from "./reactbits-manifest.json";
 import Iridescence from "./components/Backgrounds/Iridescence/Iridescence";
 import GradientText from "./components/TextAnimations/GradientText/GradientText";
@@ -48,6 +48,9 @@ function App() {
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
   const [showGenerateWizard, setShowGenerateWizard] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generateProgress, setGenerateProgress] = useState("");
+  const [generateLogs, setGenerateLogs] = useState<string[]>(["Initializing Build Environment...\n"]);
+  const terminalRef = useRef<HTMLPreElement>(null);
   const [projectName, setProjectName] = useState("");
   const [projectPath, setProjectPath] = useState("");
   const [openWhenDone, setOpenWhenDone] = useState(true);
@@ -55,30 +58,6 @@ function App() {
     cli: Record<string, string>;
     manual: Record<string, string>;
   }>({ cli: {}, manual: {} });
-
-  // Performance / Low Power Mode
-  const [lowPowerMode, setLowPowerMode] = useState(() => {
-    return localStorage.getItem("lowPowerMode") === "true";
-  });
-
-  const toggleLowPowerMode = () => {
-    setLowPowerMode(prev => {
-      const next = !prev;
-      localStorage.setItem("lowPowerMode", String(next));
-      return next;
-    });
-  };
-
-  // Chat UI states
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{ role: "system" | "user"; text: string }[]>([
-    {
-      role: "system",
-      text: "Hello! I am your AI assistant. Select the components you'd like to use and tell me what you want to build!",
-    },
-  ]);
-  const [chatInput, setChatInput] = useState("");
-  const [selectedChatComponents, setSelectedChatComponents] = useState<string[]>([]);
 
   const filtered = useMemo(() => {
     return items.filter((item) => {
@@ -144,6 +123,25 @@ function App() {
       });
   }, [selected]);
 
+  useEffect(() => {
+    if ((window as any).reactBitsApi?.onGenerateProgress) {
+      (window as any).reactBitsApi.onGenerateProgress((msg: string) => {
+        setGenerateProgress(msg);
+      });
+    }
+    if ((window as any).reactBitsApi?.onGenerateLog) {
+      (window as any).reactBitsApi.onGenerateLog((msg: string) => {
+        setGenerateLogs(prev => [...prev.slice(-300), msg]); // Keep last 300 logs
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [generateLogs]);
+
   const handleSelectComponent = (id: string) => {
     setSelectedId(id);
     setGenerateStatus("");
@@ -169,6 +167,8 @@ function App() {
   const confirmGenerate = async () => {
     if (!selected || !projectPath || !(window as any).reactBitsApi?.generatePlayground) return;
     setIsGenerating(true);
+    setGenerateProgress("Initializing project generation...");
+    setGenerateLogs(["Initializing Build Environment...\n"]);
     setShowGenerateWizard(false);
     setGenerateStatus(""); // Clear old status
     
@@ -188,7 +188,7 @@ function App() {
         }
       );
       if (result.success) {
-        setGenerateStatus(`Success! Project created at:\n${result.path}`);
+        setGenerateStatus(result.message || `Success! Project created at:\n${result.path}`);
       } else {
         setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
       }
@@ -201,47 +201,17 @@ function App() {
     setTimeout(() => setGenerateStatus(""), 8000);
   };
 
-  const handleChatSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    setChatMessages((prev) => [...prev, { role: "user", text: chatInput }]);
-
-    // Simulate AI response for now
-    setTimeout(() => {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: "system",
-          text: `I've received your prompt to build something using [${selectedChatComponents.join(", ") || "no components"
-            }]. Since I'm currently running in UI shell mode without an API key, I can't generate the full frontend yet, but this is where the logic will run!`,
-        },
-      ]);
-    }, 800);
-
-    setChatInput("");
-  };
-
   return (
     <div className="app-root">
       <div className="background-container">
-        {!lowPowerMode && (
-          <Iridescence
-            color={IRIDESCENCE_COLOR}
-            mouseReact={false}
-            amplitude={0.1}
-            speed={0.3}
-          />
-        )}
+        <Iridescence
+          color={IRIDESCENCE_COLOR}
+          mouseReact={false}
+          amplitude={0.1}
+          speed={0.3}
+        />
       </div>
 
-      <button
-        className={`performance-toggle ${lowPowerMode ? 'active' : ''}`}
-        onClick={toggleLowPowerMode}
-        title={lowPowerMode ? "Disable Low Power Mode" : "Enable Low Power Mode"}
-      >
-        {lowPowerMode ? "🚀 High Perf" : "🔋 Low Power"}
-      </button>
       <div className="scene-container">
         {/* Gallery Scene */}
         <section className={`scene ${view === "gallery" ? "" : "hidden-left"}`}>
@@ -443,61 +413,6 @@ function App() {
 
 
       </div>
-
-      {/* Floating Action Button */}
-      <button className="fab-button" onClick={() => setIsChatOpen(!isChatOpen)} title="Open AI Generator">
-        ✨
-      </button>
-
-      {/* Chat Slide-over Panel */}
-      <aside className={`chat-panel ${isChatOpen ? "open" : ""}`}>
-        <header className="chat-header">
-          <h2>AI Frontend Generator</h2>
-          <button className="close-btn" onClick={() => setIsChatOpen(false)}>
-            &times;
-          </button>
-        </header>
-
-        <div className="chat-body">
-          {chatMessages.map((msg, i) => (
-            <div key={i} className={`chat-message ${msg.role}`}>
-              {msg.text}
-            </div>
-          ))}
-        </div>
-
-        <form className="chat-footer" onSubmit={handleChatSubmit}>
-          <select
-            multiple
-            className="chat-select"
-            value={selectedChatComponents}
-            onChange={(e) => {
-              const opts = Array.from(e.target.selectedOptions, (option) => option.value);
-              setSelectedChatComponents(opts);
-            }}
-            title="Hold Ctrl/Cmd to select multiple components"
-          >
-            {items.map((item) => (
-              <option key={item.id} value={item.name}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-
-          <div className="chat-input-row">
-            <input
-              type="text"
-              className="chat-input"
-              placeholder="Describe your layout..."
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-            />
-            <button type="submit" className="chat-submit">
-              Send
-            </button>
-          </div>
-        </form>
-      </aside>
       {showGenerateWizard && selected && (
         <div className="wizard-overlay" onClick={() => setShowGenerateWizard(false)}>
           <div className="wizard-modal" onClick={e => e.stopPropagation()}>
@@ -583,7 +498,7 @@ function App() {
                     checked={openWhenDone}
                     onChange={(e) => setOpenWhenDone(e.target.checked)}
                   />
-                  <span>Open folder automatically when finished</span>
+                  <span>Open project automatically in VS Code when finished</span>
                 </label>
               </div>
             </div>
@@ -604,10 +519,26 @@ function App() {
 
       {isGenerating && (
         <div className="loading-overlay">
-          <div className="loading-content">
+          <div className="loading-content expanded">
             <div className="spinner"></div>
-            <h3>Generating Project...</h3>
-            <p>Please select a destination folder in the dialog</p>
+            <h3>Generating Demo Project...</h3>
+            <p className="loading-progress-text">{generateProgress || "Please wait while we scaffold the project... This may take a minute."}</p>
+            
+            <div className="terminal-container">
+              <div className="terminal-header">
+                <div className="window-controls mini">
+                  <span className="dot red"></span>
+                  <span className="dot yellow"></span>
+                  <span className="dot green"></span>
+                </div>
+                <span className="terminal-title">bash - build</span>
+              </div>
+              <pre className="terminal-body" ref={terminalRef}>
+                {generateLogs.map((log, i) => (
+                  <span key={i}>{log}</span>
+                ))}
+              </pre>
+            </div>
           </div>
         </div>
       )}

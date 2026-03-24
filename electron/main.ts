@@ -1,6 +1,7 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import { join } from "path";
 import { fileURLToPath } from "url";
+import { generatePlayground } from "../DemoCLI/index.js";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -32,7 +33,24 @@ async function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  ipcMain.handle("select-directory", async () => {
+    if (!mainWindow) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openDirectory"]
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle("generate-playground", async (event, category, name, usageCode, componentFiles, options) => {
+    return await generatePlayground(category, name, usageCode, componentFiles, options);
+  });
+
+  createWindow();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
