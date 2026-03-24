@@ -41,7 +41,9 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | "all">("all");
   const [componentFiles, setComponentFiles] = useState<{ name: string; content: string }[]>([]);
-  const [activeFileIndex, setActiveFileIndex] = useState(0); // 0=first file, -1=Usage, -2=Install
+  const [primaryTab, setPrimaryTab] = useState<'code' | 'docs' | 'install'>('code');
+  const [activeCodeFileIndex, setActiveCodeFileIndex] = useState(0);
+  const [activeDocTab, setActiveDocTab] = useState<'usage' | 'install'>('usage');
   const [installTab, setInstallTab] = useState<"cli" | "manual">("cli");
   const [packageManager, setPackageManager] = useState<"pnpm" | "npm" | "yarn" | "bun">("pnpm");
   const [generateStatus, setGenerateStatus] = useState<string>("");
@@ -58,6 +60,8 @@ function App() {
     cli: Record<string, string>;
     manual: Record<string, string>;
   }>({ cli: {}, manual: {} });
+  const [rawInstallMarkdown, setRawInstallMarkdown] = useState("");
+  const [isCopied, setIsCopied] = useState(false);
 
   const filtered = useMemo(() => {
     return items.filter((item) => {
@@ -69,28 +73,48 @@ function App() {
 
   useEffect(() => {
     if (selected && (window as any).reactBitsApi?.getComponentFiles) {
-      const files = (window as any).reactBitsApi.getComponentFiles(selected.category, selected.name);
+      let files = (window as any).reactBitsApi.getComponentFiles(selected.category, selected.name);
+      
+      // Filter out markdown files to keep the Code tab strictly for source code
+      // Sort to ensure tsx/jsx is always first, followed by css
+      files = files
+        .filter((f: any) => !f.name.endsWith('.md'))
+        .sort((a: any, b: any) => {
+          const aIsMain = a.name.endsWith('.tsx') || a.name.endsWith('.jsx');
+          const bIsMain = b.name.endsWith('.tsx') || b.name.endsWith('.jsx');
+          const aIsCss = a.name.endsWith('.css');
+          const bIsCss = b.name.endsWith('.css');
+          
+          if (aIsMain && !bIsMain) return -1;
+          if (!aIsMain && bIsMain) return 1;
+          if (aIsCss && !bIsCss) return -1;
+          if (!aIsCss && bIsCss) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
       setComponentFiles(files);
-      const mainIdx = files.findIndex((f: any) => f.name.endsWith(".tsx") || f.name.endsWith(".jsx"));
-      setActiveFileIndex(mainIdx !== -1 ? mainIdx : 0);
+      setActiveCodeFileIndex(0);
     } else {
       setComponentFiles([]);
-      setActiveFileIndex(0);
+      setActiveCodeFileIndex(0);
     }
   }, [selectedId]);
 
   useEffect(() => {
     if (!selected) {
       setParsedInstallData({ cli: {}, manual: {} });
+      setRawInstallMarkdown("");
       return;
     }
 
     const installPath = `ReactBitsComponents/${selected.id}/${selected.name}Install.md`;
-    
+
     // In a real dev environment, we'd fetch this. We'll simulate the parsing logic.
     fetch(installPath)
       .then(res => res.text())
       .then(text => {
+        setRawInstallMarkdown(text);
+        
         const data: { cli: Record<string, string>; manual: Record<string, string> } = { cli: {}, manual: {} };
         let currentBlock: 'cli' | 'manual' | null = null;
 
@@ -114,12 +138,13 @@ function App() {
             }
           }
         });
-        
+
         console.log("Parsed Install Data:", data);
         setParsedInstallData(data);
       })
       .catch(() => {
         setParsedInstallData({ cli: {}, manual: {} });
+        setRawInstallMarkdown("// Failed to load installation instructions.");
       });
   }, [selected]);
 
@@ -145,6 +170,10 @@ function App() {
   const handleSelectComponent = (id: string) => {
     setSelectedId(id);
     setGenerateStatus("");
+    setPrimaryTab('code');
+    setActiveCodeFileIndex(0);
+    setActiveDocTab('usage');
+    setInstallTab('cli');
   };
 
   const handleBackToGallery = () => {
@@ -171,7 +200,7 @@ function App() {
     setGenerateLogs(["Initializing Build Environment...\n"]);
     setShowGenerateWizard(false);
     setGenerateStatus(""); // Clear old status
-    
+
     try {
       const result = await (window as any).reactBitsApi.generatePlayground(
         selected.category,
@@ -281,45 +310,56 @@ function App() {
                       {selected ? (
                         <div className="preview-content-active">
                           <header className="preview-header">
-                            <div className="header-title-row">
+                            <div className="header-title-column">
                               <h3>{selected.name}</h3>
-                              <span className="tag">{selected.category}</span>
+                              <span className="category-comment">// {selected.category}</span>
                             </div>
-                            <div className="inspector-tabs">
-                              {componentFiles.map((f, i) => (
-                                <div
-                                  key={i}
-                                  className={`inspector-tab ${activeFileIndex === i ? "active" : ""}`}
-                                  onClick={() => setActiveFileIndex(i)}
-                                >
-                                  {f.name}
-                                </div>
-                              ))}
-                              <div
-                                className={`inspector-tab ${activeFileIndex === -1 ? "active" : ""}`}
-                                onClick={() => setActiveFileIndex(-1)}
-                              >
-                                Usage
+                            <div className="inspector-tabs primary-level">
+                              <div className={`inspector-tab ${primaryTab === 'code' ? 'active' : ''}`} onClick={() => setPrimaryTab('code')}>
+                                Code
                               </div>
-                              <div
-                                className={`inspector-tab ${activeFileIndex === -2 ? "active" : ""}`}
-                                onClick={() => setActiveFileIndex(-2)}
-                              >
+                              <div className={`inspector-tab ${primaryTab === 'docs' ? 'active' : ''}`} onClick={() => setPrimaryTab('docs')}>
+                                Docs
+                              </div>
+                              <div className={`inspector-tab ${primaryTab === 'install' ? 'active' : ''}`} onClick={() => setPrimaryTab('install')}>
                                 Install
                               </div>
                             </div>
                           </header>
 
-                          {activeFileIndex === -2 ? (
+                          {/* Secondary Level Tabs */}
+                          {primaryTab === 'code' && componentFiles.length > 0 && (
+                            <div className="inspector-tabs secondary-level">
+                              {componentFiles.map((f, i) => (
+                                <div key={i} className={`inspector-tab ${activeCodeFileIndex === i ? "active" : ""}`} onClick={() => setActiveCodeFileIndex(i)}>
+                                  {f.name}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {primaryTab === 'docs' && (
+                            <div className="inspector-tabs secondary-level">
+                              <div className={`inspector-tab ${activeDocTab === 'usage' ? "active" : ""}`} onClick={() => setActiveDocTab('usage')}>
+                                usage.md
+                              </div>
+                              <div className={`inspector-tab ${activeDocTab === 'install' ? "active" : ""}`} onClick={() => setActiveDocTab('install')}>
+                                install.md
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Content Body */}
+                          {primaryTab === 'install' ? (
                             <div className="installation-panel">
                               <div className="sub-tabs">
-                                <button 
+                                <button
                                   className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`}
                                   onClick={() => setInstallTab('cli')}
                                 >
                                   CLI
                                 </button>
-                                <button 
+                                <button
                                   className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`}
                                   onClick={() => setInstallTab('manual')}
                                 >
@@ -349,12 +389,18 @@ function App() {
                                 </pre>
                               </div>
                             </div>
+                          ) : primaryTab === 'docs' ? (
+                            <div className="code-viewer preview-code-box">
+                              <pre className="code-view">
+                                {activeDocTab === 'usage' 
+                                  ? selected.usageMarkdown 
+                                  : (rawInstallMarkdown || "// Loading install instructions...")}
+                              </pre>
+                            </div>
                           ) : (
                             <div className="code-viewer preview-code-box">
                               <pre className="code-view">
-                                {activeFileIndex === -1
-                                  ? selected.usageMarkdown
-                                  : componentFiles[activeFileIndex]?.content || "No content available."}
+                                {componentFiles[activeCodeFileIndex]?.content || "No source code loaded."}
                               </pre>
                             </div>
                           )}
@@ -364,14 +410,24 @@ function App() {
                               Generate Project with {selected.name}
                             </button>
                             <button
-                              className="secondary-btn"
+                              className={`secondary-btn ${isCopied ? 'copied' : ''}`}
                               onClick={() => {
-                                const content = activeFileIndex === -1 ? selected.usageMarkdown : componentFiles[activeFileIndex]?.content || "";
+                                let content = "";
+                                if (primaryTab === 'code') content = componentFiles[activeCodeFileIndex]?.content || "";
+                                else if (primaryTab === 'docs') content = activeDocTab === 'usage' ? selected.usageMarkdown : rawInstallMarkdown;
+                                else content = installTab === 'manual' ? (parsedInstallData.manual[packageManager] || "") : (parsedInstallData.cli[packageManager] || "");
+                                
                                 navigator.clipboard.writeText(content);
-                                alert("Copied to clipboard!");
+                                setIsCopied(true);
+                                setTimeout(() => setIsCopied(false), 2000);
                               }}
+                              style={isCopied ? { 
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)', 
+                                color: '#22c55e', 
+                                borderColor: '#22c55e' 
+                              } : {}}
                             >
-                              Copy Code
+                              {isCopied ? "Copied!" : "Copy Code"}
                             </button>
                           </div>
                           {generateStatus && (
@@ -425,14 +481,14 @@ function App() {
               <h2>Generate Demo Project</h2>
               <button className="close-btn" onClick={() => setShowGenerateWizard(false)}>&times;</button>
             </header>
-            
+
             <div className="wizard-body">
               <p className="wizard-subtitle">Generate a standalone, ready-to-run project for <strong>{selected.name}</strong>.</p>
-              
+
               <div className="wizard-section">
                 <label>Project Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="wizard-input"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
@@ -443,8 +499,8 @@ function App() {
               <div className="wizard-section">
                 <label>Save To</label>
                 <div className="path-selector">
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="wizard-input path-input"
                     value={projectPath}
                     readOnly
@@ -460,13 +516,13 @@ function App() {
                 <div className="wizard-section" style={{ flex: 1 }}>
                   <label>Installation Method</label>
                   <div className="sub-tabs mini">
-                    <button 
+                    <button
                       className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`}
                       onClick={() => setInstallTab('cli')}
                     >
                       CLI
                     </button>
-                    <button 
+                    <button
                       className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`}
                       onClick={() => setInstallTab('manual')}
                     >
@@ -493,8 +549,8 @@ function App() {
 
               <div className="wizard-section checkbox-section">
                 <label className="checkbox-label">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     checked={openWhenDone}
                     onChange={(e) => setOpenWhenDone(e.target.checked)}
                   />
@@ -505,8 +561,8 @@ function App() {
 
             <div className="wizard-actions">
               <button className="secondary-btn" onClick={() => setShowGenerateWizard(false)}>Cancel</button>
-              <button 
-                className="primary-btn generate-btn" 
+              <button
+                className="primary-btn generate-btn"
                 onClick={confirmGenerate}
                 disabled={!projectName || !projectPath}
               >
@@ -523,7 +579,7 @@ function App() {
             <div className="spinner"></div>
             <h3>Generating Demo Project...</h3>
             <p className="loading-progress-text">{generateProgress || "Please wait while we scaffold the project... This may take a minute."}</p>
-            
+
             <div className="terminal-container">
               <div className="terminal-header">
                 <div className="window-controls mini">
