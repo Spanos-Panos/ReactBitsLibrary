@@ -2,8 +2,32 @@ const { contextBridge, ipcRenderer } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
-// Automatically resolve relative to __dirname (which is in /electron)
 const reactBitsRoot = path.join(__dirname, "..", "ReactBitsComponents");
+
+contextBridge.exposeInMainWorld("reactBitsApi", {
+  getItems() { return loadReactBitsItems(); },
+  getDiagnostics() { return getDiagnostics(); },
+  getComponentFiles(category, name) {
+    const compDir = path.join(reactBitsRoot, category, name);
+    const files = safeReadDir(compDir);
+    const result = [];
+    for (const f of files) {
+      if (f.isFile() && !f.name.startsWith("Usage")) {
+        try {
+          const content = fs.readFileSync(path.join(compDir, f.name), "utf-8");
+          result.push({ name: f.name, content });
+        } catch { }
+      }
+    }
+    return result;
+  },
+  generatePlayground(category, name, usageCode, componentFiles, options) {
+    return ipcRenderer.invoke("generate-playground", category, name, usageCode, componentFiles, options);
+  },
+  selectDirectory() {
+    return ipcRenderer.invoke("select-directory");
+  }
+});
 
 function safeReadDir(dirPath) {
   try {
@@ -83,30 +107,4 @@ function getDiagnostics() {
     categories,
   };
 }
-
-contextBridge.exposeInMainWorld("reactBitsApi", {
-  getItems() {
-    return loadReactBitsItems();
-  },
-  getDiagnostics() {
-    return getDiagnostics();
-  },
-  getComponentFiles(category, name) {
-    const compDir = path.join(reactBitsRoot, category, name);
-    const files = safeReadDir(compDir);
-    const result = [];
-    for (const f of files) {
-      if (f.isFile() && !f.name.startsWith("Usage")) {
-        try {
-          const content = fs.readFileSync(path.join(compDir, f.name), "utf-8");
-          result.push({ name: f.name, content });
-        } catch { }
-      }
-    }
-    return result;
-  },
-  generatePlayground(category, name, usageCode, componentFiles) {
-    return ipcRenderer.invoke("generate-playground", category, name, usageCode, componentFiles);
-  }
-});
 

@@ -46,6 +46,11 @@ function App() {
   const [packageManager, setPackageManager] = useState<"pnpm" | "npm" | "yarn" | "bun">("pnpm");
   const [generateStatus, setGenerateStatus] = useState<string>("");
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
+  const [showGenerateWizard, setShowGenerateWizard] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const [projectPath, setProjectPath] = useState("");
+  const [openWhenDone, setOpenWhenDone] = useState(true);
   const [parsedInstallData, setParsedInstallData] = useState<{
     cli: Record<string, string>;
     manual: Record<string, string>;
@@ -148,15 +153,39 @@ function App() {
     setView("gallery");
   };
 
-  const handleGenerate = async () => {
-    if (!selected || !(window as any).reactBitsApi?.generatePlayground) return;
-    setGenerateStatus("Generating...");
+  const handleGenerate = () => {
+    if (selected) {
+      setProjectName(`rb-demo-${selected.name.toLowerCase().replace(/\s+/g, '-')}`);
+    }
+    setShowGenerateWizard(true);
+  };
+
+  const handleSelectDirectory = async () => {
+    if (!(window as any).reactBitsApi?.selectDirectory) return;
+    const path = await (window as any).reactBitsApi.selectDirectory();
+    if (path) setProjectPath(path);
+  };
+
+  const confirmGenerate = async () => {
+    if (!selected || !projectPath || !(window as any).reactBitsApi?.generatePlayground) return;
+    setIsGenerating(true);
+    setShowGenerateWizard(false);
+    setGenerateStatus(""); // Clear old status
+    
     try {
       const result = await (window as any).reactBitsApi.generatePlayground(
         selected.category,
         selected.name,
         selected.usageMarkdown,
-        componentFiles
+        componentFiles,
+        {
+          installMethod: installTab,
+          packageManager: packageManager,
+          installData: parsedInstallData,
+          projectName: projectName,
+          projectPath: projectPath,
+          openWhenDone: openWhenDone
+        }
       );
       if (result.success) {
         setGenerateStatus(`Success! Project created at:\n${result.path}`);
@@ -165,7 +194,11 @@ function App() {
       }
     } catch (e: any) {
       setGenerateStatus(`Error: ${e.message}`);
+    } finally {
+      setIsGenerating(false);
     }
+    // Auto-clear status after 8s
+    setTimeout(() => setGenerateStatus(""), 8000);
   };
 
   const handleChatSubmit = (e: React.FormEvent) => {
@@ -465,6 +498,119 @@ function App() {
           </div>
         </form>
       </aside>
+      {showGenerateWizard && selected && (
+        <div className="wizard-overlay" onClick={() => setShowGenerateWizard(false)}>
+          <div className="wizard-modal" onClick={e => e.stopPropagation()}>
+            <header className="wizard-header">
+              <div className="window-controls">
+                <span className="dot red"></span>
+                <span className="dot yellow"></span>
+                <span className="dot green"></span>
+              </div>
+              <h2>Generate Demo Project</h2>
+              <button className="close-btn" onClick={() => setShowGenerateWizard(false)}>&times;</button>
+            </header>
+            
+            <div className="wizard-body">
+              <p className="wizard-subtitle">Generate a standalone, ready-to-run project for <strong>{selected.name}</strong>.</p>
+              
+              <div className="wizard-section">
+                <label>Project Name</label>
+                <input 
+                  type="text" 
+                  className="wizard-input"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="e.g. my-cool-demo"
+                />
+              </div>
+
+              <div className="wizard-section">
+                <label>Save To</label>
+                <div className="path-selector">
+                  <input 
+                    type="text" 
+                    className="wizard-input path-input"
+                    value={projectPath}
+                    readOnly
+                    placeholder="Click Browse to select folder..."
+                  />
+                  <button className="secondary-btn browse-btn" onClick={handleSelectDirectory}>
+                    Browse
+                  </button>
+                </div>
+              </div>
+
+              <div className="wizard-row">
+                <div className="wizard-section" style={{ flex: 1 }}>
+                  <label>Installation Method</label>
+                  <div className="sub-tabs mini">
+                    <button 
+                      className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`}
+                      onClick={() => setInstallTab('cli')}
+                    >
+                      CLI
+                    </button>
+                    <button 
+                      className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`}
+                      onClick={() => setInstallTab('manual')}
+                    >
+                      Manual
+                    </button>
+                  </div>
+                </div>
+
+                <div className="wizard-section" style={{ flex: 1.5 }}>
+                  <label>Package Manager</label>
+                  <div className="tertiary-tabs mini">
+                    {["pnpm", "npm", "yarn", "bun"].map((pm) => (
+                      <button
+                        key={pm}
+                        className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`}
+                        onClick={() => setPackageManager(pm as any)}
+                      >
+                        {pm}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="wizard-section checkbox-section">
+                <label className="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    checked={openWhenDone}
+                    onChange={(e) => setOpenWhenDone(e.target.checked)}
+                  />
+                  <span>Open folder automatically when finished</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="wizard-actions">
+              <button className="secondary-btn" onClick={() => setShowGenerateWizard(false)}>Cancel</button>
+              <button 
+                className="primary-btn generate-btn" 
+                onClick={confirmGenerate}
+                disabled={!projectName || !projectPath}
+              >
+                Start Generation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isGenerating && (
+        <div className="loading-overlay">
+          <div className="loading-content">
+            <div className="spinner"></div>
+            <h3>Generating Project...</h3>
+            <p>Please select a destination folder in the dialog</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
