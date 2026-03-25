@@ -1,6 +1,6 @@
 {
   "name": "reactbitscursor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ReactBits Component Explorer & Playground Generator",
   "main": "electron/main.cjs",
   "homepage": "https://github.com/Spanos-Panos/ReactBitsLibrary",
