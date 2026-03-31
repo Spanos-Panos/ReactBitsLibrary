@@ -5,6 +5,7 @@ import GradientText from "./components/TextAnimations/GradientText/GradientText"
 import FlowingMenu from "./components/Components/FlowingMenu/FlowingMenu";
 import PillNav from "./components/Components/PillNav/PillNav";
 import SplitText from "./components/TextAnimations/SplitText/SplitText";
+import ProjectBuilderPanel from "./components/ProjectBuilderPanel";
 
 type ReactBitsItem = (typeof manifest)[number];
 
@@ -47,6 +48,7 @@ function App() {
   const [installTab, setInstallTab] = useState<"cli" | "manual">("cli");
   const [packageManager, setPackageManager] = useState<"pnpm" | "npm" | "yarn" | "bun">("pnpm");
   const [generateStatus, setGenerateStatus] = useState<string>("");
+  const [toastType, setToastType] = useState<"info" | "warning">("info");
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
   const [showGenerateWizard, setShowGenerateWizard] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -63,6 +65,17 @@ function App() {
   const [rawInstallMarkdown, setRawInstallMarkdown] = useState("");
   const [isCopied, setIsCopied] = useState(false);
 
+  // V0.2.1 Multi-Selection
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [projectPrompt, setProjectPrompt] = useState("");
+
+  const CATEGORY_LIMITS: Record<string, number> = {
+    Backgrounds: 1,
+    TextAnimations: 2,
+    Animations: 3,
+    Components: 5
+  };
+
   const filtered = useMemo(() => {
     return items.filter((item) => {
       return activeCategory === "all" || item.category === activeCategory;
@@ -71,12 +84,13 @@ function App() {
 
   const selected = items.find((item) => item.id === selectedId) ?? null;
 
+  const selectedComponents = useMemo(() => {
+    return selectedIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ReactBitsItem[];
+  }, [selectedIds, items]);
+
   useEffect(() => {
     if (selected && (window as any).reactBitsApi?.getComponentFiles) {
       let files = (window as any).reactBitsApi.getComponentFiles(selected.category, selected.name);
-      
-      // Filter out markdown files to keep the Code tab strictly for source code
-      // Sort to ensure tsx/jsx is always first, followed by css
       files = files
         .filter((f: any) => !f.name.endsWith('.md'))
         .sort((a: any, b: any) => {
@@ -84,14 +98,12 @@ function App() {
           const bIsMain = b.name.endsWith('.tsx') || b.name.endsWith('.jsx');
           const aIsCss = a.name.endsWith('.css');
           const bIsCss = b.name.endsWith('.css');
-          
           if (aIsMain && !bIsMain) return -1;
           if (!aIsMain && bIsMain) return 1;
           if (aIsCss && !bIsCss) return -1;
           if (!aIsCss && bIsCss) return 1;
           return a.name.localeCompare(b.name);
         });
-
       setComponentFiles(files);
       setActiveCodeFileIndex(0);
     } else {
@@ -106,40 +118,25 @@ function App() {
       setRawInstallMarkdown("");
       return;
     }
-
     const installPath = `ReactBitsComponents/${selected.id}/${selected.name}Install.md`;
-
-    // In a real dev environment, we'd fetch this. We'll simulate the parsing logic.
     fetch(installPath)
       .then(res => res.text())
       .then(text => {
         setRawInstallMarkdown(text);
-        
         const data: { cli: Record<string, string>; manual: Record<string, string> } = { cli: {}, manual: {} };
         let currentBlock: 'cli' | 'manual' | null = null;
-
         const lines = text.split(/\r?\n/);
         lines.forEach(line => {
           const trimmed = line.trim();
-          const lower = trimmed.toLowerCase();
-
-          if (lower === 'cli') {
-            currentBlock = 'cli';
-          } else if (lower === 'manual') {
-            currentBlock = 'manual';
-          } else if (trimmed.includes('=')) {
+          if (trimmed.toLowerCase() === 'cli') currentBlock = 'cli';
+          else if (trimmed.toLowerCase() === 'manual') currentBlock = 'manual';
+          else if (trimmed.includes('=') && currentBlock) {
             const eqIndex = trimmed.indexOf('=');
-            if (eqIndex !== -1 && currentBlock) {
-              const k = trimmed.substring(0, eqIndex).trim().toLowerCase();
-              const v = trimmed.substring(eqIndex + 1).trim();
-              if (k && v) {
-                data[currentBlock][k] = v;
-              }
-            }
+            const k = trimmed.substring(0, eqIndex).trim().toLowerCase();
+            const v = trimmed.substring(eqIndex + 1).trim();
+            if (k && v) data[currentBlock][k] = v;
           }
         });
-
-        console.log("Parsed Install Data:", data);
         setParsedInstallData(data);
       })
       .catch(() => {
@@ -150,21 +147,15 @@ function App() {
 
   useEffect(() => {
     if ((window as any).reactBitsApi?.onGenerateProgress) {
-      (window as any).reactBitsApi.onGenerateProgress((msg: string) => {
-        setGenerateProgress(msg);
-      });
+      (window as any).reactBitsApi.onGenerateProgress((msg: string) => setGenerateProgress(msg));
     }
     if ((window as any).reactBitsApi?.onGenerateLog) {
-      (window as any).reactBitsApi.onGenerateLog((msg: string) => {
-        setGenerateLogs(prev => [...prev.slice(-300), msg]); // Keep last 300 logs
-      });
+      (window as any).reactBitsApi.onGenerateLog((msg: string) => setGenerateLogs(prev => [...prev.slice(-300), msg]));
     }
   }, []);
 
   useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
+    if (terminalRef.current) terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
   }, [generateLogs]);
 
   const handleSelectComponent = (id: string) => {
@@ -176,14 +167,10 @@ function App() {
     setInstallTab('cli');
   };
 
-  const handleBackToGallery = () => {
-    setView("gallery");
-  };
+  const handleBackToGallery = () => setView("gallery");
 
   const handleGenerate = () => {
-    if (selected) {
-      setProjectName(`rb-demo-${selected.name.toLowerCase().replace(/\s+/g, '-')}`);
-    }
+    if (selected) setProjectName(`rb-demo-${selected.name.toLowerCase().replace(/\s+/g, '-')}`);
     setShowGenerateWizard(true);
   };
 
@@ -199,59 +186,84 @@ function App() {
     setGenerateProgress("Initializing project generation...");
     setGenerateLogs(["Initializing Build Environment...\n"]);
     setShowGenerateWizard(false);
-    setGenerateStatus(""); // Clear old status
-
+    setGenerateStatus("");
     try {
       const result = await (window as any).reactBitsApi.generatePlayground(
-        selected.category,
-        selected.name,
-        selected.usageMarkdown,
-        componentFiles,
-        {
-          installMethod: installTab,
-          packageManager: packageManager,
-          installData: parsedInstallData,
-          projectName: projectName,
-          projectPath: projectPath,
-          openWhenDone: openWhenDone
-        }
+        selected.category, selected.name, selected.usageMarkdown, componentFiles,
+        { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone }
       );
-      if (result.success) {
-        setGenerateStatus(result.message || `Success! Project created at:\n${result.path}`);
-      } else {
-        setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
-      }
+      if (result.success) setGenerateStatus(result.message || `Success! Project created at:\n${result.path}`);
+      else setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
     } catch (e: any) {
       setGenerateStatus(`Error: ${e.message}`);
     } finally {
       setIsGenerating(false);
     }
-    // Auto-clear status after 8s
     setTimeout(() => setGenerateStatus(""), 8000);
+  };
+
+  const toggleSelection = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    if (selectedIds.includes(id)) {
+      setSelectedIds(prev => prev.filter(curr => curr !== id));
+    } else {
+      const categoryCount = selectedIds.filter(sid => items.find(i => i.id === sid)?.category === item.category).length;
+      const limit = CATEGORY_LIMITS[item.category] || 99;
+      if (categoryCount >= limit) {
+        setToastType("warning");
+        setGenerateStatus(`Limit reached! You can only select up to ${limit} ${item.category}.`);
+        setTimeout(() => setGenerateStatus(""), 5000);
+        return;
+      }
+      setSelectedIds(prev => [...prev, id]);
+    }
+  };
+
+  const handleBuilderGenerate = async () => {
+    if (!projectPrompt.trim()) {
+      setToastType("warning");
+      setGenerateStatus("Please enter a prompt for your project!");
+      setTimeout(() => setGenerateStatus(""), 4000);
+      return;
+    }
+    if (selectedComponents.length === 0) {
+      setToastType("warning");
+      setGenerateStatus("Please select at least one component!");
+      setTimeout(() => setGenerateStatus(""), 4000);
+      return;
+    }
+    setToastType("info");
+    setGenerateStatus("Saving project prompt and selections...");
+    try {
+      const result = await (window as any).reactBitsApi.savePrompt({
+        prompt: projectPrompt,
+        selectedComponents: selectedComponents.map(c => ({ id: c.id, name: c.name, category: c.category }))
+      });
+      if (result.success) setGenerateStatus("Prompt saved to history! (Ready for Enhancer)");
+      else {
+        setToastType("warning");
+        setGenerateStatus(`Failed to save: ${result.error}`);
+      }
+    } catch (err: any) {
+      setToastType("warning");
+      setGenerateStatus(`Error: ${err.message}`);
+    }
+    setTimeout(() => setGenerateStatus(""), 4000);
   };
 
   return (
     <div className="app-root">
       <div className="background-container">
-        <Iridescence
-          color={IRIDESCENCE_COLOR}
-          mouseReact={false}
-          amplitude={0.1}
-          speed={0.3}
-        />
+        <Iridescence color={IRIDESCENCE_COLOR} mouseReact={false} amplitude={0.1} speed={0.3} />
       </div>
 
       <div className="scene-container">
-        {/* Gallery Scene */}
         <section className={`scene ${view === "gallery" ? "" : "hidden-left"}`}>
           <main className={`gallery-container ${activeCategory === "all" ? "no-scroll" : ""}`}>
             <div className="filter-bar">
-              <GradientText
-                colors={GRADIENT_COLORS}
-                animationSpeed={10}
-                showBorder={false}
-                className="modern-title"
-              >
+              <GradientText colors={GRADIENT_COLORS} animationSpeed={10} showBorder={false} className="modern-title">
                 ReactBits Explorer
               </GradientText>
             </div>
@@ -271,16 +283,10 @@ function App() {
                       items={PILL_NAV_ITEMS}
                       activeId={activeCategory}
                       onItemClick={(id: string) => {
-                        if (id === 'home') {
-                          setActiveCategory('all');
-                        } else {
-                          setActiveCategory(id);
-                        }
+                        if (id === 'home') setActiveCategory('all');
+                        else setActiveCategory(id);
                       }}
-                      baseColor="#94a3b8"
-                      pillColor="rgba(15, 23, 42, 0.6)"
-                      hoveredPillTextColor="#ffffff"
-                      pillTextColor="#e2e8f0"
+                      baseColor="#94a3b8" pillColor="rgba(15, 23, 42, 0.6)" hoveredPillTextColor="#ffffff" pillTextColor="#e2e8f0"
                     />
                   </div>
 
@@ -289,21 +295,30 @@ function App() {
                       {filtered.map((item) => (
                         <div
                           key={item.id}
-                          className={`split-list-item ${hoveredComponentId === item.id ? 'hovered' : ''}`}
+                          className={`split-list-item ${hoveredComponentId === item.id ? 'hovered' : ''} ${selectedId === item.id ? 'active' : ''}`}
                           onMouseEnter={() => setHoveredComponentId(item.id)}
                           onClick={() => handleSelectComponent(item.id)}
                         >
                           <div className="split-list-item-content">
                             <span className="split-list-item-title">{item.name}</span>
                           </div>
-                          <span className="split-list-item-arrow">→</span>
+                          
+                          <div className="selection-container">
+                            <div 
+                              className="checkbox-custom" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSelection(item.id, e);
+                              }}
+                            >
+                              <input type="checkbox" checked={selectedIds.includes(item.id)} readOnly />
+                              <span className="checkmark"></span>
+                            </div>
+                            <span className="split-list-item-arrow">→</span>
+                          </div>
                         </div>
                       ))}
-                      {filtered.length === 0 && (
-                        <div className="empty-state">
-                          <p>No components found.</p>
-                        </div>
-                      )}
+                      {filtered.length === 0 && <div className="empty-state"><p>No components found.</p></div>}
                     </div>
 
                     <div className="component-preview-pane">
@@ -315,100 +330,54 @@ function App() {
                               <span className="category-comment">// {selected.category}</span>
                             </div>
                             <div className="inspector-tabs primary-level">
-                              <div className={`inspector-tab ${primaryTab === 'code' ? 'active' : ''}`} onClick={() => setPrimaryTab('code')}>
-                                Code
-                              </div>
-                              <div className={`inspector-tab ${primaryTab === 'docs' ? 'active' : ''}`} onClick={() => setPrimaryTab('docs')}>
-                                Docs
-                              </div>
-                              <div className={`inspector-tab ${primaryTab === 'install' ? 'active' : ''}`} onClick={() => setPrimaryTab('install')}>
-                                Install
-                              </div>
+                              <div className={`inspector-tab ${primaryTab === 'code' ? 'active' : ''}`} onClick={() => setPrimaryTab('code')}>Code</div>
+                              <div className={`inspector-tab ${primaryTab === 'docs' ? 'active' : ''}`} onClick={() => setPrimaryTab('docs')}>Docs</div>
+                              <div className={`inspector-tab ${primaryTab === 'install' ? 'active' : ''}`} onClick={() => setPrimaryTab('install')}>Install</div>
                             </div>
                           </header>
 
-                          {/* Secondary Level Tabs */}
                           {primaryTab === 'code' && componentFiles.length > 0 && (
                             <div className="inspector-tabs secondary-level">
                               {componentFiles.map((f, i) => (
-                                <div key={i} className={`inspector-tab ${activeCodeFileIndex === i ? "active" : ""}`} onClick={() => setActiveCodeFileIndex(i)}>
-                                  {f.name}
-                                </div>
+                                <div key={i} className={`inspector-tab ${activeCodeFileIndex === i ? "active" : ""}`} onClick={() => setActiveCodeFileIndex(i)}>{f.name}</div>
                               ))}
                             </div>
                           )}
 
                           {primaryTab === 'docs' && (
                             <div className="inspector-tabs secondary-level">
-                              <div className={`inspector-tab ${activeDocTab === 'usage' ? "active" : ""}`} onClick={() => setActiveDocTab('usage')}>
-                                usage.md
-                              </div>
-                              <div className={`inspector-tab ${activeDocTab === 'install' ? "active" : ""}`} onClick={() => setActiveDocTab('install')}>
-                                install.md
-                              </div>
+                              <div className={`inspector-tab ${activeDocTab === 'usage' ? "active" : ""}`} onClick={() => setActiveDocTab('usage')}>usage.md</div>
+                              <div className={`inspector-tab ${activeDocTab === 'install' ? "active" : ""}`} onClick={() => setActiveDocTab('install')}>install.md</div>
                             </div>
                           )}
 
-                          {/* Content Body */}
                           {primaryTab === 'install' ? (
                             <div className="installation-panel">
                               <div className="sub-tabs">
-                                <button
-                                  className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`}
-                                  onClick={() => setInstallTab('cli')}
-                                >
-                                  CLI
-                                </button>
-                                <button
-                                  className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`}
-                                  onClick={() => setInstallTab('manual')}
-                                >
-                                  Manual
-                                </button>
+                                <button className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`} onClick={() => setInstallTab('cli')}>CLI</button>
+                                <button className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`} onClick={() => setInstallTab('manual')}>Manual</button>
                               </div>
-
                               <div className="tertiary-tabs">
                                 {["pnpm", "npm", "yarn", "bun"].map((pm) => (
-                                  <button
-                                    key={pm}
-                                    className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`}
-                                    onClick={() => setPackageManager(pm as any)}
-                                  >
-                                    {pm}
-                                  </button>
+                                  <button key={pm} className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`} onClick={() => setPackageManager(pm as any)}>{pm}</button>
                                 ))}
                               </div>
-
                               <div className="code-viewer preview-code-box installation-code-box">
                                 <pre className="code-view">
-                                  {installTab === 'manual' ? (
-                                    parsedInstallData.manual[packageManager] || `// No manual instructions found for ${packageManager}.`
-                                  ) : (
-                                    parsedInstallData.cli[packageManager] || `# No CLI command found for ${packageManager}.\nnpx react-bits add ${selected.id}`
-                                  )}
+                                  {installTab === 'manual' ? (parsedInstallData.manual[packageManager] || `// No manual instructions found for ${packageManager}.`) : (parsedInstallData.cli[packageManager] || `# No CLI command found for ${packageManager}.\nnpx react-bits add ${selected.id}`)}
                                 </pre>
                               </div>
-                            </div>
-                          ) : primaryTab === 'docs' ? (
-                            <div className="code-viewer preview-code-box">
-                              <pre className="code-view">
-                                {activeDocTab === 'usage' 
-                                  ? selected.usageMarkdown 
-                                  : (rawInstallMarkdown || "// Loading install instructions...")}
-                              </pre>
                             </div>
                           ) : (
                             <div className="code-viewer preview-code-box">
                               <pre className="code-view">
-                                {componentFiles[activeCodeFileIndex]?.content || "No source code loaded."}
+                                {primaryTab === 'docs' ? (activeDocTab === 'usage' ? selected.usageMarkdown : rawInstallMarkdown) : (componentFiles[activeCodeFileIndex]?.content || "No source code loaded.")}
                               </pre>
                             </div>
                           )}
 
                           <div className="action-buttons preview-actions">
-                            <button className="primary-btn" onClick={handleGenerate}>
-                              Generate Project with {selected.name}
-                            </button>
+                            <button className="primary-btn" onClick={handleGenerate}>Generate Project with {selected.name}</button>
                             <button
                               className={`secondary-btn ${isCopied ? 'copied' : ''}`}
                               onClick={() => {
@@ -416,34 +385,20 @@ function App() {
                                 if (primaryTab === 'code') content = componentFiles[activeCodeFileIndex]?.content || "";
                                 else if (primaryTab === 'docs') content = activeDocTab === 'usage' ? selected.usageMarkdown : rawInstallMarkdown;
                                 else content = installTab === 'manual' ? (parsedInstallData.manual[packageManager] || "") : (parsedInstallData.cli[packageManager] || "");
-                                
                                 navigator.clipboard.writeText(content);
                                 setIsCopied(true);
                                 setTimeout(() => setIsCopied(false), 2000);
                               }}
-                              style={isCopied ? { 
-                                backgroundColor: 'rgba(34, 197, 94, 0.2)', 
-                                color: '#22c55e', 
-                                borderColor: '#22c55e' 
-                              } : {}}
+                              style={isCopied ? { backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e', borderColor: '#22c55e' } : {}}
                             >
                               {isCopied ? "Copied!" : "Copy Code"}
                             </button>
                           </div>
-                          {generateStatus && (
-                            <div className="status-toast">
-                              {generateStatus}
-                            </div>
-                          )}
                         </div>
                       ) : (
                         <div className="preview-placeholder">
                           <header className="preview-header">
-                            <h3>
-                              {hoveredComponentId
-                                ? (filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview')
-                                : 'Select a component'}
-                            </h3>
+                            <h3>{hoveredComponentId ? (filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview') : 'Select a component'}</h3>
                             <div className="mock-tabs" style={{ opacity: hoveredComponentId ? 1 : 0.3, transition: 'opacity 0.3s' }}>
                               <span className="mock-tab active">React</span>
                               <span className="mock-tab">CSS</span>
@@ -451,123 +406,78 @@ function App() {
                             </div>
                           </header>
                           <div className="preview-box">
-                            <span className="preview-text">
-                              {hoveredComponentId
-                                ? 'Click to view code and information'
-                                : 'Hover over a component to view information'}
-                            </span>
+                            <span className="preview-text">{hoveredComponentId ? 'Click to view code and information' : 'Hover over a component to view information'}</span>
                           </div>
                         </div>
                       )}
                     </div>
+
+                    <ProjectBuilderPanel
+                      selectedComponents={selectedComponents}
+                      categoryLimits={CATEGORY_LIMITS}
+                      prompt={projectPrompt}
+                      onPromptChange={setProjectPrompt}
+                      onGenerate={handleBuilderGenerate}
+                      onRestoreFromHistory={(p, sels) => {
+                        setProjectPrompt(p);
+                        setSelectedIds(sels.map(s => s.id));
+                        setGenerateStatus("Restored project from history!");
+                        setTimeout(() => setGenerateStatus(""), 3000);
+                      }}
+                    />
                   </div>
                 </div>
               )}
             </div>
           </main>
         </section>
-
-
       </div>
+
       {showGenerateWizard && selected && (
         <div className="wizard-overlay" onClick={() => setShowGenerateWizard(false)}>
           <div className="wizard-modal" onClick={e => e.stopPropagation()}>
             <header className="wizard-header">
-              <div className="window-controls">
-                <span className="dot red"></span>
-                <span className="dot yellow"></span>
-                <span className="dot green"></span>
-              </div>
+              <div className="window-controls"><span className="dot red"></span><span className="dot yellow"></span><span className="dot green"></span></div>
               <h2>Generate Demo Project</h2>
               <button className="close-btn" onClick={() => setShowGenerateWizard(false)}>&times;</button>
             </header>
-
             <div className="wizard-body">
               <p className="wizard-subtitle">Generate a standalone, ready-to-run project for <strong>{selected.name}</strong>.</p>
-
               <div className="wizard-section">
                 <label>Project Name</label>
-                <input
-                  type="text"
-                  className="wizard-input"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="e.g. my-cool-demo"
-                />
+                <input type="text" className="wizard-input" value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. my-cool-demo" />
               </div>
-
               <div className="wizard-section">
                 <label>Save To</label>
                 <div className="path-selector">
-                  <input
-                    type="text"
-                    className="wizard-input path-input"
-                    value={projectPath}
-                    readOnly
-                    placeholder="Click Browse to select folder..."
-                  />
-                  <button className="secondary-btn browse-btn" onClick={handleSelectDirectory}>
-                    Browse
-                  </button>
+                  <input type="text" className="wizard-input path-input" value={projectPath} readOnly placeholder="Click Browse to select folder..." />
+                  <button className="secondary-btn browse-btn" onClick={handleSelectDirectory}>Browse</button>
                 </div>
               </div>
-
               <div className="wizard-row">
                 <div className="wizard-section" style={{ flex: 1 }}>
                   <label>Installation Method</label>
                   <div className="sub-tabs mini">
-                    <button
-                      className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`}
-                      onClick={() => setInstallTab('cli')}
-                    >
-                      CLI
-                    </button>
-                    <button
-                      className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`}
-                      onClick={() => setInstallTab('manual')}
-                    >
-                      Manual
-                    </button>
+                    <button className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`} onClick={() => setInstallTab('cli')}>CLI</button>
+                    <button className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`} onClick={() => setInstallTab('manual')}>Manual</button>
                   </div>
                 </div>
-
                 <div className="wizard-section" style={{ flex: 1.5 }}>
                   <label>Package Manager</label>
                   <div className="tertiary-tabs mini">
                     {["pnpm", "npm", "yarn", "bun"].map((pm) => (
-                      <button
-                        key={pm}
-                        className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`}
-                        onClick={() => setPackageManager(pm as any)}
-                      >
-                        {pm}
-                      </button>
+                      <button key={pm} className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`} onClick={() => setPackageManager(pm as any)}>{pm}</button>
                     ))}
                   </div>
                 </div>
               </div>
-
               <div className="wizard-section checkbox-section">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={openWhenDone}
-                    onChange={(e) => setOpenWhenDone(e.target.checked)}
-                  />
-                  <span>Open project automatically in VS Code when finished</span>
-                </label>
+                <label className="checkbox-label"><input type="checkbox" checked={openWhenDone} onChange={(e) => setOpenWhenDone(e.target.checked)} /><span>Open project automatically in VS Code when finished</span></label>
               </div>
             </div>
-
             <div className="wizard-actions">
               <button className="secondary-btn" onClick={() => setShowGenerateWizard(false)}>Cancel</button>
-              <button
-                className="primary-btn generate-btn"
-                onClick={confirmGenerate}
-                disabled={!projectName || !projectPath}
-              >
-                Start Generation
-              </button>
+              <button className="primary-btn generate-btn" onClick={confirmGenerate} disabled={!projectName || !projectPath}>Start Generation</button>
             </div>
           </div>
         </div>
@@ -578,26 +488,15 @@ function App() {
           <div className="loading-content expanded">
             <div className="spinner"></div>
             <h3>Generating Demo Project...</h3>
-            <p className="loading-progress-text">{generateProgress || "Please wait while we scaffold the project... This may take a minute."}</p>
-
+            <p className="loading-progress-text">{generateProgress || "Please wait while we scaffold the project..."}</p>
             <div className="terminal-container">
-              <div className="terminal-header">
-                <div className="window-controls mini">
-                  <span className="dot red"></span>
-                  <span className="dot yellow"></span>
-                  <span className="dot green"></span>
-                </div>
-                <span className="terminal-title">bash - build</span>
-              </div>
-              <pre className="terminal-body" ref={terminalRef}>
-                {generateLogs.map((log, i) => (
-                  <span key={i}>{log}</span>
-                ))}
-              </pre>
+              <div className="terminal-header"><div className="window-controls mini"><span className="dot red"></span><span className="dot yellow"></span><span className="dot green"></span></div><span className="terminal-title">bash - build</span></div>
+              <pre className="terminal-body" ref={terminalRef}>{generateLogs.map((log, i) => <span key={i}>{log}</span>)}</pre>
             </div>
           </div>
         </div>
       )}
+      {generateStatus && <div className={`status-toast ${toastType}`}>{generateStatus}</div>}
     </div>
   );
 }

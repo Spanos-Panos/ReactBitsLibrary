@@ -81,8 +81,26 @@ ipcMain.handle("select-directory", async () => {
 });
 
 const { generatePlayground } = require("../DemoCLI/index.cjs");
+const { savePrompt, getHistory, clearHistory, openHistoryFolder } = require("./storage.cjs");
 
 ipcMain.handle("generate-playground", async (event, category, name, usageCode, componentFiles, options) => {
   return await generatePlayground(category, name, usageCode, componentFiles, options, event);
+});
+
+// Storage IPC Handlers
+ipcMain.handle("storage-save-prompt", async (event, data) => {
+  return savePrompt(data);
+});
+
+ipcMain.handle("storage-get-history", async () => {
+  return getHistory();
+});
+
+ipcMain.handle("storage-clear-history", async () => {
+  return clearHistory();
+});
+
+ipcMain.handle("storage-open-folder", async () => {
+  return openHistoryFolder();
 });
 

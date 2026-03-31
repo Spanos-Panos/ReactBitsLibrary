@@ -36,6 +36,18 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   },
   selectDirectory() {
     return ipcRenderer.invoke("select-directory");
+  },
+  savePrompt(data) {
+    return ipcRenderer.invoke("storage-save-prompt", data);
+  },
+  getHistory() {
+    return ipcRenderer.invoke("storage-get-history");
+  },
+  clearHistory() {
+    return ipcRenderer.invoke("storage-clear-history");
+  },
+  openHistoryFolder() {
+    return ipcRenderer.invoke("storage-open-folder");
   }
 });
 
