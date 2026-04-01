@@ -6,6 +6,10 @@ const dialog = electron.dialog;
 
 const path = require("node:path");
 
+// Load .env configuration
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+const { enhancePrompt } = require("./promptEnhancer.cjs");
 const isDev = process.env.NODE_ENV === "development";
 
 let mainWindow = null;
@@ -102,5 +106,9 @@ ipcMain.handle("storage-clear-history", async () => {
 
 ipcMain.handle("storage-open-folder", async () => {
   return openHistoryFolder();
+});
+
+ipcMain.handle("enhance-prompt", async (event, payload) => {
+  return await enhancePrompt(payload);
 });
 

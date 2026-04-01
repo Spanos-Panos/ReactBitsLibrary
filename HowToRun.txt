@@ -1,4 +1,6 @@
 inside the folder run
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+`Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process`
 and then 
 npm run dev
+
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process; npm run dev

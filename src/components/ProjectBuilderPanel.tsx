@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import { EnhancePromptButton } from './EnhancePromptButton';
 
 interface ComponentItem {
   id: string;
   name: string;
   category: string;
+  usageMarkdown: string;
 }
 
 interface ProjectBuilderPanelProps {
@@ -90,7 +92,18 @@ const ProjectBuilderPanel: React.FC<ProjectBuilderPanelProps> = ({
         </div>
 
         <div className="builder-section" style={{ marginTop: '1rem' }}>
-          <label className="builder-label">AI Project Prompt</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
+            <label className="builder-label" style={{ marginBottom: 0 }}>AI Project Prompt</label>
+            <EnhancePromptButton 
+              rawPrompt={prompt}
+              selectedComponents={selectedComponents}
+              onSuccess={(result: any) => {
+                // If it returns a string in the generatorInstruction field, we can use it
+                // Or if it's the whole JSON, we might want to store it in a hidden state
+                console.log("Enhanced Prompt:", result.enhancedPrompt);
+              }}
+            />
+          </div>
           <textarea
             className="builder-textarea"
             placeholder="Describe the project you want to build with these components..."

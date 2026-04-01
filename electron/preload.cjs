@@ -48,6 +48,9 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   },
   openHistoryFolder() {
     return ipcRenderer.invoke("storage-open-folder");
+  },
+  enhancePrompt(payload) {
+    return ipcRenderer.invoke("enhance-prompt", payload);
   }
 });
 
