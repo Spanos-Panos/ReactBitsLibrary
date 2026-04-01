@@ -418,9 +418,9 @@ function App() {
                       prompt={projectPrompt}
                       onPromptChange={setProjectPrompt}
                       onGenerate={handleBuilderGenerate}
-                      onRestoreFromHistory={(p, sels) => {
+                      onRestoreFromHistory={(p: string, sels: any[]) => {
                         setProjectPrompt(p);
-                        setSelectedIds(sels.map(s => s.id));
+                        setSelectedIds(sels.map((s: any) => s.id));
                         setGenerateStatus("Restored project from history!");
                         setTimeout(() => setGenerateStatus(""), 3000);
                       }}

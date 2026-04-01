@@ -12,6 +12,7 @@ interface ProjectBuilderPanelProps {
   prompt: string;
   onPromptChange: (val: string) => void;
   onGenerate: () => void;
+  onRestoreFromHistory?: (prompt: string, selectedComponents: ComponentItem[]) => void;
 }
 
 const ProjectBuilderPanel: React.FC<ProjectBuilderPanelProps> = ({
