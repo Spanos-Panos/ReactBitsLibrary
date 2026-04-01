@@ -34,7 +34,7 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");
-    mainWindow.webContents.openDevTools();
+    // mainWindow.webContents.openDevTools();
   } else {
     const indexPath = path.join(__dirname, "..", "dist", "index.html");
     mainWindow.loadFile(indexPath);

@@ -98,9 +98,9 @@ const ProjectBuilderPanel: React.FC<ProjectBuilderPanelProps> = ({
               rawPrompt={prompt}
               selectedComponents={selectedComponents}
               onSuccess={(result: any) => {
-                // If it returns a string in the generatorInstruction field, we can use it
-                // Or if it's the whole JSON, we might want to store it in a hidden state
-                console.log("Enhanced Prompt:", result.enhancedPrompt);
+                if (result.success && result.enhancedPrompt?.generatorInstruction) {
+                  onPromptChange(result.enhancedPrompt.generatorInstruction);
+                }
               }}
             />
           </div>

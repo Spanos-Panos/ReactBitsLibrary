@@ -41,15 +41,18 @@ export const EnhancePromptButton: React.FC<EnhancePromptButtonProps> = ({
     setSavedPath("");
 
     try {
-      // IPC call to main process via context bridge
       const result = await (window as any).reactBitsApi.enhancePrompt({ 
         rawPrompt, 
         selectedComponents 
       });
 
-      setSavedPath(result.savedPaths.enhanced);
-      setStatus("success");
-      onSuccess?.(result);
+      if (result.success) {
+        setSavedPath(result.savedPaths.enhanced);
+        setStatus("success");
+        onSuccess?.(result);
+      } else {
+        throw new Error(result.error || "Failed to enhance prompt");
+      }
 
       // Reset after 4 seconds
       setTimeout(() => setStatus("idle"), 4000);
@@ -59,7 +62,7 @@ export const EnhancePromptButton: React.FC<EnhancePromptButtonProps> = ({
       setStatus("error");
       onError?.(error);
 
-      setTimeout(() => setStatus("idle"), 5000);
+      setTimeout(() => setStatus("idle"), 15000);
     }
   };
 

@@ -1,15 +1,12 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require("fs");
 const path = require("path");
+const { app } = require("electron");
 
 // ─── Path config ──────────────────────────────────────────────────────────────
 
-const BASE_DIR = path.join(
-  process.env.USERPROFILE || process.env.HOME || "C:\\Users\\Admin",
-  "Documents",
-  ".reactBitsExplorer",
-  "prompts"
-);
+const DOCUMENTS_PATH = app.getPath('documents');
+const BASE_DIR = path.join(DOCUMENTS_PATH, ".reactBitsExplorer", "prompts");
 
 const ORIGINAL_DIR = path.join(BASE_DIR, "originalPrompts");
 const ENHANCED_DIR = path.join(BASE_DIR, "enhancedPrompts");
@@ -27,7 +24,7 @@ function getTimestampedFilename() {
 }
 
 function ensureDirsExist() {
-  [ORIGINAL_DIR, ENHANCED_DIR].forEach((dir) => {
+  [BASE_DIR, ORIGINAL_DIR, ENHANCED_DIR].forEach((dir) => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
@@ -106,15 +103,13 @@ async function enhancePrompt(options) {
 
     // Initialize Gemini 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    
-    // In 2026, gemini-2.5-flash is our proven winner
+
+    // In 2026, gemini-2.0-flash is our proven winner
     const candidateModels = [
-      "gemini-2.5-flash",
-      "gemini-2.0-flash", 
-      "gemini-2.0-flash-001",
-      "gemini-3.1-flash-live-preview",
-      "gemini-1.5-flash-latest",
-      "gemini-pro"
+      "gemini-1.5-flash",
+      "gemini-2.0-flash-exp",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro"
     ];
 
     let lastError = null;
@@ -124,19 +119,23 @@ async function enhancePrompt(options) {
     for (const modelName of candidateModels) {
       try {
         console.log(`[Gemini Enhancer] Attempting enhancement with: ${modelName}...`);
-        const model = genAI.getGenerativeModel({ 
+        const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: { responseMimeType: "application/json" }
         });
 
         const result = await model.generateContent(userMessage);
         const responseText = result.response.text();
-        enhancedPrompt = JSON.parse(responseText);
+
+        // Clean markdown backticks if present
+        const cleanedText = responseText.replace(/^```json/, '').replace(/```$/, '').trim();
+        enhancedPrompt = JSON.parse(cleanedText);
+
         successfulModel = modelName;
         break; // Success!
       } catch (e) {
         lastError = e;
-        console.warn(`[Gemini Enhancer] Model ${modelName} failed or not available.`);
+        console.warn(`[Gemini Enhancer] Model ${modelName} failed or not available: ${e.message}`);
         // Continue to next model
       }
     }
@@ -150,6 +149,7 @@ async function enhancePrompt(options) {
     const enhancedPath = saveFile(ENHANCED_DIR, filename, enhancedPrompt);
 
     return {
+      success: true,
       enhancedPrompt,
       savedPaths: {
         original: originalPath,
@@ -158,7 +158,7 @@ async function enhancePrompt(options) {
     };
   } catch (error) {
     console.error("[Gemini Enhancer] Error:", error);
-    throw error;
+    return { success: false, error: error.message };
   }
 }
 
