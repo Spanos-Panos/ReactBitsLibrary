@@ -4,15 +4,17 @@ import "./EnhancePromptButton.css";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface SelectedComponent {
+  id: string; // Add ID for fetching
   name: string;
   category: string;
   usageMarkdown: string;
+  fullSource?: { name: string; content: string }[]; // Optional field for source
 }
 
 interface EnhancePromptButtonProps {
   rawPrompt: string;
   selectedComponents: SelectedComponent[];
-  onSuccess?: (result: { enhancedPrompt: object; savedPaths: { original: string; enhanced: string } }) => void;
+  onSuccess?: (result: { success: boolean; enhancedPrompt: any; savedPaths: { original: string; enhanced: string } }) => void;
   onError?: (error: Error) => void;
 }
 
@@ -41,9 +43,26 @@ export const EnhancePromptButton: React.FC<EnhancePromptButtonProps> = ({
     setSavedPath("");
 
     try {
+      // 🚀 Step 1: Fetch full source for each component to ensure AI accuracy
+      const componentsWithSource = await Promise.all(
+        selectedComponents.map(async (comp) => {
+          try {
+            const files = await (window as any).reactBitsApi.getComponentFiles(comp.category, comp.name);
+            return {
+              ...comp,
+              fullSource: files
+            };
+          } catch (e) {
+            console.warn(`Failed to fetch source for ${comp.name}`, e);
+            return comp;
+          }
+        })
+      );
+
+      // 🚀 Step 2: Call the enhancer with the rich data
       const result = await (window as any).reactBitsApi.enhancePrompt({ 
         rawPrompt, 
-        selectedComponents 
+        selectedComponents: componentsWithSource 
       });
 
       if (result.success) {

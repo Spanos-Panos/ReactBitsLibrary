@@ -40,36 +40,57 @@ function saveFile(dir, filename, content) {
 // ─── Skill content ────────────────────────────────────────────────────────────
 
 const PROMPT_ENHANCER_SKILL = `
-# promptEnhancer Skill
+# promptEnhancer Skill (Architect Level v2)
 
-Transforms a rough user prompt + selected component metadata into a maximally detailed,
-structured JSON prompt ready to be sent to a project-generator LLM.
+You are a Senior Solutions Architect. Transform a rough user prompt + selected components (including their full source code) into a professional Technical Specification JSON.
 
 ## Output Format
 
-CRITICAL: Return ONLY a raw JSON object. No explanation, no markdown fences, no preamble.
+CRITICAL: Return ONLY a raw JSON object. No markdown backticks, no preamble.
 
 The JSON must have these top-level fields:
 {
   "projectMeta": { "title", "type", "theme", "mood", "targetAudience" },
-  "layout": { "sections": [ { "id", "label", "description", "componentRef" } ] },
-  "componentUsage": [ { "componentName", "category", "assignedTo", "role", "usageSnippet", "wrapperNotes" } ],
-  "styleGuide": { "colorPalette": string[], "typography": { "headingFont", "bodyFont" }, "borderRadius", "spacing" },
-  "interactions": string[],
-  "copyContent": { "headline", "subheadline", "ctaText", "supportingCopy": string[] },
-  "techNotes": { "stack": "React + TypeScript", "componentImports": string[], "installationNotes", "specialInstructions" },
-  "generatorInstruction": string 
+  "designTokens": { 
+    "colors": { "primary", "secondary", "background", "text", "accent" },
+    "typography": { "headingFont", "bodyFont" },
+    "borderRadius": "8px",
+    "spacing": "1.5rem"
+  },
+  "siteArchitecture": {
+    "pages": [
+      { 
+        "id": "index", 
+        "sections": [
+          { "id", "type", "componentRef", "props", "copy": { "headline", "body", "cta" } }
+        ] 
+      }
+    ]
+  },
+  "componentWiring": [
+    { 
+       "name": "ComponentName", 
+       "importPath": "./components/Category/Name/Name",
+       "dependencies": ["list of npm packages required based on imports in the source"],
+       "instantiation": "string (JSX string with mapped props, using ACTUAL prop names from the source)"
+    }
+  ],
+  "globalStyles": "string (CSS variables for the theme)",
+  "generatorInstruction": "string (250-350 word technical mega-instruction for a developer LLM)"
 }
 
 ## Rules
 
-1. Infer & expand the project vision — infer type, audience, mood; never leave sections vague
-2. background → hero section / text-animation → heading / animation → staggered elements
-3. Extract exact usage snippets from usageMarkdown (import + JSX)
-4. Generate coherent copy that matches the mood
-5. Style guide must be consistent with the theme
-6. generatorInstruction must be a self-contained 150-250 word mega-instruction paragraph.
-7. Return ONLY valid JSON.
+1. **Source analysis**: You are provided with the 'fullSource' for each component. Read it carefully. 
+2. **Prop Accuracy**: ONLY use prop names that actually exist in the component's source code.
+3. **Dependency Tracking**: Identify all external libraries used (e.g. framer-motion, lucide-react, three) and list them.
+4. **Architecture First**: Define exactly where each component goes in a semantic structure. Even for 'no-scroll' pages, use realistic structural constraints (e.g. flexbox, grid, and specific Z-indices) to ensure components don't just dump into an unformatted box.
+5. **Interactive Wrappers**: If using components like Crosshair or BlobCursor, ensure the layout includes standard interactive elements (like \`<a>\` or \`<button>\`) within their container so hover effects will trigger correctly.
+6. **WebGL/Canvas Colors**: NEVER pass CSS variables (e.g. \`var(--color-primary)\`) into React props for WebGL or Canvas-based components (like Aurora colorStops). ALWAYS use literal hex codes (e.g. \`"#FFA07A"\`) or rgba for these props.
+7. **Local Component Copying [CRITICAL]**: In the \`generatorInstruction\`, you MUST explicitly tell the developer AI to copy the custom components directly from the \`REACT BITS LOCAL PATH\` provided. Example: "To implement Aurora, you must copy the folder at [REACT BITS LOCAL PATH]/Backgrounds/Aurora into your project's src/components directory." This guarantees the AI has access to the exact source files!
+8. **Design System**: Ensure colors match the mood.
+9. **Copywriting**: No lorem ipsum. Write real, engaging content.
+10. **Return ONLY valid JSON.**
 `;
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -89,6 +110,10 @@ async function enhancePrompt(options) {
     const filename = getTimestampedFilename();
     const originalPath = saveFile(ORIGINAL_DIR, filename, originalPayload);
 
+    // Provide the absolute local path to the components so the building AI
+    // (Antigravity/Cursor) knows exactly where to copy the components from.
+    const REACT_BITS_ABSOLUTE_PATH = path.join(__dirname, '..', 'ReactBitsComponents').replace(/\\/g, '/');
+
     const userMessage = `
     You are a prompt enhancement engine. Follow the skill instructions exactly.
 
@@ -98,18 +123,20 @@ async function enhancePrompt(options) {
 
     Input:
     RAW PROMPT: "${rawPrompt}"
+    REACT BITS LOCAL PATH: "${REACT_BITS_ABSOLUTE_PATH}"
     SELECTED COMPONENTS: ${JSON.stringify(selectedComponents, null, 2)}
     `.trim();
 
     // Initialize Gemini 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-    // In 2026, gemini-2.0-flash is our proven winner
+    // In 2026, gemini-2.5-flash is our proven winner
     const candidateModels = [
-      "gemini-1.5-flash",
-      "gemini-2.0-flash-exp",
+      "gemini-2.5-flash",
       "gemini-2.0-flash",
-      "gemini-1.5-pro"
+      "gemini-2.0-flash-001",
+      "gemini-1.5-flash",
+      "gemini-pro"
     ];
 
     let lastError = null;

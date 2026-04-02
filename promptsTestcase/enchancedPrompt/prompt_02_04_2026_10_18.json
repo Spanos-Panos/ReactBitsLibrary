@@ -1,0 +1,127 @@
+{
+  "projectMeta": {
+    "title": "Creative Sandbox Landing Page",
+    "type": "Landing Page",
+    "theme": "Modern, Playful, Abstract",
+    "mood": "Dynamic, Engaging, Exploratory",
+    "targetAudience": "Developers, Designers, Tech Enthusiasts"
+  },
+  "designTokens": {
+    "colors": {
+      "primary": "#FFD700",
+      "secondary": "#FF8C00",
+      "background": "#1A1A1A",
+      "text": "#FFD700",
+      "accent": "#FF4500"
+    },
+    "typography": {
+      "headingFont": "Montserrat, sans-serif",
+      "bodyFont": "Roboto, sans-serif"
+    },
+    "borderRadius": "8px",
+    "spacing": "1.5rem"
+  },
+  "siteArchitecture": {
+    "pages": [
+      {
+        "id": "index",
+        "sections": [
+          {
+            "id": "iridescence-background",
+            "type": "background-effect",
+            "componentRef": "Iridescence",
+            "props": {
+              "color": [
+                1,
+                0.843,
+                0
+              ],
+              "speed": 0.8,
+              "amplitude": 0.15,
+              "mouseReact": true
+            },
+            "copy": {
+              "headline": "",
+              "body": "",
+              "cta": ""
+            },
+            "styles": {
+              "position": "fixed",
+              "top": "0",
+              "left": "0",
+              "width": "100vw",
+              "height": "100vh",
+              "zIndex": "-1"
+            }
+          },
+          {
+            "id": "hero-showcase",
+            "type": "hero-section",
+            "componentRef": "FallingText",
+            "props": {
+              "text": "Explore a dynamic sandbox of interactive components. Unleash creativity, experiment with motion, and build captivating experiences. React Bits: where innovation comes to life.",
+              "highlightWords": [
+                "Explore",
+                "sandbox",
+                "interactive",
+                "Unleash",
+                "creativity",
+                "experiment",
+                "motion",
+                "captivating",
+                "React Bits",
+                "innovation",
+                "life"
+              ],
+              "highlightClass": "highlighted-text",
+              "trigger": "hover",
+              "backgroundColor": "transparent",
+              "wireframes": false,
+              "gravity": 0.5,
+              "fontSize": "3.5rem",
+              "mouseConstraintStiffness": 0.8
+            },
+            "copy": {
+              "headline": "Welcome to the React Bits Sandbox",
+              "body": "Experience groundbreaking UI components designed for dynamic interaction and stunning visuals. Hover over the text to unleash a world of physical motion.",
+              "cta": "Discover More Components"
+            },
+            "styles": {
+              "position": "relative",
+              "zIndex": "1",
+              "display": "flex",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "height": "100vh",
+              "width": "100vw",
+              "maxWidth": "900px",
+              "margin": "0 auto",
+              "padding": "2rem",
+              "textAlign": "center"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "componentWiring": [
+    {
+      "name": "Iridescence",
+      "importPath": "./components/Backgrounds/Iridescence/Iridescence",
+      "dependencies": [
+        "ogl"
+      ],
+      "instantiation": "<Iridescence color={[1, 0.843, 0]} speed={0.8} amplitude={0.15} mouseReact={true} />"
+    },
+    {
+      "name": "FallingText",
+      "importPath": "./components/TextAnimations/FallingText/FallingText",
+      "dependencies": [
+        "matter-js"
+      ],
+      "instantiation": "<FallingText text={\"Explore a dynamic sandbox of interactive components. Unleash creativity, experiment with motion, and build captivating experiences. React Bits: where innovation comes to life.\"} highlightWords={[\"Explore\", \"sandbox\", \"interactive\", \"Unleash\", \"creativity\", \"experiment\", \"motion\", \"captivating\", \"React Bits\", \"innovation\", \"life\"]} highlightClass=\"highlighted-text\" trigger=\"hover\" backgroundColor=\"transparent\" wireframes={false} gravity={0.5} fontSize=\"3.5rem\" mouseConstraintStiffness={0.8} />"
+    }
+  ],
+  "globalStyles": ":root {\n  --color-primary: #FFD700;\n  --color-secondary: #FF8C00;\n  --color-background: #1A1A1A;\n  --color-text: #FFD700;\n  --color-accent: #FF4500;\n\n  --font-heading: 'Montserrat', sans-serif;\n  --font-body: 'Roboto', sans-serif;\n\n  --border-radius: 8px;\n  --spacing-unit: 1.5rem;\n}\n\nhtml, body, #root {\n  height: 100%;\n  width: 100%;\n  margin: 0;\n  padding: 0;\n  overflow: hidden; /* Ensure no scrolling as requested */\n}\n\nbody {\n  background-color: var(--color-background);\n  color: var(--color-text);\n  font-family: var(--font-body);\n  -webkit-font-smoothing: antialiased;\n  -moz-osx-font-smoothing: grayscale;\n}\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-heading);\n  color: var(--color-primary);\n  margin-top: 0;\n  margin-bottom: var(--spacing-unit);\n}\n\n.highlighted-text {\n  color: var(--color-accent);\n  font-weight: bold;\n}",
+  "generatorInstruction": "This technical specification outlines the creation of a 'no-scroll' landing page, designed as a dynamic sandbox showcase for two interactive React components. The page features a deep black background contrasted with vibrant gold and orange accents, aiming for an engaging and exploratory mood.\n\nTo implement the `Iridescence` background effect, you must copy the entire folder located at C:/Users/Admin/Documents/Visual Studio Code/Reposetories/ReactBitRepository/ReactBitsComponents/Backgrounds/Iridescence into your project's `src/components/Backgrounds/Iridescence` directory. Additionally, install the `ogl` library via npm: `npm install ogl`. Integrate `Iridescence` as a fixed, full-viewport background layer (`position: fixed; z-index: -1;`), ensuring its `color` prop is set to `[1, 0.843, 0]` (which represents the hex color `#FFD700` in RGB format for WebGL compatibility), and `mouseReact` is `true` for interactivity.\n\nFor the interactive `FallingText` headline, copy its source from C:/Users/Admin/Documents/Visual Studio Code/Reposetories/ReactBitRepository/ReactBitsComponents/TextAnimations/FallingText to `src/components/TextAnimations/FallingText`. Install `matter-js` by running `npm install matter-js`. Embed `FallingText` within a flex container that spans the full viewport (`height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; z-index: 1;`) to ensure it is centered and responsive. Set its `trigger` prop to `\"hover\"` for interactive physics, and define a `.highlighted-text` class in your global styles using `var(--color-accent)` to style highlighted words. Ensure `overflow: hidden` is applied to `html` and `body` elements to fulfill the 'no scroll' requirement, providing a seamless single-screen experience. Apply the specified design tokens for consistent theming and typography across the application."
+}
