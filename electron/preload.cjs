@@ -54,8 +54,8 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
 
     return { id, name, category, files, usage, install };
   },
-  generatePlayground(category, name, usageCode, componentFiles, options, taskId) {
-    return ipcRenderer.invoke("generate-playground", category, name, usageCode, componentFiles, options, taskId);
+  generatePlayground(...args) {
+    return ipcRenderer.invoke("generate-playground", ...args);
   },
   onGenerateProgress(callback) {
     ipcRenderer.on("generate-progress", (event, message, taskId) => {

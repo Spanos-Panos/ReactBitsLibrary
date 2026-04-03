@@ -26,7 +26,7 @@ function killProcessTree(proc, taskId = 'unknown') {
         if (err) {
           // If the process is already gone, that's fine
           if (!err.message.includes('not found')) {
-             console.error(`[Main] Taskkill failed for PID ${pid}:`, err.message);
+            console.error(`[Main] Taskkill failed for PID ${pid}:`, err.message);
           }
         } else {
           console.log(`[Main] Successfully killed process tree for PID ${pid}`);
@@ -66,11 +66,11 @@ function createWindow() {
     const indexPath = path.join(__dirname, "..", "dist", "index.html");
     mainWindow.loadFile(indexPath);
   }
-  
+
   mainWindow.webContents.on('did-finish-load', () => {
     console.log("Window finished loading content");
   });
-  
+
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error("Window FAILED to load:", errorCode, errorDescription);
   });
@@ -122,8 +122,24 @@ ipcMain.handle("select-directory", async () => {
 const { generatePlayground } = require("../DemoCLI/index.cjs");
 const { savePrompt, getHistory, clearHistory, openHistoryFolder } = require("./storage.cjs");
 
-ipcMain.handle("generate-playground", async (event, category, name, usageCode, componentFiles, options, taskId) => {
-  const result = await generatePlayground(category, name, usageCode, componentFiles, options, event, taskId);
+ipcMain.handle("generate-playground", async (event, ...args) => {
+  let result;
+  let taskId;
+
+  // Polymorphic Handler: Detects if first arg is the new Rich Payload
+  if (args.length === 3 && typeof args[0] === 'object' && args[0].options) {
+    const payload = args[0];
+    taskId = args[2];
+    result = await generatePlayground(payload, event, taskId);
+  } else {
+    // Legacy Positional Arguments (Single Component)
+    const [category, name, usageCode, componentFiles, options, tid] = args;
+    taskId = tid;
+    result = await generatePlayground({
+      category, name, usageCode, componentFiles, options,
+      selectedComponents: [{ category, name, files: componentFiles, usageMarkdown: usageCode }]
+    }, event, taskId);
+  }
   
   // If a child process was started, track it in the main process
   if (result.childProcess) {

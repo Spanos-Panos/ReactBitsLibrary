@@ -63,7 +63,7 @@ function App() {
   const [toastType, setToastType] = useState<"info" | "warning" | "success">("info");
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
   const [showGenerateWizard, setShowGenerateWizard] = useState(false);
-  
+
   // Multi-Tasking State
   const [tasks, setTasks] = useState<Record<string, Task>>({});
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -90,6 +90,8 @@ function App() {
     Animations: 3,
     Components: 5
   };
+
+  const [lastEnhancedPrompt, setLastEnhancedPrompt] = useState<any>(null);
 
   const filtered = useMemo(() => {
     return items.filter((item) => {
@@ -217,8 +219,11 @@ function App() {
   };
 
   const confirmGenerate = async () => {
-    if (!selected || !projectPath || !(window as any).reactBitsApi?.generatePlayground) return;
-    
+    if (!projectPath || !(window as any).reactBitsApi?.generatePlayground) return;
+
+    const isMasterBuild = !!lastEnhancedPrompt;
+    if (!isMasterBuild && !selected) return;
+
     const currentTasksCount = Object.keys(tasks).length;
     if (currentTasksCount >= 5) {
       setToastType("warning");
@@ -230,7 +235,7 @@ function App() {
     const taskId = Date.now().toString();
     const newTask: Task = {
       id: taskId,
-      name: selected.name,
+      name: isMasterBuild ? (lastEnhancedPrompt.projectMeta?.title || "AI Project") : selected!.name,
       projectName,
       progress: "Initializing project generation...",
       logs: ["Initializing Build Environment...\n"],
@@ -243,11 +248,22 @@ function App() {
     setGenerateStatus("");
 
     try {
-      const result = await (window as any).reactBitsApi.generatePlayground(
-        selected.category, selected.name, selected.usageMarkdown, componentFiles,
-        { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone },
-        taskId
-      );
+      let result;
+      if (isMasterBuild) {
+        // AI MASTER BUILD (Multicomponent)
+        result = await (window as any).reactBitsApi.generatePlayground({
+          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone },
+          selectedComponents: await Promise.all(selectedComponents.map(c => (window as any).reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
+          enhancedPrompt: lastEnhancedPrompt
+        }, null, taskId);
+      } else {
+        // SINGLE COMPONENT BUILD
+        result = await (window as any).reactBitsApi.generatePlayground(
+          selected!.category, selected!.name, selected!.usageMarkdown, componentFiles,
+          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone },
+          taskId
+        );
+      }
 
       if (result.success) {
         const finalStatus = runWhenDone ? 'running' : 'success';
@@ -263,6 +279,7 @@ function App() {
           }
         }));
         setGenerateStatus(result.message || "Success!");
+        if (isMasterBuild) setLastEnhancedPrompt(null);
       } else {
         setTasks(prev => ({
           ...prev,
@@ -326,7 +343,7 @@ function App() {
         })
       );
 
-      // 2. TRIGGER AI ARCHITECT (It will save both original & enhanced files)
+      // 2. TRIGGER AI ARCHITECT
       setGenerateStatus("AI Architect is designing your project...");
       const enhanceResult = await (window as any).reactBitsApi.enhancePrompt({
         rawPrompt: projectPrompt,
@@ -345,8 +362,11 @@ function App() {
       });
 
       if (enhanceResult.success) {
-        setGenerateStatus("Project Design Ready! (Synced snapshots saved)");
+        setGenerateStatus("Project Design Ready!");
         setToastType("success");
+        setLastEnhancedPrompt(enhanceResult.enhancedPrompt);
+        setProjectName(enhanceResult.enhancedPrompt?.projectMeta?.title || "reactbits-ai-project");
+        setShowGenerateWizard(true);
       } else {
         setToastType("warning");
         setGenerateStatus(`AI Error: ${enhanceResult.error}`);
@@ -407,10 +427,10 @@ function App() {
                           <div className="split-list-item-content">
                             <span className="split-list-item-title">{item.name}</span>
                           </div>
-                          
+
                           <div className="selection-container">
-                            <div 
-                              className="checkbox-custom" 
+                            <div
+                              className="checkbox-custom"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleSelection(item.id, e);
@@ -538,16 +558,16 @@ function App() {
         </section>
       </div>
 
-      {showGenerateWizard && selected && (
+      {showGenerateWizard && (selected || lastEnhancedPrompt) && (
         <div className="wizard-overlay" onClick={() => setShowGenerateWizard(false)}>
           <div className="wizard-modal" onClick={e => e.stopPropagation()}>
             <header className="wizard-header">
               <div className="window-controls"><span className="dot red"></span><span className="dot yellow"></span><span className="dot green"></span></div>
-              <h2>Generate Demo Project</h2>
+               <h2>{lastEnhancedPrompt ? "Generate AI Master Project" : "Generate Demo Project"}</h2>
               <button className="close-btn" onClick={() => setShowGenerateWizard(false)}>&times;</button>
             </header>
             <div className="wizard-body">
-              <p className="wizard-subtitle">Generate a standalone, ready-to-run project for <strong>{selected.name}</strong>.</p>
+              <p className="wizard-subtitle">Generate a standalone, ready-to-run project for <strong>{lastEnhancedPrompt ? lastEnhancedPrompt.projectMeta?.title || "AI Project" : selected?.name}</strong>.</p>
               <div className="wizard-section">
                 <label>Project Name</label>
                 <input type="text" className="wizard-input" value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. my-cool-demo" />
@@ -621,16 +641,16 @@ function App() {
         <div className="task-bar">
           <span style={{ fontSize: '12px', opacity: 0.6, marginRight: '8px' }}>Active Tasks:</span>
           {Object.values(tasks).map(task => (
-            <div 
-              key={task.id} 
+            <div
+              key={task.id}
               className={`task-bar-item ${task.status} ${activeTaskId === task.id ? 'active' : ''}`}
               onClick={() => setActiveTaskId(task.id)}
             >
               <div className="status-dot"></div>
               <span className="task-name">{task.name} ({task.projectName})</span>
               {(task.status === 'success' || task.status === 'error' || task.status === 'running') && (
-                <span 
-                  className="close-task" 
+                <span
+                  className="close-task"
                   title="Terminate process and clear task"
                   onClick={async (e) => {
                     e.stopPropagation();
@@ -651,8 +671,8 @@ function App() {
               )}
             </div>
           ))}
-          <button 
-            className="secondary-btn mini" 
+          <button
+            className="secondary-btn mini"
             style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px' }}
             onClick={async () => {
               if ((window as any).reactBitsApi?.terminateTask) {

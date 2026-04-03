@@ -6,36 +6,36 @@ const fs = require('fs/promises');
 function runCommand(command, args, cwd, onLog) {
   return new Promise((resolve, reject) => {
     if (!command) return reject(new Error("Attempted to run an empty command. Check your package manager settings."));
-    
+
     // Force absolute, normalized paths for Windows to avoid C::\ errors
     const safeCwd = path.resolve(cwd);
-    
+
     // Force CI mode and disable interactive prompts across multiple frameworks
     const env = { ...process.env, CI: 'true', FORCE_COLOR: '1', YES: 'true', NPM_CONFIG_YES: 'true' };
-    
+
     console.log(`[DemoCLI] Spawning command: "${command}" in CWD: ${safeCwd}`);
     const child = spawn(command, args, { cwd: safeCwd, shell: true, env });
-    
+
     const handleOutput = (data) => {
       const text = data.toString();
       onLog && onLog(text);
-      
+
       // Auto-answer YES to stubborn CLI prompts like shadcn
       if (text.match(/\([yY]\/[nN]\)/) || text.match(/proceed\?/i) || text.match(/components\.json/i)) {
         try {
           child.stdin.write('y\n');
-        } catch (e) {}
+        } catch (e) { }
       }
     };
 
     child.stdout.on('data', handleOutput);
     child.stderr.on('data', handleOutput);
-    
+
     child.on('error', (err) => {
       console.error(`[DemoCLI] FATAL Spawn Error:`, err);
       reject(err);
     });
-    
+
     child.on('close', (code) => {
       if (code === 0) resolve();
       else reject(new Error(`Command failed with exit code ${code}`));
@@ -44,7 +44,7 @@ function runCommand(command, args, cwd, onLog) {
 }
 
 async function generateViteReact(options) {
-  const { targetDir, projectName, componentCategory, componentName, componentFiles, usageCode, packageManager, installData, onProgress, onLog } = options;
+  const { targetDir, projectName, componentCategory, componentName, componentFiles, usageCode, selectedComponents, enhancedPrompt, packageManager, installData, onProgress, onLog } = options;
   const notify = (msg) => { if (onProgress) onProgress(msg); };
   const log = (msg) => { if (onLog) onLog(msg); };
 
@@ -61,172 +61,91 @@ async function generateViteReact(options) {
 
   await runCommand(scaffoldCmd, [], parentDir, log);
 
-  // 2. Install reactbits required dependencies
-  let depsCommand = "";
-  if (installData && installData.cli && installData.cli[packageManager]) {
-    depsCommand = installData.cli[packageManager];
-    if (depsCommand) {
-      // Auto-confirm terminal prompts for npx commands
-      if (depsCommand.startsWith('npx ') && !depsCommand.includes('--yes') && !depsCommand.includes('-y')) {
-        depsCommand = depsCommand.replace('npx ', 'npx --yes ');
-      }
-
-      // Pre-Flight Injection for UI registries (shadcn)
-      if (depsCommand.includes('shadcn')) {
-        notify(`Pre-flight: Injecting shadcn components.json...`);
-        const componentsJson = {
-          "$schema": "https://ui.shadcn.com/schema.json",
-          "style": "new-york",
-          "rsc": false,
-          "tsx": true,
-          "tailwind": {
-            "config": "tailwind.config.js",
-            "css": "src/index.css",
-            "baseColor": "slate",
-            "cssVariables": true,
-            "prefix": ""
-          },
-          "aliases": { "components": "@/components", "utils": "@/lib/utils" }
-        };
-        await fs.writeFile(path.join(targetDir, 'components.json'), JSON.stringify(componentsJson, null, 2), 'utf-8');
-        
-        // Inject minimum tailwind and utils
-        await fs.writeFile(path.join(targetDir, 'tailwind.config.js'), `/** @type {import('tailwindcss').Config} */\nmodule.exports = { content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"], theme: { extend: {} }, plugins: [] }`, 'utf-8');
-        await fs.mkdir(path.join(targetDir, 'src', 'lib'), { recursive: true });
-        await fs.writeFile(path.join(targetDir, 'src', 'lib', 'utils.ts'), `import { clsx, type ClassValue } from "clsx"\nimport { twMerge } from "tailwind-merge"\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs))\n}`, 'utf-8');
-        log(`> Generated components.json and tailwind.config.js to bypass prompts.\n`);
-      }
-
-      notify(`Installing component dependencies: ${depsCommand}...`);
-      log(`> ${depsCommand}\n`);
-      try {
-        await runCommand(depsCommand, [], targetDir, log);
-      } catch (e) {
-        log(`[WARNING] Failed to run dependency install command: ${e.message}\n`);
-      }
-    }
-  }
-
-  // Also do a blanket install for the Vite template
-  notify(`Installing boilerplate Vite dependencies via ${packageManager}...`);
-  log(`> ${packageManager} install\n`);
-  // Also do a blanket install for the Vite template
   notify(`Scanning for required dependencies...`);
-  const discoveredDeps = new Set(['clsx', 'tailwind-merge']); // Default base deps
+  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'gsap', 'ogl']);
   
-  // Manual Dependency Injection Support
-  if (installData?.manual?.[packageManager]) {
-    const manualLine = installData.manual[packageManager];
-    const match = manualLine.match(/(?:add|install)\s+([^.]+)/);
-    if (match && match[1]) {
-      const pkgNames = match[1].trim().split(/\s+/).filter((p) => p && !p.startsWith('-'));
-      pkgNames.forEach(p => discoveredDeps.add(p));
-    }
+  // Merge AI dependencies if present
+  if (enhancedPrompt?.technicalRequirements?.dependencies) {
+    enhancedPrompt.technicalRequirements.dependencies.forEach(d => discoveredDeps.add(d));
   }
 
-  const allCode = [usageCode, ...componentFiles.map(f => f.content)].join('\n');
-  
-  // Simple regex to find imports from node_modules (non-relative imports)
-  // We exclude imports starting with . or /
-  const importRegex = /import\s+.*\s+from\s+['"]([^./][^'"]+)['"]/g;
-  let match;
-  while ((match = importRegex.exec(allCode)) !== null) {
-    const fullPkg = match[1];
-    let pkg = "";
-    if (fullPkg.startsWith('@')) {
-      // Scoped package: @org/name -> we need the first two segments
-      const parts = fullPkg.split('/');
-      pkg = parts.slice(0, 2).join('/');
-    } else {
-      pkg = fullPkg.split('/')[0];
-    }
-    
-    // Filter out built-ins or already handled ones
-    if (pkg && pkg !== 'react' && pkg !== 'react-dom' && !pkg.startsWith('.') && !pkg.startsWith('@/')) {
-      discoveredDeps.add(pkg);
-    }
-  }
-  
-  // Special check for common shadcn/ui peer deps if not caught
-  if (allCode.includes('lucide')) discoveredDeps.add('lucide-react');
-  if (allCode.includes('framer-motion')) discoveredDeps.add('framer-motion');
-  if (allCode.includes('canvas-confetti')) discoveredDeps.add('canvas-confetti');
-  
-  // Three.js projects often need 'three' core if using r3f
-  if (Array.from(discoveredDeps).some(d => d.startsWith('@react-three'))) {
-    discoveredDeps.add('three');
-  }
-
+  // 2. Install dependencies
   const depList = Array.from(discoveredDeps).join(' ');
-  notify(`Installing boilerplate and discovered dependencies via ${packageManager}...`);
-  log(`> Added dependencies: ${depList}\n`);
-  
+  notify(`Installing project dependencies via ${packageManager}...`);
   await runCommand(`${packageManager} install`, [], targetDir, log);
   if (depList) {
-    notify(`Installing peer dependencies...`);
-    await runCommand(`${packageManager} ${packageManager === 'npm' ? 'install' : 'add'} ${depList}`, [], targetDir, log);
+      notify(`Installing UI components and tools...`);
+      await runCommand(`${packageManager} ${packageManager === 'npm' ? 'install' : 'add'} ${depList}`, [], targetDir, log);
   }
 
   // 3. Inject Component Files
   notify(`Injecting custom component files...`);
-  const componentDirPath = path.join(targetDir, 'src', 'components', componentCategory || "Components", componentName);
-  await fs.mkdir(componentDirPath, { recursive: true });
-
-  for (const file of componentFiles) {
-    const filePath = path.join(componentDirPath, file.name);
-    await fs.writeFile(filePath, file.content, 'utf-8');
-  }
-
-  // 4. Overwrite App.tsx with the Usage Example
-  const appTsxPath = path.join(targetDir, 'src', 'App.tsx');
   
-  let modifiedUsageCode = usageCode.replace(
-    new RegExp(`from\\s+['"]\\.\\/${componentName}['"]`, 'g'),
-    `from './components/${componentCategory || "Components"}/${componentName}/${componentName}'`
-  );
-
-  // If the component has .jsx inside usage code, generic replace
-  modifiedUsageCode = modifiedUsageCode.replace(
-    new RegExp(`from\\s+['"]\\.\\/${componentName}\\.(jsx|tsx|js|ts)['"]`, 'g'),
-    `from './components/${componentCategory || "Components"}/${componentName}/${componentName}'`
-  );
-
-  // Auto-wrap usage code into a valid React App component if needed
-  if (!modifiedUsageCode.includes("export default") && !modifiedUsageCode.includes("const App =")) {
-    const lines = modifiedUsageCode.split('\n');
-    const importLines = lines.filter(l => l.trim().startsWith('import '));
-    const nonImportLines = lines.filter(l => !l.trim().startsWith('import '));
-    const bodyText = nonImportLines.join('\n').trim();
-
-    // Check if bodyText defines a component (e.g. const Component = ... or function Component() ...)
-    const componentMatch = bodyText.match(/(?:const|function|class)\s+([A-Z][a-zA-Z0-9_]*)/);
-    
-    if (componentMatch && componentMatch[1]) {
-      const componentNameName = componentMatch[1];
-      modifiedUsageCode = `${importLines.join('\n')}\n\n${bodyText}\n\nexport default ${componentNameName};`;
-    } else {
-      // It's a raw snippet (like <Aurora />), use the App wrapper
-      modifiedUsageCode = `${importLines.join('\n')}
-
-export default function App() {
-  return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      ${bodyText.replace(/\n/g, '\n      ')}
-    </div>
-  );
-}
-`;
+  // Handle Master Build (Multi-component) or Legacy (Single)
+  const componentsToInject = selectedComponents || [{ category: componentCategory, name: componentName, files: componentFiles, usageMarkdown: usageCode }];
+  
+  for (const comp of componentsToInject) {
+    if (!comp.name || !comp.files) continue;
+    const compDirPath = path.join(targetDir, 'src', 'components', comp.category || "Components", comp.name);
+    await fs.mkdir(compDirPath, { recursive: true });
+    for (const file of comp.files) {
+      const filePath = path.join(compDirPath, file.name);
+      await fs.writeFile(filePath, file.content, 'utf-8');
     }
   }
 
-  await fs.writeFile(appTsxPath, modifiedUsageCode, 'utf-8');
+  // 4. Overwrite App.tsx (For single component, legacy mode)
+  if (!enhancedPrompt) {
+      const appTsxPath = path.join(targetDir, 'src', 'App.tsx');
+      let modifiedUsageCode = usageCode.replace(
+        new RegExp(`from\\s+['"]\\.\\/${componentName}['"]`, 'g'),
+        `from './components/${componentCategory || "Components"}/${componentName}/${componentName}'`
+      );
+      if (!modifiedUsageCode.includes("export default") && !modifiedUsageCode.includes("const App =")) {
+        const lines = modifiedUsageCode.split('\n');
+        const importLines = lines.filter(l => l.trim().startsWith('import '));
+        const bodyText = lines.filter(l => !l.trim().startsWith('import ')).join('\n').trim();
+        modifiedUsageCode = `${importLines.join('\n')}\n\nexport default function App() {\n  return (\n    <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>\n      ${bodyText.replace(/\n/g, '\n      ')}\n    </div>\n  );\n}\n`;
+      }
+      await fs.writeFile(appTsxPath, modifiedUsageCode, 'utf-8');
+  }
 
   notify(`Cleaning up boilerplate styles...`);
   const appCssPath = path.join(targetDir, 'src', 'App.css');
   const indexCssPath = path.join(targetDir, 'src', 'index.css');
-  
+
   await fs.writeFile(appCssPath, '/* Generated by ReactBits Explorer */\n', 'utf-8');
-  await fs.writeFile(indexCssPath, `body { margin: 0; background: #0f172a; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; }`, 'utf-8');
+  await fs.writeFile(indexCssPath, `@import "tailwindcss";\n\nbody { margin: 0; background: #000; color: #fff; min-height: 100vh; overflow-x: hidden; }`, 'utf-8');
+
+  // 5. Build AI Files if Master Build
+  let isAiBuild = false;
+  if (enhancedPrompt) {
+    isAiBuild = true;
+    notify(`Saving AI Master Brief...`);
+    await fs.writeFile(path.join(targetDir, 'enhancedPrompt.json'), JSON.stringify(enhancedPrompt, null, 2), 'utf-8');
+
+    notify(`Configuring Claude Mission Control...`);
+    const claudeMdContent = `# Project Mission: ${enhancedPrompt?.projectMeta?.title || projectName}
+
+You are an expert Frontend Developer. Your mission is to build the UI designed in \`enhancedPrompt.json\`.
+
+## Project Context
+- **Framework**: Vite + React (TypeScript) + Tailwind CSS (v4)
+- **Design Tokens**: See \`enhancedPrompt.json\` -> \`designTokens\`
+- **Components**: Pre-installed in \`src/components/\`
+
+## STRICT INSTRUCTIONS - READ CAREFULLY
+To minimize token costs and ensure speed:
+1. Read \`enhancedPrompt.json\`.
+2. Update \`src/App.tsx\` to implement the \`siteArchitecture\`, importing the components from \`src/components/\`.
+3. Style the layout using Tailwind CSS.
+4. **DO NOT** write tests.
+5. **DO NOT** delete the component source files.
+6. **DO NOT** scan the node_modules folder or any unnecessary files.
+7. **STOP EXACTLY HERE AND EXIT**. Do not propose next steps.
+`;
+    await fs.writeFile(path.join(targetDir, 'CLAUDE.md'), claudeMdContent, 'utf-8');
+  }
 
   // 6. Create dev.bat for Windows Execution Policy Bypass
   notify(`Creating one-click helper scripts...`);
@@ -273,20 +192,32 @@ export default function App() {
     await fs.writeFile(path.join(vscodeDirPath, 'settings.json'), JSON.stringify(settingsJson, null, 2), 'utf-8');
   }
 
-  // 7. Final Integrity Check (Strict if Auto-Run is enabled)
-  notify(`Verifying project integrity (checking for errors)...`);
-  try {
-    // Run tsc --noEmit to check for typescript errors without generating files
-    await runCommand('npx tsc --noEmit', [], targetDir, log);
-    notify(`Verification complete: No project errors found! Ready to run.`);
-  } catch (e) {
-    if (options.runWhenDone) {
-      log(`[FATAL INTEGRITY ERROR] TypeScript check failed. Self-repair or manual fix required before auto-running!\n`);
-      throw new Error(`Project Integrity Check Failed. Auto-launch blocked to prevent browser crash. Check terminal for details.`);
-    } else {
-      log(`[INTEGRITY WARNING] Found some issues during verification. Project created, but might need manual path adjustment.\n`);
-      notify(`Generation finished with warnings. Project available at target directory.`);
-    }
+  // 7. Auto-Launch Claude Code in Native Terminal
+  if (isAiBuild) {
+      notify(`Launching Claude Code in a Native Terminal...`);
+      const { exec } = require('child_process');
+      // Instructing it explicitly to just output the file saves tokens and keeps it from hallucinating tests
+      const claudeCmd = `claude -p "Read CLAUDE.md. Execute the required file replacements perfectly. STOP when finished. Do not ask for new tasks."`;
+      if (process.platform === 'win32') {
+         exec(`start cmd.exe /c "${claudeCmd} && pause"`, { cwd: targetDir });
+      } else {
+         exec(`open -a Terminal \`pwd\``, { cwd: targetDir }); // Mac fallback
+      }
+  } else {
+      // 8. Final Integrity Check (Strict if Auto-Run is enabled)
+      notify(`Verifying project integrity (checking for errors)...`);
+      try {
+        await runCommand('npx tsc --noEmit', [], targetDir, log);
+        notify(`Verification complete: No project errors found! Ready to run.`);
+      } catch (e) {
+        if (options.runWhenDone) {
+          log(`[FATAL INTEGRITY ERROR] TypeScript check failed. Self-repair or manual fix required before auto-running!\n`);
+          throw new Error(`Project Integrity Check Failed. Auto-launch blocked to prevent browser crash. Check terminal for details.`);
+        } else {
+          log(`[INTEGRITY WARNING] Found some issues during verification. Project created, but might need manual path adjustment.\n`);
+          notify(`Generation finished with warnings. Project available at target directory.`);
+        }
+      }
   }
 
   notify(`Finished setting up target project at ${targetDir}`);

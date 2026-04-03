@@ -6,16 +6,18 @@ const { generateViteReact } = require('./generators/vite-react.cjs');
 
 const execAsync = promisify(exec);
 
-async function generatePlayground(category, name, usageCode, componentFiles, options, event, taskId) {
+async function generatePlayground(payload, event, taskId) {
   try {
+    const { options, selectedComponents, enhancedPrompt, category, name, usageCode, componentFiles } = payload;
     if (!options.projectPath) {
       throw new Error("No destination path selected. Please choose a folder first.");
     }
 
-    const safeProjectName = (options.projectName || "demo-" + name.toLowerCase()).replace(/[^a-z0-9-_]/gi, '-');
+    const baseProjectName = options.projectName || enhancedPrompt?.projectMeta?.title || (name ? "demo-" + name.toLowerCase() : "ai-demo");
+    const safeProjectName = baseProjectName.replace(/[^a-z0-9-_]/gi, '-');
     const fullPath = join(path.resolve(options.projectPath), safeProjectName);
     const parentDir = path.resolve(options.projectPath);
-    
+
     // Callback to send progress to the frontend UI
     const onProgress = (msg) => {
       console.log(`[ID:${taskId}] ${msg}`);
@@ -31,6 +33,8 @@ async function generatePlayground(category, name, usageCode, componentFiles, opt
     await generateViteReact({
       targetDir: fullPath,
       projectName: safeProjectName,
+      selectedComponents,
+      enhancedPrompt,
       componentCategory: category,
       componentName: name,
       componentFiles,
@@ -39,6 +43,7 @@ async function generatePlayground(category, name, usageCode, componentFiles, opt
       installData: options.installData,
       onProgress,
       onLog,
+      runWhenDone: options.runWhenDone
     });
 
     let childProcess = null;
@@ -58,11 +63,11 @@ async function generatePlayground(category, name, usageCode, componentFiles, opt
       onProgress("Launching background dev server...");
       const { spawn } = require('child_process');
       const pm = options.packageManager || 'npm';
-      
+
       // On Windows, 'npm' is often a .cmd file, shell: true handles this.
       // --open tells Vite to open the browser automatically.
-      childProcess = spawn(pm, ['run', 'dev', '--', '--open'], { 
-        cwd: fullPath, 
+      childProcess = spawn(pm, ['run', 'dev', '--', '--open'], {
+        cwd: fullPath,
         shell: true,
         env: { ...process.env, BROWSER: 'chrome' }
       });
@@ -71,8 +76,8 @@ async function generatePlayground(category, name, usageCode, componentFiles, opt
       childProcess.stderr.on('data', (data) => onLog(`${data.toString()}`));
     }
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       path: fullPath,
       childProcess, // Returned to main.cjs for process tracking
       message: `Success! Project created at:\n${fullPath}${vsCodeMsg}`
