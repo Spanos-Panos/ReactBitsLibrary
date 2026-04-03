@@ -62,7 +62,7 @@ async function generateViteReact(options) {
   await runCommand(scaffoldCmd, [], parentDir, log);
 
   notify(`Scanning for required dependencies...`);
-  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'gsap', 'ogl']);
+  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'motion', 'gsap', 'ogl']);
   
   // Merge AI dependencies if present
   if (enhancedPrompt?.technicalRequirements?.dependencies) {

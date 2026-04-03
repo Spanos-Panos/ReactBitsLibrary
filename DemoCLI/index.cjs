@@ -72,8 +72,29 @@ async function generatePlayground(payload, event, taskId) {
         env: { ...process.env, BROWSER: 'chrome' }
       });
 
-      childProcess.stdout.on('data', (data) => onLog(data.toString()));
-      childProcess.stderr.on('data', (data) => onLog(`${data.toString()}`));
+      let isAutoKilling = false;
+      const handleOutput = (data) => {
+        const str = data.toString();
+        onLog(str);
+        if (options.autoKillOnError && !isAutoKilling && (str.includes('[vite] Internal server error') || str.includes('build error') || str.includes('Error:') || str.match(/✘ \[[a-z-]+\]/))) {
+          isAutoKilling = true;
+          onLog("\\n[DemoCLI] Fatal Vite error detected. Waiting 5s for browser to render error screen before auto-killing server...\\n");
+          
+          setTimeout(() => {
+            if (process.platform === 'win32') {
+               require('child_process').exec(`taskkill /pid ${childProcess.pid} /T /F`, () => {
+                   if (event && event.sender) event.sender.send("generate-progress", "!ERROR_KILL", taskId);
+               });
+            } else {
+               childProcess.kill('SIGTERM');
+               if (event && event.sender) event.sender.send("generate-progress", "!ERROR_KILL", taskId);
+            }
+          }, 5000);
+        }
+      };
+
+      childProcess.stdout.on('data', handleOutput);
+      childProcess.stderr.on('data', handleOutput);
     }
 
     return {

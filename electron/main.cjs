@@ -22,22 +22,16 @@ function killProcessTree(proc, taskId = 'unknown') {
     if (process.platform === 'win32') {
       console.log(`[Main] Force-terminating process tree for Task:${taskId} (PID:${pid})...`);
       // /f = force, /t = tree (kill children too)
-      exec(`taskkill /pid ${pid} /f /t`, (err) => {
-        if (err) {
-          // If the process is already gone, that's fine
-          if (!err.message.includes('not found')) {
-            console.error(`[Main] Taskkill failed for PID ${pid}:`, err.message);
-          }
-        } else {
-          console.log(`[Main] Successfully killed process tree for PID ${pid}`);
-        }
-      });
+      require('child_process').execSync(`taskkill /pid ${pid} /f /t`);
+      console.log(`[Main] Successfully killed process tree for PID ${pid}`);
     } else {
       console.log(`[Main] Killing process Group for Task:${taskId} (PID:${pid})...`);
       proc.kill('SIGTERM');
     }
   } catch (err) {
-    console.error(`[Main] Error in killProcessTree for ${pid}:`, err);
+    if (!err.message?.includes('not found')) {
+       console.error(`[Main] Error in killProcessTree for ${pid}:`, err.message);
+    }
   }
 }
 

@@ -73,6 +73,7 @@ function App() {
   const [projectPath, setProjectPath] = useState("");
   const [openWhenDone, setOpenWhenDone] = useState(true);
   const [runWhenDone, setRunWhenDone] = useState(false);
+  const [autoKillOnError, setAutoKillOnError] = useState(false);
   const [parsedInstallData, setParsedInstallData] = useState<{
     cli: Record<string, string>;
     manual: Record<string, string>;
@@ -165,6 +166,15 @@ function App() {
   useEffect(() => {
     if ((window as any).reactBitsApi?.onGenerateProgress) {
       (window as any).reactBitsApi.onGenerateProgress((msg: string, taskId: string) => {
+        if (msg === "!ERROR_KILL") {
+          setTasks(prev => {
+             const next = { ...prev };
+             delete next[taskId];
+             return next;
+          });
+          if (activeTaskId === taskId) setActiveTaskId(null);
+          return;
+        }
         setTasks(prev => {
           if (!prev[taskId]) return prev;
           return {
@@ -252,7 +262,7 @@ function App() {
       if (isMasterBuild) {
         // AI MASTER BUILD (Multicomponent)
         result = await (window as any).reactBitsApi.generatePlayground({
-          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone },
+          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
           selectedComponents: await Promise.all(selectedComponents.map(c => (window as any).reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
           enhancedPrompt: lastEnhancedPrompt
         }, null, taskId);
@@ -260,7 +270,7 @@ function App() {
         // SINGLE COMPONENT BUILD
         result = await (window as any).reactBitsApi.generatePlayground(
           selected!.category, selected!.name, selected!.usageMarkdown, componentFiles,
-          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone },
+          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
           taskId
         );
       }
@@ -605,6 +615,14 @@ function App() {
                   <span>Run project automatically (npm run dev)</span>
                 </label>
               </div>
+              {runWhenDone && (
+                <div className="wizard-section checkbox-section" style={{ marginTop: '-0.5rem', marginLeft: '1.5rem', opacity: 0.8 }}>
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={autoKillOnError} onChange={(e) => setAutoKillOnError(e.target.checked)} />
+                    <span>Auto-kill/close project if browser errors out</span>
+                  </label>
+                </div>
+              )}
             </div>
             <div className="wizard-actions">
               <button className="secondary-btn" onClick={() => setShowGenerateWizard(false)}>Cancel</button>
