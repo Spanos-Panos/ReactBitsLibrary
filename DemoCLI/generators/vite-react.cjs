@@ -183,18 +183,28 @@ async function generateViteReact(options) {
   if (!modifiedUsageCode.includes("export default") && !modifiedUsageCode.includes("const App =")) {
     const lines = modifiedUsageCode.split('\n');
     const importLines = lines.filter(l => l.trim().startsWith('import '));
-    const bodyLines = lines.filter(l => !l.trim().startsWith('import ') && l.trim() !== '');
+    const nonImportLines = lines.filter(l => !l.trim().startsWith('import '));
+    const bodyText = nonImportLines.join('\n').trim();
+
+    // Check if bodyText defines a component (e.g. const Component = ... or function Component() ...)
+    const componentMatch = bodyText.match(/(?:const|function|class)\s+([A-Z][a-zA-Z0-9_]*)/);
     
-    modifiedUsageCode = `${importLines.join('\n')}
+    if (componentMatch && componentMatch[1]) {
+      const componentNameName = componentMatch[1];
+      modifiedUsageCode = `${importLines.join('\n')}\n\n${bodyText}\n\nexport default ${componentNameName};`;
+    } else {
+      // It's a raw snippet (like <Aurora />), use the App wrapper
+      modifiedUsageCode = `${importLines.join('\n')}
 
 export default function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      ${bodyLines.join('\n      ')}
+      ${bodyText.replace(/\n/g, '\n      ')}
     </div>
   );
 }
 `;
+    }
   }
 
   await fs.writeFile(appTsxPath, modifiedUsageCode, 'utf-8');
@@ -211,6 +221,45 @@ export default function App() {
   const devBatPath = path.join(targetDir, 'dev.bat');
   const devBatContent = `@echo off\necho Starting ReactBits Playground...\nPowerShell -ExecutionPolicy Bypass -Command "${packageManager} run dev"\npause`;
   await fs.writeFile(devBatPath, devBatContent, 'utf-8');
+
+  // 6b. VSCode Auto-Run Task
+  if (options.runWhenDone) {
+    notify(`Injecting VS Code auto-run configuration...`);
+    const vscodeDirPath = path.join(targetDir, '.vscode');
+    await fs.mkdir(vscodeDirPath, { recursive: true });
+    const tasksJson = {
+      version: "2.0.0",
+      tasks: [
+        {
+          label: "ReactBits: Auto Dev Server",
+          type: "shell",
+          command: `${packageManager} run dev`,
+          windows: {
+            command: `PowerShell -ExecutionPolicy Bypass -Command "${packageManager} run dev"`
+          },
+          runOptions: {
+            runOn: "folderOpen"
+          },
+          presentation: {
+            reveal: "always",
+            panel: "dedicated",
+            group: "reactbits",
+            focus: true
+          },
+          problemMatcher: []
+        }
+      ]
+    };
+    await fs.writeFile(path.join(vscodeDirPath, 'tasks.json'), JSON.stringify(tasksJson, null, 2), 'utf-8');
+
+    const settingsJson = {
+      "terminal.integrated.showOnStartup": "always",
+      "workbench.startupEditor": "none",
+      "task.allowAutomaticTasks": "on",
+      "window.newWindowDimensions": "maximized"
+    };
+    await fs.writeFile(path.join(vscodeDirPath, 'settings.json'), JSON.stringify(settingsJson, null, 2), 'utf-8');
+  }
 
   // 7. Final Integrity Check (Silent build test)
   notify(`Verifying project integrity (checking for errors)...`);

@@ -12,7 +12,23 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { enhancePrompt } = require("./promptEnhancer.cjs");
 const isDev = process.env.NODE_ENV === "development";
 
-let mainWindow = null;
+const activeProcesses = new Map();
+const { exec, spawn } = require('child_process');
+
+function killProcessTree(proc) {
+  if (!proc || !proc.pid) return;
+  try {
+    if (process.platform === 'win32') {
+      exec(`taskkill /pid ${proc.pid} /f /t`, (err) => {
+        if (err) console.error(`Taskkill failed for PID ${proc.pid}:`, err);
+      });
+    } else {
+      proc.kill('SIGTERM');
+    }
+  } catch (err) {
+    console.error(`Error killing process ${proc.pid}:`, err);
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -60,6 +76,14 @@ app.whenReady().then(() => {
   autoUpdater.checkForUpdatesAndNotify();
 });
 
+app.on("before-quit", () => {
+  console.log("App quitting... killing all background processes");
+  for (const [taskId, proc] of activeProcesses.entries()) {
+    killProcessTree(proc);
+  }
+  activeProcesses.clear();
+});
+
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
@@ -87,8 +111,25 @@ ipcMain.handle("select-directory", async () => {
 const { generatePlayground } = require("../DemoCLI/index.cjs");
 const { savePrompt, getHistory, clearHistory, openHistoryFolder } = require("./storage.cjs");
 
-ipcMain.handle("generate-playground", async (event, category, name, usageCode, componentFiles, options) => {
-  return await generatePlayground(category, name, usageCode, componentFiles, options, event);
+ipcMain.handle("generate-playground", async (event, category, name, usageCode, componentFiles, options, taskId) => {
+  const result = await generatePlayground(category, name, usageCode, componentFiles, options, event, taskId);
+  
+  // If a child process was started, track it in the main process
+  if (result.childProcess) {
+    activeProcesses.set(taskId, result.childProcess);
+  }
+  
+  return result;
+});
+
+ipcMain.handle("terminate-task", async (event, taskId) => {
+  const proc = activeProcesses.get(taskId);
+  if (proc) {
+    killProcessTree(proc);
+    activeProcesses.delete(taskId);
+    return { success: true };
+  }
+  return { success: false, error: "No active process found for this task" };
 });
 
 // Storage IPC Handlers

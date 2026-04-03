@@ -21,17 +21,17 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
     }
     return result;
   },
-  generatePlayground(category, name, usageCode, componentFiles, options) {
-    return ipcRenderer.invoke("generate-playground", category, name, usageCode, componentFiles, options);
+  generatePlayground(category, name, usageCode, componentFiles, options, taskId) {
+    return ipcRenderer.invoke("generate-playground", category, name, usageCode, componentFiles, options, taskId);
   },
   onGenerateProgress(callback) {
-    ipcRenderer.on("generate-progress", (event, message) => {
-      callback(message);
+    ipcRenderer.on("generate-progress", (event, message, taskId) => {
+      callback(message, taskId);
     });
   },
   onGenerateLog(callback) {
-    ipcRenderer.on("generate-log", (event, message) => {
-      callback(message);
+    ipcRenderer.on("generate-log", (event, message, taskId) => {
+      callback(message, taskId);
     });
   },
   selectDirectory() {
@@ -51,6 +51,9 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   },
   enhancePrompt(payload) {
     return ipcRenderer.invoke("enhance-prompt", payload);
+  },
+  terminateTask(taskId) {
+    return ipcRenderer.invoke("terminate-task", taskId);
   }
 });
 

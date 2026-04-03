@@ -6,6 +6,18 @@ import FlowingMenu from "./components/Components/FlowingMenu/FlowingMenu";
 import PillNav from "./components/Components/PillNav/PillNav";
 import SplitText from "./components/TextAnimations/SplitText/SplitText";
 import ProjectBuilderPanel from "./components/ProjectBuilderPanel";
+import "./TaskStyles.css";
+
+interface Task {
+  id: string;
+  name: string;
+  projectName: string;
+  progress: string;
+  logs: string[];
+  status: 'running' | 'success' | 'error';
+  error?: string;
+  path?: string;
+}
 
 type ReactBitsItem = (typeof manifest)[number];
 
@@ -51,13 +63,16 @@ function App() {
   const [toastType, setToastType] = useState<"info" | "warning">("info");
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
   const [showGenerateWizard, setShowGenerateWizard] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateProgress, setGenerateProgress] = useState("");
-  const [generateLogs, setGenerateLogs] = useState<string[]>(["Initializing Build Environment...\n"]);
+  
+  // Multi-Tasking State
+  const [tasks, setTasks] = useState<Record<string, Task>>({});
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+
   const terminalRef = useRef<HTMLPreElement>(null);
   const [projectName, setProjectName] = useState("");
   const [projectPath, setProjectPath] = useState("");
   const [openWhenDone, setOpenWhenDone] = useState(true);
+  const [runWhenDone, setRunWhenDone] = useState(false);
   const [parsedInstallData, setParsedInstallData] = useState<{
     cli: Record<string, string>;
     manual: Record<string, string>;
@@ -147,16 +162,37 @@ function App() {
 
   useEffect(() => {
     if ((window as any).reactBitsApi?.onGenerateProgress) {
-      (window as any).reactBitsApi.onGenerateProgress((msg: string) => setGenerateProgress(msg));
+      (window as any).reactBitsApi.onGenerateProgress((msg: string, taskId: string) => {
+        setTasks(prev => {
+          if (!prev[taskId]) return prev;
+          return {
+            ...prev,
+            [taskId]: { ...prev[taskId], progress: msg }
+          };
+        });
+      });
     }
     if ((window as any).reactBitsApi?.onGenerateLog) {
-      (window as any).reactBitsApi.onGenerateLog((msg: string) => setGenerateLogs(prev => [...prev.slice(-300), msg]));
+      (window as any).reactBitsApi.onGenerateLog((msg: string, taskId: string) => {
+        setTasks(prev => {
+          if (!prev[taskId]) return prev;
+          return {
+            ...prev,
+            [taskId]: {
+              ...prev[taskId],
+              logs: [...prev[taskId].logs.slice(-300), msg]
+            }
+          };
+        });
+      });
     }
   }, []);
 
   useEffect(() => {
-    if (terminalRef.current) terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-  }, [generateLogs]);
+    if (activeTaskId && terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [tasks, activeTaskId]);
 
   const handleSelectComponent = (id: string) => {
     setSelectedId(id);
@@ -182,22 +218,64 @@ function App() {
 
   const confirmGenerate = async () => {
     if (!selected || !projectPath || !(window as any).reactBitsApi?.generatePlayground) return;
-    setIsGenerating(true);
-    setGenerateProgress("Initializing project generation...");
-    setGenerateLogs(["Initializing Build Environment...\n"]);
+    
+    const currentTasksCount = Object.keys(tasks).length;
+    if (currentTasksCount >= 5) {
+      setToastType("warning");
+      setGenerateStatus("Task limit reached (max 5). Please close completed tasks first!");
+      setTimeout(() => setGenerateStatus(""), 4000);
+      return;
+    }
+
+    const taskId = Date.now().toString();
+    const newTask: Task = {
+      id: taskId,
+      name: selected.name,
+      projectName,
+      progress: "Initializing project generation...",
+      logs: ["Initializing Build Environment...\n"],
+      status: 'running'
+    };
+
+    setTasks(prev => ({ ...prev, [taskId]: newTask }));
+    setActiveTaskId(null); // Auto-hide: Don't set active taskId, so it starts in background
     setShowGenerateWizard(false);
     setGenerateStatus("");
+
     try {
       const result = await (window as any).reactBitsApi.generatePlayground(
         selected.category, selected.name, selected.usageMarkdown, componentFiles,
-        { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone }
+        { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone },
+        taskId
       );
-      if (result.success) setGenerateStatus(result.message || `Success! Project created at:\n${result.path}`);
-      else setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
+
+      if (result.success) {
+        const finalStatus = runWhenDone ? 'running' : 'success';
+        const finalProgress = runWhenDone ? "Local Server Running! (Check Browser)" : "Generation Complete!";
+        
+        setTasks(prev => ({
+          ...prev,
+          [taskId]: { 
+            ...prev[taskId], 
+            status: finalStatus, 
+            progress: finalProgress,
+            path: result.path 
+          }
+        }));
+        setGenerateStatus(result.message || "Success!");
+      } else {
+        setTasks(prev => ({
+          ...prev,
+          [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error }
+        }));
+        setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
+      }
     } catch (e: any) {
+      setTasks(prev => ({
+        ...prev,
+        [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: e.message }
+      }));
       setGenerateStatus(`Error: ${e.message}`);
-    } finally {
-      setIsGenerating(false);
     }
     setTimeout(() => setGenerateStatus(""), 8000);
   };
@@ -474,6 +552,14 @@ function App() {
               <div className="wizard-section checkbox-section">
                 <label className="checkbox-label"><input type="checkbox" checked={openWhenDone} onChange={(e) => setOpenWhenDone(e.target.checked)} /><span>Open project automatically in VS Code when finished</span></label>
               </div>
+              {openWhenDone && (
+                <div className="wizard-section checkbox-section" style={{ marginTop: '-1rem', marginLeft: '1.5rem', opacity: 0.8 }}>
+                  <label className="checkbox-label" style={{ fontSize: '0.85rem' }}>
+                    <input type="checkbox" checked={runWhenDone} onChange={(e) => setRunWhenDone(e.target.checked)} />
+                    <span>Run project automatically (npm run dev)</span>
+                  </label>
+                </div>
+              )}
             </div>
             <div className="wizard-actions">
               <button className="secondary-btn" onClick={() => setShowGenerateWizard(false)}>Cancel</button>
@@ -483,17 +569,79 @@ function App() {
         </div>
       )}
 
-      {isGenerating && (
+      {activeTaskId && tasks[activeTaskId] && (
         <div className="loading-overlay">
           <div className="loading-content expanded">
-            <div className="spinner"></div>
-            <h3>Generating Demo Project...</h3>
-            <p className="loading-progress-text">{generateProgress || "Please wait while we scaffold the project..."}</p>
+            {tasks[activeTaskId].status === 'running' && <div className="spinner"></div>}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px' }}>
+              <h3 style={{ margin: 0 }}>{tasks[activeTaskId].status === 'running' ? 'Generating Project...' : 'Generation Result'}</h3>
+              {tasks[activeTaskId].status !== 'running' && (
+                <button className="secondary-btn mini" onClick={() => setActiveTaskId(null)}>Close Overlay</button>
+              )}
+            </div>
+            <p className="loading-progress-text">{tasks[activeTaskId].progress}</p>
             <div className="terminal-container">
-              <div className="terminal-header"><div className="window-controls mini"><span className="dot red"></span><span className="dot yellow"></span><span className="dot green"></span></div><span className="terminal-title">bash - build</span></div>
-              <pre className="terminal-body" ref={terminalRef}>{generateLogs.map((log, i) => <span key={i}>{log}</span>)}</pre>
+              <div className="terminal-header">
+                <div className="window-controls mini"><span className="dot red"></span><span className="dot yellow"></span><span className="dot green"></span></div>
+                <span className="terminal-title">bash - build ({tasks[activeTaskId].name})</span>
+                <button className="hide-btn" onClick={() => setActiveTaskId(null)}>Hide</button>
+              </div>
+              <pre className="terminal-body" ref={terminalRef}>{tasks[activeTaskId].logs.map((log, i) => <span key={i}>{log}</span>)}</pre>
             </div>
           </div>
+        </div>
+      )}
+
+      {Object.keys(tasks).length > 0 && (
+        <div className="task-bar">
+          <span style={{ fontSize: '12px', opacity: 0.6, marginRight: '8px' }}>Active Tasks:</span>
+          {Object.values(tasks).map(task => (
+            <div 
+              key={task.id} 
+              className={`task-bar-item ${task.status} ${activeTaskId === task.id ? 'active' : ''}`}
+              onClick={() => setActiveTaskId(task.id)}
+            >
+              <div className="status-dot"></div>
+              <span className="task-name">{task.name} ({task.projectName})</span>
+              {(task.status === 'success' || task.status === 'error' || task.status === 'running') && (
+                <span 
+                  className="close-task" 
+                  title="Terminate process and clear task"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    // Always try to terminate the associated process if any
+                    if ((window as any).reactBitsApi?.terminateTask) {
+                      await (window as any).reactBitsApi.terminateTask(task.id);
+                    }
+                    setTasks(prev => {
+                      const next = { ...prev };
+                      delete next[task.id];
+                      return next;
+                    });
+                    if (activeTaskId === task.id) setActiveTaskId(null);
+                  }}
+                >
+                  &times;
+                </span>
+              )}
+            </div>
+          ))}
+          <button 
+            className="secondary-btn mini" 
+            style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px' }}
+            onClick={async () => {
+              if ((window as any).reactBitsApi?.terminateTask) {
+                // Terminate all processes
+                for (const taskId of Object.keys(tasks)) {
+                  await (window as any).reactBitsApi.terminateTask(taskId);
+                }
+              }
+              setTasks({});
+              setActiveTaskId(null);
+            }}
+          >
+            CLEAR ALL
+          </button>
         </div>
       )}
       {generateStatus && <div className={`status-toast ${toastType}`}>{generateStatus}</div>}

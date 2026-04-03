@@ -1,37 +1,50 @@
-import React, { useRef, useEffect, ReactNode } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import React, { useRef, useEffect } from 'react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
-interface AnimatedContentProps {
-  children: ReactNode;
+interface AnimatedContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+  container?: Element | string | null;
   distance?: number;
-  direction?: "vertical" | "horizontal";
+  direction?: 'vertical' | 'horizontal';
   reverse?: boolean;
   duration?: number;
-  ease?: string | ((progress: number) => number);
+  ease?: string;
   initialOpacity?: number;
   animateOpacity?: boolean;
   scale?: number;
   threshold?: number;
   delay?: number;
+  disappearAfter?: number;
+  disappearDuration?: number;
+  disappearEase?: string;
   onComplete?: () => void;
+  onDisappearanceComplete?: () => void;
 }
 
 const AnimatedContent: React.FC<AnimatedContentProps> = ({
   children,
+  container,
   distance = 100,
-  direction = "vertical",
+  direction = 'vertical',
   reverse = false,
   duration = 0.8,
-  ease = "power3.out",
+  ease = 'power3.out',
   initialOpacity = 0,
   animateOpacity = true,
   scale = 1,
   threshold = 0.1,
   delay = 0,
+  disappearAfter = 0,
+  disappearDuration = 0.5,
+  disappearEase = 'power3.in',
   onComplete,
+  onDisappearanceComplete,
+  className = '',
+  style,
+  ...props
 }) => {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -39,7 +52,13 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
     const el = ref.current;
     if (!el) return;
 
-    const axis = direction === "horizontal" ? "x" : "y";
+    let scrollerTarget: Element | string | null = container || document.getElementById('snap-main-container') || null;
+
+    if (typeof scrollerTarget === 'string') {
+      scrollerTarget = document.querySelector(scrollerTarget);
+    }
+
+    const axis = direction === 'horizontal' ? 'x' : 'y';
     const offset = reverse ? -distance : distance;
     const startPct = (1 - threshold) * 100;
 
@@ -47,29 +66,51 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
       [axis]: offset,
       scale,
       opacity: animateOpacity ? initialOpacity : 1,
+      visibility: 'visible'
     });
 
-    gsap.to(el, {
+    const tl = gsap.timeline({
+      paused: true,
+      delay,
+      onComplete: () => {
+        if (onComplete) onComplete();
+
+        if (disappearAfter > 0) {
+          gsap.to(el, {
+            [axis]: reverse ? distance : -distance,
+            scale: 0.8,
+            opacity: animateOpacity ? initialOpacity : 0,
+            delay: disappearAfter,
+            duration: disappearDuration,
+            ease: disappearEase,
+            onComplete: () => onDisappearanceComplete?.()
+          });
+        }
+      }
+    });
+
+    tl.to(el, {
       [axis]: 0,
       scale: 1,
       opacity: 1,
       duration,
-      ease,
-      delay,
-      onComplete,
-      scrollTrigger: {
-        trigger: el,
-        start: `top ${startPct}%`,
-        toggleActions: "play none none none",
-        once: true,
-      },
+      ease
+    });
+
+    const st = ScrollTrigger.create({
+      trigger: el,
+      scroller: scrollerTarget || window,
+      start: `top ${startPct}%`,
+      once: true,
+      onEnter: () => tl.play()
     });
 
     return () => {
-      ScrollTrigger.getAll().forEach((t) => t.kill());
-      gsap.killTweensOf(el);
+      st.kill();
+      tl.kill();
     };
   }, [
+    container,
     distance,
     direction,
     reverse,
@@ -80,10 +121,18 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
     scale,
     threshold,
     delay,
+    disappearAfter,
+    disappearDuration,
+    disappearEase,
     onComplete,
+    onDisappearanceComplete
   ]);
 
-  return <div ref={ref}>{children}</div>;
+  return (
+    <div ref={ref} className={className} style={{ visibility: 'hidden', ...style }} {...props}>
+      {children}
+    </div>
+  );
 };
 
 export default AnimatedContent;
