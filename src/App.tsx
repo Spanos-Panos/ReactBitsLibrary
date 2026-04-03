@@ -60,7 +60,7 @@ function App() {
   const [installTab, setInstallTab] = useState<"cli" | "manual">("cli");
   const [packageManager, setPackageManager] = useState<"pnpm" | "npm" | "yarn" | "bun">("pnpm");
   const [generateStatus, setGenerateStatus] = useState<string>("");
-  const [toastType, setToastType] = useState<"info" | "warning">("info");
+  const [toastType, setToastType] = useState<"info" | "warning" | "success">("info");
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
   const [showGenerateWizard, setShowGenerateWizard] = useState(false);
   
@@ -312,23 +312,50 @@ function App() {
       setTimeout(() => setGenerateStatus(""), 4000);
       return;
     }
-    setToastType("info");
-    setGenerateStatus("Saving project prompt and selections...");
+    setGenerateStatus("Scavenging component source code...");
     try {
-      const result = await (window as any).reactBitsApi.savePrompt({
-        prompt: projectPrompt,
-        selectedComponents: selectedComponents.map(c => ({ id: c.id, name: c.name, category: c.category }))
+      // 1. GATHER CONTEXT
+      const componentsWithContext = await Promise.all(
+        selectedComponents.map(async (comp) => {
+          try {
+            return await (window as any).reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id);
+          } catch (e) {
+            console.warn(`Failed to gather context for ${comp.name}`, e);
+            return { id: comp.id, name: comp.name, category: comp.category };
+          }
+        })
+      );
+
+      // 2. TRIGGER AI ARCHITECT (It will save both original & enhanced files)
+      setGenerateStatus("AI Architect is designing your project...");
+      const enhanceResult = await (window as any).reactBitsApi.enhancePrompt({
+        rawPrompt: projectPrompt,
+        selectedComponents: componentsWithContext,
+        systemContext: {
+          framework: "Vite + React (TypeScript)",
+          styling: "Tailwind CSS v4",
+          icons: "Lucide React",
+          animations: ["Framer Motion", "GSAP"],
+          architectureRules: [
+            "Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.",
+            "Maintain a Z-Index strategy where Backgrounds stay at Z:0.",
+            "Use Lucide React for iconography."
+          ]
+        }
       });
-      if (result.success) setGenerateStatus("Prompt saved to history! (Ready for Enhancer)");
-      else {
+
+      if (enhanceResult.success) {
+        setGenerateStatus("Project Design Ready! (Synced snapshots saved)");
+        setToastType("success");
+      } else {
         setToastType("warning");
-        setGenerateStatus(`Failed to save: ${result.error}`);
+        setGenerateStatus(`AI Error: ${enhanceResult.error}`);
       }
     } catch (err: any) {
       setToastType("warning");
       setGenerateStatus(`Error: ${err.message}`);
     }
-    setTimeout(() => setGenerateStatus(""), 4000);
+    setTimeout(() => setGenerateStatus(""), 5000);
   };
 
   return (
@@ -552,14 +579,12 @@ function App() {
               <div className="wizard-section checkbox-section">
                 <label className="checkbox-label"><input type="checkbox" checked={openWhenDone} onChange={(e) => setOpenWhenDone(e.target.checked)} /><span>Open project automatically in VS Code when finished</span></label>
               </div>
-              {openWhenDone && (
-                <div className="wizard-section checkbox-section" style={{ marginTop: '-1rem', marginLeft: '1.5rem', opacity: 0.8 }}>
-                  <label className="checkbox-label" style={{ fontSize: '0.85rem' }}>
-                    <input type="checkbox" checked={runWhenDone} onChange={(e) => setRunWhenDone(e.target.checked)} />
-                    <span>Run project automatically (npm run dev)</span>
-                  </label>
-                </div>
-              )}
+              <div className="wizard-section checkbox-section" style={{ marginTop: '-0.5rem' }}>
+                <label className="checkbox-label">
+                  <input type="checkbox" checked={runWhenDone} onChange={(e) => setRunWhenDone(e.target.checked)} />
+                  <span>Run project automatically (npm run dev)</span>
+                </label>
+              </div>
             </div>
             <div className="wizard-actions">
               <button className="secondary-btn" onClick={() => setShowGenerateWizard(false)}>Cancel</button>

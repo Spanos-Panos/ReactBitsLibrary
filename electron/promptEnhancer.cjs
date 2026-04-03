@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const Anthropic = require("@anthropic-ai/sdk");
 const fs = require("fs");
 const path = require("path");
 const { app } = require("electron");
@@ -40,139 +40,134 @@ function saveFile(dir, filename, content) {
 // ─── Skill content ────────────────────────────────────────────────────────────
 
 const PROMPT_ENHANCER_SKILL = `
-# promptEnhancer Skill (Architect Level v2)
+# Senior Project Architect (Claude Haiku 4.5 Edition)
 
-You are a Senior Solutions Architect. Transform a rough user prompt + selected components (including their full source code) into a professional Technical Specification JSON.
+You are a Senior UI Architect and Frontend Lead. Your mission is to transform a raw user request + a set of custom React components (Full Source provided) into a Master Project Brief.
 
-## Output Format
+## YOUR CONTEXT
+You will be provided with a "componentContext" array. For each component, you have:
+1. **Source Code**: The actual .tsx and .css files. Analyze the 'props' interface carefully.
+2. **Usage**: A markdown file showing how to implement it.
+3. **Install**: The dependencies required.
 
-CRITICAL: Return ONLY a raw JSON object. No markdown backticks, no preamble.
+## OUTPUT FORMAT
+Return ONLY a raw JSON object. No preamble, no backticks.
 
-The JSON must have these top-level fields:
 {
-  "projectMeta": { "title", "type", "theme", "mood", "targetAudience" },
-  "designTokens": { 
-    "colors": { "primary", "secondary", "background", "text", "accent" },
-    "typography": { "headingFont", "bodyFont" },
-    "borderRadius": "8px",
-    "spacing": "1.5rem"
-  },
+  "projectMeta": { "title", "theme", "mood" },
+  "designTokens": { "colors": { "primary", "secondary", "background", "text", "accent" }, "typography", "borderRadius" },
   "siteArchitecture": {
-    "pages": [
-      { 
-        "id": "index", 
-        "sections": [
-          { "id", "type", "componentRef", "props", "copy": { "headline", "body", "cta" } }
-        ] 
-      }
+    "sections": [
+      { "id", "componentRef", "props": { "propName": "Value" }, "content": { "headline", "body", "cta" } }
     ]
   },
-  "componentWiring": [
-    { 
-       "name": "ComponentName", 
-       "importPath": "./components/Category/Name/Name",
-       "dependencies": ["list of npm packages required based on imports in the source"],
-       "instantiation": "string (JSX string with mapped props, using ACTUAL prop names from the source)"
-    }
-  ],
-  "globalStyles": "string (CSS variables for the theme)",
-  "generatorInstruction": "string (250-350 word technical mega-instruction for a developer LLM)"
+  "technicalRequirements": {
+    "dependencies": ["List of npm packages needed"],
+    "layoutStrategy": "Layout description"
+  },
+  "generatorSteps": [
+    "Step 1: Description",
+    "Step 2: Description",
+    "CRITICAL: NO MARKDOWN CODE BLOCKS (\\\`\\\`\\\`) OR NEWLINES IN THESE STRINGS."
+  ]
 }
 
-## Rules
-
-1. **Source analysis**: You are provided with the 'fullSource' for each component. Read it carefully. 
-2. **Prop Accuracy**: ONLY use prop names that actually exist in the component's source code.
-3. **Dependency Tracking**: Identify all external libraries used (e.g. framer-motion, lucide-react, three) and list them.
-4. **Architecture First**: Define exactly where each component goes in a semantic structure. Even for 'no-scroll' pages, use realistic structural constraints (e.g. flexbox, grid, and specific Z-indices) to ensure components don't just dump into an unformatted box.
-5. **Interactive Wrappers**: If using components like Crosshair or BlobCursor, ensure the layout includes standard interactive elements (like \`<a>\` or \`<button>\`) within their container so hover effects will trigger correctly.
-6. **WebGL/Canvas Colors**: NEVER pass CSS variables (e.g. \`var(--color-primary)\`) into React props for WebGL or Canvas-based components (like Aurora colorStops). ALWAYS use literal hex codes (e.g. \`"#FFA07A"\`) or rgba for these props.
-7. **Local Component Copying [CRITICAL]**: In the \`generatorInstruction\`, you MUST explicitly tell the developer AI to copy the custom components directly from the \`REACT BITS LOCAL PATH\` provided. Example: "To implement Aurora, you must copy the folder at [REACT BITS LOCAL PATH]/Backgrounds/Aurora into your project's src/components directory." This guarantees the AI has access to the exact source files!
-8. **Design System**: Ensure colors match the mood.
-9. **Copywriting**: No lorem ipsum. Write real, engaging content.
-10. **Return ONLY valid JSON.**
+## CORE RULES
+1. **No Code Blocks**: Do NOT use triple backticks ( \\\`\\\`\\\` ) inside the JSON string fields. Explain code in words or simple single-line strings.
+2. **Atomic Steps**: Break project instructions into a clear list of 5-10 short strings.
+3. **Prop Precision**: Use EXACT prop names from the provided component source code.
 `;
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 async function enhancePrompt(options) {
   try {
-    const { rawPrompt, selectedComponents } = options;
-
+    const { rawPrompt, selectedComponents, systemContext } = options;
     ensureDirsExist();
 
     const originalPayload = {
       rawPrompt,
       selectedComponents,
+      systemContext,
       createdAt: new Date().toISOString(),
     };
 
     const filename = getTimestampedFilename();
     const originalPath = saveFile(ORIGINAL_DIR, filename, originalPayload);
 
-    // Provide the absolute local path to the components so the building AI
-    // (Antigravity/Cursor) knows exactly where to copy the components from.
-    const REACT_BITS_ABSOLUTE_PATH = path.join(__dirname, '..', 'ReactBitsComponents').replace(/\\/g, '/');
+    // Initialize Anthropic 
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY is missing in .env file.");
 
-    const userMessage = `
-    You are a prompt enhancement engine. Follow the skill instructions exactly.
+    const anthropic = new Anthropic({ apiKey });
 
-    ${PROMPT_ENHANCER_SKILL}
-
-    ---
-
-    Input:
-    RAW PROMPT: "${rawPrompt}"
-    REACT BITS LOCAL PATH: "${REACT_BITS_ABSOLUTE_PATH}"
-    SELECTED COMPONENTS: ${JSON.stringify(selectedComponents, null, 2)}
-    `.trim();
-
-    // Initialize Gemini 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-    // In 2026, gemini-2.5-flash is our proven winner
+    // ─── Model Discovery Loop ──────────────────────────────────────────────
     const candidateModels = [
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-001",
-      "gemini-1.5-flash",
-      "gemini-pro"
+      "claude-3-5-sonnet-latest",
+      "claude-3-5-haiku-latest",
+      "claude-3-5-haiku-20241022",
+      "claude-3-haiku-20240307"
     ];
 
-    let lastError = null;
-    let enhancedPrompt = null;
+    let message = null;
     let successfulModel = "";
+    let lastError = null;
 
-    for (const modelName of candidateModels) {
+    for (const modelId of candidateModels) {
       try {
-        console.log(`[Gemini Enhancer] Attempting enhancement with: ${modelName}...`);
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: { responseMimeType: "application/json" }
+        console.log(`[Claude Enhancer] Attempting enhancement with: ${modelId}...`);
+        message = await anthropic.messages.create({
+          model: modelId,
+          max_tokens: 4096,
+          temperature: 0, // Lower temperature = more stable JSON
+          system: PROMPT_ENHANCER_SKILL + "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object.",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `USER PROMPT: "${rawPrompt}"\n\nSYSTEM CONTEXT:\n${JSON.stringify(systemContext, null, 2)}\n\nCOMPONENT CONTEXT:\n${JSON.stringify(selectedComponents, null, 2)}`
+                }
+              ]
+            }
+          ]
         });
-
-        const result = await model.generateContent(userMessage);
-        const responseText = result.response.text();
-
-        // Clean markdown backticks if present
-        const cleanedText = responseText.replace(/^```json/, '').replace(/```$/, '').trim();
-        enhancedPrompt = JSON.parse(cleanedText);
-
-        successfulModel = modelName;
-        break; // Success!
+        successfulModel = modelId;
+        break; 
       } catch (e) {
         lastError = e;
-        console.warn(`[Gemini Enhancer] Model ${modelName} failed or not available: ${e.message}`);
-        // Continue to next model
+        console.warn(`[Claude Enhancer] Model ${modelId} failed: ${e.message}`);
+        // If it's a 404, we continue. Otherwise (auth/billing), we stop.
+        if (!e.message.toLowerCase().includes("not found") && !e.message.toLowerCase().includes("not_found")) break;
       }
     }
 
-    if (!enhancedPrompt) {
-      console.error("[Gemini Enhancer] All candidate models failed.", lastError);
-      throw new Error(`Failed to find an available Gemini model. Last error: ${lastError.message}`);
+    if (!message) {
+      throw new Error(`All Claude models failed. Last error: ${lastError.message}`);
     }
 
-    console.log(`[Gemini Enhancer] Successfully used: ${successfulModel}`);
+    console.log(`[Claude Enhancer] Successfully used: ${successfulModel}`);
+    const responseText = message.content[0].text;
+    
+    // ─── Robust JSON Extraction ───────────────────────────────────────────
+    let enhancedPrompt;
+    try {
+      // Find the first '{' and the last '}'
+      const startIdx = responseText.indexOf('{');
+      const endIdx = responseText.lastIndexOf('}');
+      if (startIdx === -1 || endIdx === -1) throw new Error("No JSON object found in response");
+      
+      const jsonCandidate = responseText.substring(startIdx, endIdx + 1);
+      
+      // We no longer manually replace newlines here because it can corrupt brackets.
+      // We rely on the system prompt to force Claude to escape them correctly.
+      enhancedPrompt = JSON.parse(jsonCandidate);
+    } catch (parseErr) {
+      console.error("[Claude Enhancer] JSON Parse Failed. Raw text was:", responseText);
+      throw new Error(`Claude returned invalid JSON: ${parseErr.message}`);
+    }
+
     const enhancedPath = saveFile(ENHANCED_DIR, filename, enhancedPrompt);
 
     return {
@@ -184,7 +179,7 @@ async function enhancePrompt(options) {
       },
     };
   } catch (error) {
-    console.error("[Gemini Enhancer] Error:", error);
+    console.error("[Claude Enhancer] Error:", error);
     return { success: false, error: error.message };
   }
 }

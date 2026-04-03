@@ -92,18 +92,7 @@ const ProjectBuilderPanel: React.FC<ProjectBuilderPanelProps> = ({
         </div>
 
         <div className="builder-section" style={{ marginTop: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
-            <label className="builder-label" style={{ marginBottom: 0 }}>AI Project Prompt</label>
-            <EnhancePromptButton 
-              rawPrompt={prompt}
-              selectedComponents={selectedComponents}
-              onSuccess={(result: any) => {
-                if (result.success && result.enhancedPrompt?.generatorInstruction) {
-                  onPromptChange(result.enhancedPrompt.generatorInstruction);
-                }
-              }}
-            />
-          </div>
+          <label className="builder-label">AI Project Prompt</label>
           <textarea
             className="builder-textarea"
             placeholder="Describe the project you want to build with these components..."

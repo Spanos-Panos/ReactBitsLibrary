@@ -21,6 +21,39 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
     }
     return result;
   },
+  getComponentFullContext(category, name, id) {
+    const compDir = path.join(reactBitsRoot, category, name);
+    
+    // 1. Get Source Files
+    const files = [];
+    const entries = safeReadDir(compDir);
+    for (const entry of entries) {
+      if (entry.isFile() && !entry.name.startsWith("Usage") && !entry.name.endsWith("Install.md")) {
+        try {
+          const content = fs.readFileSync(path.join(compDir, entry.name), "utf-8");
+          files.push({ name: entry.name, content });
+        } catch {}
+      }
+    }
+
+    // 2. Get Usage Markdown
+    let usage = "";
+    try {
+      usage = fs.readFileSync(path.join(compDir, `Usage${name}.md`), "utf-8");
+    } catch {
+      try {
+        usage = fs.readFileSync(path.join(compDir, `Usage.md`), "utf-8");
+      } catch {}
+    }
+
+    // 3. Get Install Markdown
+    let install = "";
+    try {
+      install = fs.readFileSync(path.join(compDir, `${name}Install.md`), "utf-8");
+    } catch {}
+
+    return { id, name, category, files, usage, install };
+  },
   generatePlayground(category, name, usageCode, componentFiles, options, taskId) {
     return ipcRenderer.invoke("generate-playground", category, name, usageCode, componentFiles, options, taskId);
   },

@@ -1,4 +1,5 @@
-const { join } = require('path');
+const path = require('path');
+const { join } = path;
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const { generateViteReact } = require('./generators/vite-react.cjs');
@@ -7,8 +8,13 @@ const execAsync = promisify(exec);
 
 async function generatePlayground(category, name, usageCode, componentFiles, options, event, taskId) {
   try {
+    if (!options.projectPath) {
+      throw new Error("No destination path selected. Please choose a folder first.");
+    }
+
     const safeProjectName = (options.projectName || "demo-" + name.toLowerCase()).replace(/[^a-z0-9-_]/gi, '-');
-    const fullPath = join(options.projectPath, safeProjectName);
+    const fullPath = join(path.resolve(options.projectPath), safeProjectName);
+    const parentDir = path.resolve(options.projectPath);
     
     // Callback to send progress to the frontend UI
     const onProgress = (msg) => {

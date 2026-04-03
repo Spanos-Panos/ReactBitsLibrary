@@ -43,17 +43,13 @@ export const EnhancePromptButton: React.FC<EnhancePromptButtonProps> = ({
     setSavedPath("");
 
     try {
-      // 🚀 Step 1: Fetch full source for each component to ensure AI accuracy
-      const componentsWithSource = await Promise.all(
+      // 🚀 Step 1: Fetch MEGA context for each component to ensure AI accuracy
+      const componentsWithContext = await Promise.all(
         selectedComponents.map(async (comp) => {
           try {
-            const files = await (window as any).reactBitsApi.getComponentFiles(comp.category, comp.name);
-            return {
-              ...comp,
-              fullSource: files
-            };
+            return await (window as any).reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id);
           } catch (e) {
-            console.warn(`Failed to fetch source for ${comp.name}`, e);
+            console.warn(`Failed to fetch context for ${comp.name}`, e);
             return comp;
           }
         })
@@ -62,7 +58,7 @@ export const EnhancePromptButton: React.FC<EnhancePromptButtonProps> = ({
       // 🚀 Step 2: Call the enhancer with the rich data
       const result = await (window as any).reactBitsApi.enhancePrompt({ 
         rawPrompt, 
-        selectedComponents: componentsWithSource 
+        selectedComponents: componentsWithContext 
       });
 
       if (result.success) {

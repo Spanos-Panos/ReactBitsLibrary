@@ -15,18 +15,29 @@ const isDev = process.env.NODE_ENV === "development";
 const activeProcesses = new Map();
 const { exec, spawn } = require('child_process');
 
-function killProcessTree(proc) {
+function killProcessTree(proc, taskId = 'unknown') {
   if (!proc || !proc.pid) return;
+  const pid = proc.pid;
   try {
     if (process.platform === 'win32') {
-      exec(`taskkill /pid ${proc.pid} /f /t`, (err) => {
-        if (err) console.error(`Taskkill failed for PID ${proc.pid}:`, err);
+      console.log(`[Main] Force-terminating process tree for Task:${taskId} (PID:${pid})...`);
+      // /f = force, /t = tree (kill children too)
+      exec(`taskkill /pid ${pid} /f /t`, (err) => {
+        if (err) {
+          // If the process is already gone, that's fine
+          if (!err.message.includes('not found')) {
+             console.error(`[Main] Taskkill failed for PID ${pid}:`, err.message);
+          }
+        } else {
+          console.log(`[Main] Successfully killed process tree for PID ${pid}`);
+        }
       });
     } else {
+      console.log(`[Main] Killing process Group for Task:${taskId} (PID:${pid})...`);
       proc.kill('SIGTERM');
     }
   } catch (err) {
-    console.error(`Error killing process ${proc.pid}:`, err);
+    console.error(`[Main] Error in killProcessTree for ${pid}:`, err);
   }
 }
 
@@ -79,7 +90,7 @@ app.whenReady().then(() => {
 app.on("before-quit", () => {
   console.log("App quitting... killing all background processes");
   for (const [taskId, proc] of activeProcesses.entries()) {
-    killProcessTree(proc);
+    killProcessTree(proc, taskId);
   }
   activeProcesses.clear();
 });
@@ -117,6 +128,8 @@ ipcMain.handle("generate-playground", async (event, category, name, usageCode, c
   // If a child process was started, track it in the main process
   if (result.childProcess) {
     activeProcesses.set(taskId, result.childProcess);
+    // CRITICAL: Must delete this before returning to renderer to avoid 'An object could not be cloned' error
+    delete result.childProcess;
   }
   
   return result;
@@ -125,7 +138,7 @@ ipcMain.handle("generate-playground", async (event, category, name, usageCode, c
 ipcMain.handle("terminate-task", async (event, taskId) => {
   const proc = activeProcesses.get(taskId);
   if (proc) {
-    killProcessTree(proc);
+    killProcessTree(proc, taskId);
     activeProcesses.delete(taskId);
     return { success: true };
   }

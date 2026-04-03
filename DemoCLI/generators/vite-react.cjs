@@ -5,9 +5,16 @@ const fs = require('fs/promises');
 // Helper to spawn and pipe logs
 function runCommand(command, args, cwd, onLog) {
   return new Promise((resolve, reject) => {
+    if (!command) return reject(new Error("Attempted to run an empty command. Check your package manager settings."));
+    
+    // Force absolute, normalized paths for Windows to avoid C::\ errors
+    const safeCwd = path.resolve(cwd);
+    
     // Force CI mode and disable interactive prompts across multiple frameworks
     const env = { ...process.env, CI: 'true', FORCE_COLOR: '1', YES: 'true', NPM_CONFIG_YES: 'true' };
-    const child = spawn(command, args, { cwd, shell: true, env });
+    
+    console.log(`[DemoCLI] Spawning command: "${command}" in CWD: ${safeCwd}`);
+    const child = spawn(command, args, { cwd: safeCwd, shell: true, env });
     
     const handleOutput = (data) => {
       const text = data.toString();
@@ -24,6 +31,11 @@ function runCommand(command, args, cwd, onLog) {
     child.stdout.on('data', handleOutput);
     child.stderr.on('data', handleOutput);
     
+    child.on('error', (err) => {
+      console.error(`[DemoCLI] FATAL Spawn Error:`, err);
+      reject(err);
+    });
+    
     child.on('close', (code) => {
       if (code === 0) resolve();
       else reject(new Error(`Command failed with exit code ${code}`));
@@ -37,7 +49,7 @@ async function generateViteReact(options) {
   const log = (msg) => { if (onLog) onLog(msg); };
 
   notify(`Scaffolding Vite + React project '${projectName}'...`);
-  const parentDir = path.dirname(targetDir);
+  const parentDir = path.resolve(path.dirname(targetDir));
 
   // 1. Run Vite Scaffold
   log(`> Running scaffold command...\n`);
@@ -261,16 +273,20 @@ export default function App() {
     await fs.writeFile(path.join(vscodeDirPath, 'settings.json'), JSON.stringify(settingsJson, null, 2), 'utf-8');
   }
 
-  // 7. Final Integrity Check (Silent build test)
+  // 7. Final Integrity Check (Strict if Auto-Run is enabled)
   notify(`Verifying project integrity (checking for errors)...`);
   try {
     // Run tsc --noEmit to check for typescript errors without generating files
-    // If this fails, we don't necessarily abort, but we warn the user.
     await runCommand('npx tsc --noEmit', [], targetDir, log);
-    notify(`Verification complete: No critical errors found!`);
+    notify(`Verification complete: No project errors found! Ready to run.`);
   } catch (e) {
-    log(`[INTEGRITY] Found some issues during verification. The project might need manual path adjustment.\n`);
-    notify(`Generation finished with minor warnings. Checking logs...`);
+    if (options.runWhenDone) {
+      log(`[FATAL INTEGRITY ERROR] TypeScript check failed. Self-repair or manual fix required before auto-running!\n`);
+      throw new Error(`Project Integrity Check Failed. Auto-launch blocked to prevent browser crash. Check terminal for details.`);
+    } else {
+      log(`[INTEGRITY WARNING] Found some issues during verification. Project created, but might need manual path adjustment.\n`);
+      notify(`Generation finished with warnings. Project available at target directory.`);
+    }
   }
 
   notify(`Finished setting up target project at ${targetDir}`);
