@@ -163,9 +163,8 @@ export default function DarkVeil({
     resolutionScale,
   ]);
   return (
-    <canvas
-      ref={ref}
-      className="darkveil-canvas"
-    />
+    <div className="darkveil-container">
+      <canvas ref={ref} className="darkveil-canvas" />
+    </div>
   );
 }

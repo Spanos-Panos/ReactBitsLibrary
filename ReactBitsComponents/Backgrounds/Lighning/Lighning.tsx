@@ -197,7 +197,11 @@ const Lightning: React.FC<LightningProps> = ({
     };
   }, [hue, xOffset, speed, intensity, size]);
 
-  return <canvas ref={canvasRef} className="lightning-container" />;
+  return (
+    <div className="lightning-wrapper">
+      <canvas ref={canvasRef} className="lightning-canvas" />
+    </div>
+  );
 };
 
 export default Lightning;

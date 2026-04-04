@@ -1,5 +1,10 @@
-.lightning-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
-  }
+.lightning-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+.lightning-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

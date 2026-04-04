@@ -66,9 +66,13 @@ async function generatePlayground(payload, event, taskId) {
 
       // On Windows, 'npm' is often a .cmd file, shell: true handles this.
       // --open tells Vite to open the browser automatically.
+      // On Windows, npm is a .cmd file so we need shell:true.
+      // windowsHide prevents a stray console window from appearing and ensures
+      // the child is in the same process tree so taskkill /f /t can reach it.
       childProcess = spawn(pm, ['run', 'dev', '--', '--open'], {
         cwd: fullPath,
         shell: true,
+        windowsHide: true,
         env: { ...process.env, BROWSER: 'chrome' }
       });
 

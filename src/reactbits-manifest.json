@@ -213,7 +213,7 @@
     "id": "Components/Stack",
     "name": "Stack",
     "category": "Components",
-    "usageMarkdown": "import Stack from './Stack'\r\n\r\nconst images = [\r\n  { id: 1, img: \"https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?q=80&w=500&auto=format\" },\r\n  { id: 2, img: \"https://images.unsplash.com/photo-1449844908441-8829872d2607?q=80&w=500&auto=format\" },\r\n  { id: 3, img: \"https://images.unsplash.com/photo-1452626212852-811d58933cae?q=80&w=500&auto=format\" },\r\n  { id: 4, img: \"https://images.unsplash.com/photo-1572120360610-d971b9d7767c?q=80&w=500&auto=format\" }\r\n];\r\n  \r\n<Stack\r\n  randomRotation={true}\r\n  sensitivity={180}\r\n  sendToBackOnClick={false}\r\n  cardDimensions={{ width: 200, height: 200 }}\r\n  cardsData={images}\r\n/>",
+    "usageMarkdown": "import Stack from './Stack'\r\n\r\nconst images = [\r\n  { id: 1, img: \"/joker-portrait.jpg\" },\r\n  { id: 2, img: \"/joker-portrait.jpg\" },\r\n  { id: 3, img: \"/joker-portrait.jpg\" },\r\n  { id: 4, img: \"/joker-portrait.jpg\" }\r\n];\r\n  \r\n<Stack\r\n  randomRotation={true}\r\n  sensitivity={180}\r\n  sendToBackOnClick={false}\r\n  cardDimensions={{ width: 200, height: 200 }}\r\n  cardsData={images}\r\n/>",
     "relativePath": "ReactBitsComponents/Components/Stack/UsageStack.md"
   },
   {
@@ -262,14 +262,14 @@
     "id": "Animations/Crosshair",
     "name": "Crosshair",
     "category": "Animations",
-    "usageMarkdown": "import { useRef } from 'react';\r\nimport Crosshair from './Crosshair';\r\n\r\nconst Component = () => {\r\nconst containerRef = useRef(null);\r\n\r\nreturn (\r\n  <div ref={containerRef} style={{ height: '300px', overflow: 'hidden' }}>\r\n    <Crosshair containerRef={containerRef} color='#ffffff'/> // containerRef defaults to \"window\" if not provided\r\n  </div>\r\n)\r\n};",
+    "usageMarkdown": "import { useRef } from 'react';\r\nimport Crosshair from './Crosshair';\r\n\r\nconst Component = () => {\r\n  const containerRef = useRef(null);\r\n\r\n  return (\r\n    <div ref={containerRef} style={{ height: '300px', overflow: 'hidden' }}>\r\n      <Crosshair containerRef={containerRef} color='#ffffff' />\r\n    </div>\r\n  )\r\n};\r\n\r\nexport default Component;",
     "relativePath": "ReactBitsComponents/Animations/Crosshair/UsageCrosshair.md"
   },
   {
     "id": "Animations/Cubes",
     "name": "Cubes",
     "category": "Animations",
-    "usageMarkdown": "// CREDIT\r\n// Component inspired from Can Tastemel's original work for the lambda.ai landing page\r\n// https://cantastemel.com\r\n  \r\nimport Cubes from './Cubes'\r\n\r\n<div style={{ height: '600px', position: 'relative' }}>\r\n  <Cubes \r\n    gridSize={8}\r\n    maxAngle={60}\r\n    radius={4}\r\n    borderStyle=\"2px dashed #5227FF\"\r\n    faceColor=\"#1a1a2e\"\r\n    rippleColor=\"#ff6b6b\"\r\n    rippleSpeed={1.5}\r\n    autoAnimate={true}\r\n    rippleOnClick={true}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Cubes from './Cubes'\r\n\r\nconst Component = () => {\r\n  return (\r\n    <div style={{ height: '600px', position: 'relative' }}>\r\n      <Cubes \r\n        gridSize={8}\r\n        maxAngle={45}\r\n        radius={3}\r\n        borderStyle=\"2px dashed #B19EEF\"\r\n        faceColor=\"#1a1a2e\"\r\n        rippleColor=\"#ff6b6b\"\r\n        rippleSpeed={1.5}\r\n        autoAnimate\r\n        rippleOnClick\r\n      />\r\n    </div>\r\n  );\r\n};\r\n\r\nexport default Component;",
     "relativePath": "ReactBitsComponents/Animations/Cubes/UsageCubes.md"
   },
   {
@@ -416,7 +416,7 @@
     "id": "Backgrounds/Ballpit",
     "name": "Ballpit",
     "category": "Backgrounds",
-    "usageMarkdown": "//Component inspired by Kevin Levron:\r\n//https://x.com/soju22/status/1858925191671271801\r\n  \r\nimport Ballpit from './Ballpit;'\r\n\r\n<div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>\r\n  <Ballpit\r\n    count={200}\r\n    gravity={0.7}\r\n    friction={0.8}\r\n    wallBounce={0.95}\r\n    followCursor={true}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Ballpit from './Ballpit'\n\n{/* \n  Component inspired by Kevin Levron:\n  https://x.com/soju22/status/1858925191671271801\n*/}\n\n<div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>\n  <Ballpit\n    count={200}\n    gravity={0.7}\n    friction={0.8}\n    wallBounce={0.95}\n    followCursor={true}\n  />\n</div>",
     "relativePath": "ReactBitsComponents/Backgrounds/Ballpit/UsageBallpit.md"
   },
   {
@@ -472,7 +472,7 @@
     "id": "Backgrounds/GridMotion",
     "name": "GridMotion",
     "category": "Backgrounds",
-    "usageMarkdown": "import GridMotion from './GridMotion';\r\n  \r\n// note: you'll need to make sure the parent container of this component is sized properly\r\nconst items = [\r\n  'Item 1',\r\n  <div key='jsx-item-1'>Custom JSX Content</div>,\r\n  'https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',\r\n  'Item 2',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 4',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',\r\n  'Item 5',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 7',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',\r\n  'Item 8',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 10',\r\n  <div key='jsx-item-3'>Custom JSX Content</div>,\r\n  'https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',\r\n  'Item 11',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 13',\r\n  <div key='jsx-item-4'>Custom JSX Content</div>,\r\n  'https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',\r\n  'Item 14',\r\n  // Add more items as needed\r\n];\r\n\r\n<GridMotion items={items} />",
+    "usageMarkdown": "import GridMotion from './GridMotion';\r\n  \r\n// note: you'll need to make sure the parent container of this component is sized properly\r\nconst items = [\r\n  'Item 1',\r\n  <div key='jsx-item-1'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 2',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 4',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 5',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 7',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 8',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 10',\r\n  <div key='jsx-item-3'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 11',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 13',\r\n  <div key='jsx-item-4'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 14',\r\n  // Add more items as needed\r\n];\r\n\r\n<GridMotion items={items} />",
     "relativePath": "ReactBitsComponents/Backgrounds/GridMotion/UsageGridMotion.md"
   },
   {
@@ -651,6 +651,13 @@
     "relativePath": "ReactBitsComponents/TextAnimations/GradientText/UsageGradientText.md"
   },
   {
+    "id": "TextAnimations/PixelTrail",
+    "name": "PixelTrail",
+    "category": "TextAnimations",
+    "usageMarkdown": "import TextTrail from './TextTrail';\r\n\r\n// Basic usage\r\n<TextTrail text=\"Hello World\" />\r\n\r\n// Usage with all props\r\n<TextTrail \r\n  text=\"React Bits\"\r\n  fontFamily=\"Figtree\"\r\n  fontWeight=\"900\"\r\n  noiseFactor={1.2}\r\n  noiseScale={0.001}\r\n  rgbPersistFactor={0.95}\r\n  alphaPersistFactor={0.92}\r\n  animateColor={true}\r\n  startColor=\"#ff6b6b\"\r\n  textColor=\"#4ecdc4\"\r\n  backgroundColor=\"#1a1a2e\"\r\n  colorCycleInterval={2000}\r\n  supersample={2}\r\n/>\r\n\r\n// With animated color cycling\r\n<TextTrail \r\n  text=\"Colorful\"\r\n  animateColor={true}\r\n  colorCycleInterval={1500}\r\n  noiseFactor={1.5}\r\n  noiseScale={0.002}\r\n/>",
+    "relativePath": "ReactBitsComponents/TextAnimations/PixelTrail/UsagePixelTrail.md"
+  },
+  {
     "id": "TextAnimations/RotatingText",
     "name": "RotatingText",
     "category": "TextAnimations",
@@ -712,13 +719,6 @@
     "category": "TextAnimations",
     "usageMarkdown": "import TextPressure from './TextPressure';\r\n\r\n// Note:\r\n// Make sure the font you're using supports all the variable properties. \r\n// React Bits does not take responsibility for the fonts used\r\n\r\n<div style={{position: 'relative', height: '300px'}}>\r\n  <TextPressure\r\n    text=\"Hello!\"\r\n    flex={true}\r\n    alpha={false}\r\n    stroke={false}\r\n    width={true}\r\n    weight={true}\r\n    italic={true}\r\n    textColor=\"#ffffff\"\r\n    strokeColor=\"#ff0000\"\r\n    minFontSize={36}\r\n  />\r\n</div>",
     "relativePath": "ReactBitsComponents/TextAnimations/TextPressure/UsageTextPressure.md"
-  },
-  {
-    "id": "TextAnimations/TextTrail",
-    "name": "TextTrail",
-    "category": "TextAnimations",
-    "usageMarkdown": "import TextTrail from './TextTrail';\r\n\r\n// Basic usage\r\n<TextTrail text=\"Hello World\" />\r\n\r\n// Usage with all props\r\n<TextTrail \r\n  text=\"React Bits\"\r\n  fontFamily=\"Figtree\"\r\n  fontWeight=\"900\"\r\n  noiseFactor={1.2}\r\n  noiseScale={0.001}\r\n  rgbPersistFactor={0.95}\r\n  alphaPersistFactor={0.92}\r\n  animateColor={true}\r\n  startColor=\"#ff6b6b\"\r\n  textColor=\"#4ecdc4\"\r\n  backgroundColor=\"#1a1a2e\"\r\n  colorCycleInterval={2000}\r\n  supersample={2}\r\n/>\r\n\r\n// With animated color cycling\r\n<TextTrail \r\n  text=\"Colorful\"\r\n  animateColor={true}\r\n  colorCycleInterval={1500}\r\n  noiseFactor={1.5}\r\n  noiseScale={0.002}\r\n/>",
-    "relativePath": "ReactBitsComponents/TextAnimations/TextTrail/UsageTextTrail.md"
   },
   {
     "id": "TextAnimations/TextType",

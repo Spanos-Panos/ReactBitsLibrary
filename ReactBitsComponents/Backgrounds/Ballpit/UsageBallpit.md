@@ -3,12 +3,12 @@
   
 import Ballpit from './Ballpit;'
 
-<div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>
+<div style={{position: 'relative', overflow: 'hidden', height: '100vh', width: '100%'}}>
   <Ballpit
-    count={200}
-    gravity={0.7}
-    friction={0.8}
+    count={100}
+    gravity={0.01}
+    friction={1}
     wallBounce={0.95}
-    followCursor={true}
+    followCursor={false}
   />
 </div>

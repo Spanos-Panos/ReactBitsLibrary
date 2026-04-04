@@ -160,7 +160,11 @@ const Squares: React.FC<SquaresProps> = ({
     };
   }, [direction, speed, borderColor, hoverFillColor, squareSize]);
 
-  return <canvas ref={canvasRef} className="squares-canvas"></canvas>;
+  return (
+    <div className="squares-wrapper">
+      <canvas ref={canvasRef} className="squares-canvas" />
+    </div>
+  );
 };
 
 export default Squares;

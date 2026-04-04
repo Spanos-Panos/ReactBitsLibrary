@@ -69,6 +69,7 @@ function App() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   const terminalRef = useRef<HTMLPreElement>(null);
+  const activeTaskIdRef = useRef<string | null>(null);
   const [projectName, setProjectName] = useState("");
   const [projectPath, setProjectPath] = useState("");
   const [openWhenDone, setOpenWhenDone] = useState(true);
@@ -163,41 +164,44 @@ function App() {
       });
   }, [selected]);
 
+  // Keep a ref in sync so IPC callbacks can always read the latest activeTaskId
+  // without re-registering listeners (which would cause duplicate events).
+  useEffect(() => { activeTaskIdRef.current = activeTaskId; }, [activeTaskId]);
+
   useEffect(() => {
-    if ((window as any).reactBitsApi?.onGenerateProgress) {
-      (window as any).reactBitsApi.onGenerateProgress((msg: string, taskId: string) => {
-        if (msg === "!ERROR_KILL") {
-          setTasks(prev => {
-             const next = { ...prev };
-             delete next[taskId];
-             return next;
-          });
-          if (activeTaskId === taskId) setActiveTaskId(null);
-          return;
-        }
+    const cleanupProgress = (window as any).reactBitsApi?.onGenerateProgress?.((msg: string, taskId: string) => {
+      if (msg === "!ERROR_KILL") {
+        // Clean up the process entry in main — the taskkill inside index.cjs may have
+        // already killed it, but we still want activeProcesses to be cleared.
+        (window as any).reactBitsApi?.terminateTask?.(taskId);
         setTasks(prev => {
-          if (!prev[taskId]) return prev;
-          return {
-            ...prev,
-            [taskId]: { ...prev[taskId], progress: msg }
-          };
+          const next = { ...prev };
+          delete next[taskId];
+          return next;
         });
+        if (activeTaskIdRef.current === taskId) setActiveTaskId(null);
+        return;
+      }
+      setTasks(prev => {
+        if (!prev[taskId]) return prev;
+        return { ...prev, [taskId]: { ...prev[taskId], progress: msg } };
       });
-    }
-    if ((window as any).reactBitsApi?.onGenerateLog) {
-      (window as any).reactBitsApi.onGenerateLog((msg: string, taskId: string) => {
-        setTasks(prev => {
-          if (!prev[taskId]) return prev;
-          return {
-            ...prev,
-            [taskId]: {
-              ...prev[taskId],
-              logs: [...prev[taskId].logs.slice(-300), msg]
-            }
-          };
-        });
+    });
+
+    const cleanupLog = (window as any).reactBitsApi?.onGenerateLog?.((msg: string, taskId: string) => {
+      setTasks(prev => {
+        if (!prev[taskId]) return prev;
+        return {
+          ...prev,
+          [taskId]: { ...prev[taskId], logs: [...prev[taskId].logs.slice(-300), msg] }
+        };
       });
-    }
+    });
+
+    return () => {
+      cleanupProgress?.();
+      cleanupLog?.();
+    };
   }, []);
 
   useEffect(() => {

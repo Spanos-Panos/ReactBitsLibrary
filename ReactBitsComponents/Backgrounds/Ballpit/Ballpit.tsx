@@ -1,30 +1,31 @@
-import React, { useRef, useEffect } from "react";
+import { gsap } from 'gsap';
+import { Observer } from 'gsap/Observer';
+import React, { useEffect, useRef } from 'react';
+import './Ballpit.css';
 import {
+  ACESFilmicToneMapping,
+  AmbientLight,
   Clock,
-  PerspectiveCamera,
-  Scene,
-  WebGLRenderer,
-  WebGLRendererParameters,
-  SRGBColorSpace,
+  Color,
+  InstancedMesh,
   MathUtils,
+  MeshPhysicalMaterial,
+  Object3D,
+  PerspectiveCamera,
+  Plane,
+  PMREMGenerator,
+  PointLight,
+  Raycaster,
+  Scene,
+  ShaderChunk,
+  SphereGeometry,
+  SRGBColorSpace,
   Vector2,
   Vector3,
-  MeshPhysicalMaterial,
-  ShaderChunk,
-  Color,
-  Object3D,
-  InstancedMesh,
-  PMREMGenerator,
-  SphereGeometry,
-  AmbientLight,
-  PointLight,
-  ACESFilmicToneMapping,
-  Raycaster,
-  Plane,
-} from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { Observer } from "gsap/Observer";
-import { gsap } from "gsap";
+  WebGLRenderer
+} from 'three';
+import type { WebGLRendererParameters } from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 gsap.registerPlugin(Observer);
 
@@ -32,7 +33,7 @@ interface XConfig {
   canvas?: HTMLCanvasElement;
   id?: string;
   rendererOptions?: Partial<WebGLRendererParameters>;
-  size?: "parent" | { width: number; height: number };
+  size?: 'parent' | { width: number; height: number };
 }
 
 interface SizeData {
@@ -55,6 +56,9 @@ class X {
   #animationState = { elapsed: 0, delta: 0 };
   #isAnimating: boolean = false;
   #isVisible: boolean = false;
+  #boundOnResize: () => void;
+  #boundOnVisibilityChange: () => void;
+  #boundOnIntersection: (entries: IntersectionObserverEntry[]) => void;
 
   canvas!: HTMLCanvasElement;
   camera!: PerspectiveCamera;
@@ -71,18 +75,21 @@ class X {
     wWidth: 0,
     wHeight: 0,
     ratio: 0,
-    pixelRatio: 0,
+    pixelRatio: 0
   };
 
   render: () => void = this.#render.bind(this);
-  onBeforeRender: (state: { elapsed: number; delta: number }) => void =
-    () => {};
-  onAfterRender: (state: { elapsed: number; delta: number }) => void = () => {};
-  onAfterResize: (size: SizeData) => void = () => {};
+  onBeforeRender: (state: { elapsed: number; delta: number }) => void = () => { };
+  onAfterRender: (state: { elapsed: number; delta: number }) => void = () => { };
+  onAfterResize: (size: SizeData) => void = () => { };
   isDisposed: boolean = false;
 
   constructor(config: XConfig) {
     this.#config = { ...config };
+    this.#boundOnResize = this.#onResize.bind(this);
+    this.#boundOnVisibilityChange = this.#onVisibilityChange.bind(this);
+    this.#boundOnIntersection = this.#onIntersection.bind(this);
+
     this.#initCamera();
     this.#initScene();
     this.#initRenderer();
@@ -107,16 +114,16 @@ class X {
       if (elem instanceof HTMLCanvasElement) {
         this.canvas = elem;
       } else {
-        console.error("Three: Missing canvas or id parameter");
+        console.error('Three: Missing canvas or id parameter');
       }
     } else {
-      console.error("Three: Missing canvas or id parameter");
+      console.error('Three: Missing canvas or id parameter');
     }
-    this.canvas!.style.display = "block";
+    this.canvas!.style.display = 'block';
     const rendererOptions: WebGLRendererParameters = {
       canvas: this.canvas,
-      powerPreference: "high-performance",
-      ...(this.#config.rendererOptions ?? {}),
+      powerPreference: 'high-performance',
+      ...(this.#config.rendererOptions ?? {})
     };
     this.renderer = new WebGLRenderer(rendererOptions);
     this.renderer.outputColorSpace = SRGBColorSpace;
@@ -124,21 +131,19 @@ class X {
 
   #initObservers() {
     if (!(this.#config.size instanceof Object)) {
-      window.addEventListener("resize", this.#onResize.bind(this));
-      if (this.#config.size === "parent" && this.canvas.parentNode) {
-        this.#resizeObserver = new ResizeObserver(this.#onResize.bind(this));
+      window.addEventListener('resize', this.#boundOnResize);
+      if (this.#config.size === 'parent' && this.canvas.parentNode) {
+        this.#resizeObserver = new ResizeObserver(this.#boundOnResize);
         this.#resizeObserver.observe(this.canvas.parentNode as Element);
       }
     }
-    this.#intersectionObserver = new IntersectionObserver(
-      this.#onIntersection.bind(this),
-      { root: null, rootMargin: "0px", threshold: 0 }
-    );
+    this.#intersectionObserver = new IntersectionObserver(this.#boundOnIntersection, {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0
+    });
     this.#intersectionObserver.observe(this.canvas);
-    document.addEventListener(
-      "visibilitychange",
-      this.#onVisibilityChange.bind(this)
-    );
+    document.addEventListener('visibilitychange', this.#boundOnVisibilityChange);
   }
 
   #onResize() {
@@ -151,7 +156,7 @@ class X {
     if (this.#config.size instanceof Object) {
       w = this.#config.size.width;
       h = this.#config.size.height;
-    } else if (this.#config.size === "parent" && this.canvas.parentNode) {
+    } else if (this.#config.size === 'parent' && this.canvas.parentNode) {
       w = (this.canvas.parentNode as HTMLElement).offsetWidth;
       h = (this.canvas.parentNode as HTMLElement).offsetHeight;
     } else {
@@ -171,10 +176,7 @@ class X {
     if (this.camera.isPerspectiveCamera && this.cameraFov) {
       if (this.cameraMinAspect && this.camera.aspect < this.cameraMinAspect) {
         this.#adjustFov(this.cameraMinAspect);
-      } else if (
-        this.cameraMaxAspect &&
-        this.camera.aspect > this.cameraMaxAspect
-      ) {
+      } else if (this.cameraMaxAspect && this.camera.aspect > this.cameraMaxAspect) {
         this.#adjustFov(this.cameraMaxAspect);
       } else {
         this.camera.fov = this.cameraFov;
@@ -193,8 +195,7 @@ class X {
   updateWorldSize() {
     if (this.camera.isPerspectiveCamera) {
       const fovRad = (this.camera.fov * Math.PI) / 180;
-      this.size.wHeight =
-        2 * Math.tan(fovRad / 2) * this.camera.position.length();
+      this.size.wHeight = 2 * Math.tan(fovRad / 2) * this.camera.position.length();
       this.size.wWidth = this.size.wHeight * this.camera.aspect;
     } else if ((this.camera as any).isOrthographicCamera) {
       const cam = this.camera as any;
@@ -263,19 +264,11 @@ class X {
   }
 
   clear() {
-    this.scene.traverse((obj) => {
-      if (
-        (obj as any).isMesh &&
-        typeof (obj as any).material === "object" &&
-        (obj as any).material !== null
-      ) {
-        Object.keys((obj as any).material).forEach((key) => {
+    this.scene.traverse(obj => {
+      if ((obj as any).isMesh && typeof (obj as any).material === 'object' && (obj as any).material !== null) {
+        Object.keys((obj as any).material).forEach(key => {
           const matProp = (obj as any).material[key];
-          if (
-            matProp &&
-            typeof matProp === "object" &&
-            typeof matProp.dispose === "function"
-          ) {
+          if (matProp && typeof matProp === 'object' && typeof matProp.dispose === 'function') {
             matProp.dispose();
           }
         });
@@ -292,17 +285,15 @@ class X {
     this.clear();
     this.#postprocessing?.dispose();
     this.renderer.dispose();
+    this.renderer.forceContextLoss();
     this.isDisposed = true;
   }
 
   #onResizeCleanup() {
-    window.removeEventListener("resize", this.#onResize.bind(this));
+    window.removeEventListener('resize', this.#boundOnResize);
     this.#resizeObserver?.disconnect();
     this.#intersectionObserver?.disconnect();
-    document.removeEventListener(
-      "visibilitychange",
-      this.#onVisibilityChange.bind(this)
-    );
+    document.removeEventListener('visibilitychange', this.#boundOnVisibilityChange);
   }
 }
 
@@ -393,32 +384,24 @@ class W {
         if (dist < sumRadius) {
           const overlap = sumRadius - dist;
           const correction = diff.normalize().multiplyScalar(0.5 * overlap);
-          const velCorrection = correction
-            .clone()
-            .multiplyScalar(Math.max(vel.length(), 1));
+          const velCorrection = correction.clone().multiplyScalar(Math.max(vel.length(), 1));
           pos.sub(correction);
           vel.sub(velCorrection);
           pos.toArray(positionData, base);
           vel.toArray(velocityData, base);
           otherPos.add(correction);
-          otherVel.add(
-            correction.clone().multiplyScalar(Math.max(otherVel.length(), 1))
-          );
+          otherVel.add(correction.clone().multiplyScalar(Math.max(otherVel.length(), 1)));
           otherPos.toArray(positionData, otherBase);
           otherVel.toArray(velocityData, otherBase);
         }
       }
       if (config.controlSphere0) {
-        const diff = new Vector3()
-          .copy(new Vector3().fromArray(positionData, 0))
-          .sub(pos);
+        const diff = new Vector3().copy(new Vector3().fromArray(positionData, 0)).sub(pos);
         const d = diff.length();
         const sumRadius0 = radius + sizeData[0];
         if (d < sumRadius0) {
           const correction = diff.normalize().multiplyScalar(sumRadius0 - d);
-          const velCorrection = correction
-            .clone()
-            .multiplyScalar(Math.max(vel.length(), 2));
+          const velCorrection = correction.clone().multiplyScalar(Math.max(vel.length(), 2));
           pos.sub(correction);
           vel.sub(velCorrection);
         }
@@ -453,13 +436,14 @@ class Y extends MeshPhysicalMaterial {
     thicknessAmbient: { value: 0 },
     thicknessAttenuation: { value: 0.1 },
     thicknessPower: { value: 2 },
-    thicknessScale: { value: 10 },
+    thicknessScale: { value: 10 }
   };
+  defines: { USE_UV: string };
 
   constructor(params: any) {
     super(params);
-    this.defines = { USE_UV: "" };
-    this.onBeforeCompile = (shader) => {
+    this.defines = { USE_UV: '' };
+    this.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, this.uniforms);
       shader.fragmentShader =
         `
@@ -470,13 +454,13 @@ class Y extends MeshPhysicalMaterial {
         uniform float thicknessAttenuation;
         ` + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace(
-        "void main() {",
+        'void main() {',
         `
         void RE_Direct_Scattering(const in IncidentLight directLight, const in vec2 uv, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, inout ReflectedLight reflectedLight) {
           vec3 scatteringHalf = normalize(directLight.direction + (geometryNormal * thicknessDistortion));
           float scatteringDot = pow(saturate(dot(geometryViewDir, -scatteringHalf)), thicknessPower) * thicknessScale;
           #ifdef USE_COLOR
-            vec3 scatteringIllu = (scatteringDot + thicknessAmbient) * vColor;
+            vec3 scatteringIllu = (scatteringDot + thicknessAmbient) * vColor.rgb;
           #else
             vec3 scatteringIllu = (scatteringDot + thicknessAmbient) * diffuse;
           #endif
@@ -487,16 +471,13 @@ class Y extends MeshPhysicalMaterial {
         `
       );
       const lightsChunk = ShaderChunk.lights_fragment_begin.replaceAll(
-        "RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );",
+        'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );',
         `
           RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );
           RE_Direct_Scattering(directLight, vUv, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, reflectedLight);
         `
       );
-      shader.fragmentShader = shader.fragmentShader.replace(
-        "#include <lights_fragment_begin>",
-        lightsChunk
-      );
+      shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', lightsChunk);
       if (this.onBeforeCompile2) this.onBeforeCompile2(shader);
     };
   }
@@ -504,8 +485,8 @@ class Y extends MeshPhysicalMaterial {
 }
 
 const XConfig = {
-  count: 200,
-  colors: [0, 0, 0],
+  count: 120,
+  colors: [0x7c3aed, 0xa78bfa, 0xffffff, 0xc4b5fd, 0x8b5cf6],
   ambientColor: 0xffffff,
   ambientIntensity: 1,
   lightIntensity: 200,
@@ -513,10 +494,10 @@ const XConfig = {
     metalness: 0.5,
     roughness: 0.5,
     clearcoat: 1,
-    clearcoatRoughness: 0.15,
+    clearcoatRoughness: 0.15
   },
-  minSize: 0.5,
-  maxSize: 1,
+  minSize: 0.6,
+  maxSize: 1.4,
   size0: 1,
   gravity: 0.5,
   friction: 0.9975,
@@ -526,7 +507,7 @@ const XConfig = {
   maxY: 5,
   maxZ: 2,
   controlSphere0: false,
-  followCursor: true,
+  followCursor: false
 };
 
 const U = new Object3D();
@@ -548,45 +529,43 @@ interface PointerData {
 
 const pointerMap = new Map<HTMLElement, PointerData>();
 
-function createPointerData(
-  options: Partial<PointerData> & { domElement: HTMLElement }
-): PointerData {
+function createPointerData(options: Partial<PointerData> & { domElement: HTMLElement }): PointerData {
   const defaultData: PointerData = {
     position: new Vector2(),
     nPosition: new Vector2(),
     hover: false,
     touching: false,
-    onEnter: () => {},
-    onMove: () => {},
-    onClick: () => {},
-    onLeave: () => {},
-    ...options,
+    onEnter: () => { },
+    onMove: () => { },
+    onClick: () => { },
+    onLeave: () => { },
+    ...options
   };
   if (!pointerMap.has(options.domElement)) {
     pointerMap.set(options.domElement, defaultData);
     if (!globalPointerActive) {
-      document.body.addEventListener("pointermove", onPointerMove as EventListener);
-      document.body.addEventListener("pointerleave", onPointerLeave as EventListener);
-      document.body.addEventListener("click", onPointerClick as EventListener);
+      document.body.addEventListener('pointermove', onPointerMove as EventListener);
+      document.body.addEventListener('pointerleave', onPointerLeave as EventListener);
+      document.body.addEventListener('click', onPointerClick as EventListener);
 
-      document.body.addEventListener("touchstart", onTouchStart as EventListener, { passive: false });
-      document.body.addEventListener("touchmove", onTouchMove as EventListener, { passive: false });
-      document.body.addEventListener("touchend", onTouchEnd as EventListener, { passive: false });
-      document.body.addEventListener("touchcancel", onTouchEnd as EventListener, { passive: false });
+      document.body.addEventListener('touchstart', onTouchStart as EventListener, { passive: false });
+      document.body.addEventListener('touchmove', onTouchMove as EventListener, { passive: false });
+      document.body.addEventListener('touchend', onTouchEnd as EventListener, { passive: false });
+      document.body.addEventListener('touchcancel', onTouchEnd as EventListener, { passive: false });
       globalPointerActive = true;
     }
   }
   defaultData.dispose = () => {
     pointerMap.delete(options.domElement);
     if (pointerMap.size === 0) {
-      document.body.removeEventListener("pointermove", onPointerMove as EventListener);
-      document.body.removeEventListener("pointerleave", onPointerLeave as EventListener);
-      document.body.removeEventListener("click", onPointerClick as EventListener);
-      
-      document.body.removeEventListener("touchstart", onTouchStart as EventListener);
-      document.body.removeEventListener("touchmove", onTouchMove as EventListener);
-      document.body.removeEventListener("touchend", onTouchEnd as EventListener);
-      document.body.removeEventListener("touchcancel", onTouchEnd as EventListener);
+      document.body.removeEventListener('pointermove', onPointerMove as EventListener);
+      document.body.removeEventListener('pointerleave', onPointerLeave as EventListener);
+      document.body.removeEventListener('click', onPointerClick as EventListener);
+
+      document.body.removeEventListener('touchstart', onTouchStart as EventListener);
+      document.body.removeEventListener('touchmove', onTouchMove as EventListener);
+      document.body.removeEventListener('touchend', onTouchEnd as EventListener);
+      document.body.removeEventListener('touchcancel', onTouchEnd as EventListener);
       globalPointerActive = false;
     }
   };
@@ -686,14 +665,8 @@ function onPointerLeave() {
 }
 
 function updatePointerData(data: PointerData, rect: DOMRect) {
-  data.position.set(
-    pointerPosition.x - rect.left,
-    pointerPosition.y - rect.top
-  );
-  data.nPosition.set(
-    (data.position.x / rect.width) * 2 - 1,
-    (-data.position.y / rect.height) * 2 + 1
-  );
+  data.position.set(pointerPosition.x - rect.left, pointerPosition.y - rect.top);
+  data.nPosition.set((data.position.x / rect.width) * 2 - 1, (-data.position.y / rect.height) * 2 + 1);
 }
 
 function isInside(rect: DOMRect) {
@@ -739,15 +712,9 @@ class Z extends InstancedMesh {
   }
 
   #setupLights() {
-    this.ambientLight = new AmbientLight(
-      this.config.ambientColor,
-      this.config.ambientIntensity
-    );
+    this.ambientLight = new AmbientLight(this.config.ambientColor, this.config.ambientIntensity);
     this.add(this.ambientLight);
-    this.light = new PointLight(
-      this.config.colors[0],
-      this.config.lightIntensity
-    );
+    this.light = new PointLight(this.config.colors[0], this.config.lightIntensity);
     this.add(this.light);
   }
 
@@ -756,14 +723,14 @@ class Z extends InstancedMesh {
       const colorUtils = (function (colorsArr: number[]) {
         let baseColors: number[] = colorsArr;
         let colorObjects: Color[] = [];
-        baseColors.forEach((col) => {
+        baseColors.forEach(col => {
           colorObjects.push(new Color(col));
         });
         return {
           setColors: (cols: number[]) => {
             baseColors = cols;
             colorObjects = [];
-            baseColors.forEach((col) => {
+            baseColors.forEach(col => {
               colorObjects.push(new Color(col));
             });
           },
@@ -779,7 +746,7 @@ class Z extends InstancedMesh {
             out.g = start.g + alpha * (end.g - start.g);
             out.b = start.b + alpha * (end.b - start.b);
             return out;
-          },
+          }
         };
       })(colors);
       for (let idx = 0; idx < this.count; idx++) {
@@ -819,27 +786,24 @@ interface CreateBallpitReturn {
   dispose: () => void;
 }
 
-function createBallpit(
-  canvas: HTMLCanvasElement,
-  config: any = {}
-): CreateBallpitReturn {
+function createBallpit(canvas: HTMLCanvasElement, config: any = {}): CreateBallpitReturn {
   const threeInstance = new X({
     canvas,
-    size: "parent",
-    rendererOptions: { antialias: true, alpha: true },
+    size: 'parent',
+    rendererOptions: { antialias: true, alpha: true }
   });
   let spheres: Z;
   threeInstance.renderer.toneMapping = ACESFilmicToneMapping;
   threeInstance.camera.position.set(0, 0, 20);
   threeInstance.camera.lookAt(0, 0, 0);
-  threeInstance.cameraMaxAspect = 1.5;
+  threeInstance.cameraMaxAspect = 2.5;
   threeInstance.resize();
   initialize(config);
   const raycaster = new Raycaster();
   const plane = new Plane(new Vector3(0, 0, 1), 0);
   const intersectionPoint = new Vector3();
   let isPaused = false;
-  
+
   canvas.style.touchAction = 'none';
   canvas.style.userSelect = 'none';
   (canvas.style as any).webkitUserSelect = 'none';
@@ -855,7 +819,7 @@ function createBallpit(
     },
     onLeave() {
       spheres.config.controlSphere0 = false;
-    },
+    }
   });
   function initialize(cfg: any) {
     if (spheres) {
@@ -865,10 +829,10 @@ function createBallpit(
     spheres = new Z(threeInstance.renderer, cfg);
     threeInstance.scene.add(spheres);
   }
-  threeInstance.onBeforeRender = (deltaInfo) => {
+  threeInstance.onBeforeRender = deltaInfo => {
     if (!isPaused) spheres.update(deltaInfo);
   };
-  threeInstance.onAfterResize = (size) => {
+  threeInstance.onAfterResize = size => {
     spheres.config.maxX = size.wWidth / 2;
     spheres.config.maxY = size.wHeight / 2;
   };
@@ -886,7 +850,7 @@ function createBallpit(
     dispose() {
       pointerData.dispose?.();
       threeInstance.dispose();
-    },
+    }
   };
 }
 
@@ -896,11 +860,17 @@ interface BallpitProps {
   [key: string]: any;
 }
 
-const Ballpit: React.FC<BallpitProps> = ({
-  className = "",
-  followCursor = true,
-  ...props
-}) => {
+// Check if WebGL2 is available in this browser/environment
+function isWebGLAvailable(): boolean {
+  try {
+    const testCanvas = document.createElement('canvas');
+    return !!(testCanvas.getContext('webgl2') || testCanvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+const Ballpit: React.FC<BallpitProps> = ({ className = '', followCursor = true, ...props }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const spheresInstanceRef = useRef<CreateBallpitReturn | null>(null);
 
@@ -908,25 +878,39 @@ const Ballpit: React.FC<BallpitProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    spheresInstanceRef.current = createBallpit(canvas, {
-      followCursor,
-      ...props,
-    });
+    // Guard: if WebGL isn't available (context limit hit, no GPU, etc.), bail gracefully
+    if (!isWebGLAvailable()) {
+      console.warn('[Ballpit] WebGL not available. Too many active contexts or no GPU support.');
+      return;
+    }
+
+    let ignore = false;
+
+    // Small defer to let React StrictMode's first (fake) mount fully unmount & free its context
+    const timer = setTimeout(() => {
+      if (ignore) return;
+      try {
+        spheresInstanceRef.current = createBallpit(canvas, { followCursor, ...props });
+      } catch (err) {
+        console.warn('[Ballpit] Failed to initialize WebGL context:', err);
+      }
+    }, 0);
 
     return () => {
+      ignore = true;
+      clearTimeout(timer);
       if (spheresInstanceRef.current) {
         spheresInstanceRef.current.dispose();
+        spheresInstanceRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <canvas
-      className={className}
-      ref={canvasRef}
-      style={{ width: "100%", height: "100%" }}
-    />
+    <div className={`ballpit-container ${className}`} style={props.style}>
+      <canvas className="ballpit-canvas" ref={canvasRef} />
+    </div>
   );
 };
 

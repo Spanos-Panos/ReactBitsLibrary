@@ -58,14 +58,14 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
     return ipcRenderer.invoke("generate-playground", ...args);
   },
   onGenerateProgress(callback) {
-    ipcRenderer.on("generate-progress", (event, message, taskId) => {
-      callback(message, taskId);
-    });
+    const handler = (_event, message, taskId) => callback(message, taskId);
+    ipcRenderer.on("generate-progress", handler);
+    return () => ipcRenderer.removeListener("generate-progress", handler);
   },
   onGenerateLog(callback) {
-    ipcRenderer.on("generate-log", (event, message, taskId) => {
-      callback(message, taskId);
-    });
+    const handler = (_event, message, taskId) => callback(message, taskId);
+    ipcRenderer.on("generate-log", handler);
+    return () => ipcRenderer.removeListener("generate-log", handler);
   },
   selectDirectory() {
     return ipcRenderer.invoke("select-directory");
