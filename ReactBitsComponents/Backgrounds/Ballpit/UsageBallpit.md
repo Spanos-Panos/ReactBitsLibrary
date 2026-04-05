@@ -1,14 +1,16 @@
-//Component inspired by Kevin Levron:
-//https://x.com/soju22/status/1858925191671271801
-  
-import Ballpit from './Ballpit;'
+import Ballpit from './components/Backgrounds/Ballpit/Ballpit'
 
-<div style={{position: 'relative', overflow: 'hidden', height: '100vh', width: '100%'}}>
-  <Ballpit
-    count={100}
-    gravity={0.01}
-    friction={1}
-    wallBounce={0.95}
-    followCursor={false}
-  />
-</div>
+export default function App() {
+  return (
+    
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>
+      <Ballpit
+        count={100}
+        gravity={0.9}
+        friction={0.8}
+        wallBounce={0.95}
+        followCursor={true}
+      />
+    </div>
+  );
+}

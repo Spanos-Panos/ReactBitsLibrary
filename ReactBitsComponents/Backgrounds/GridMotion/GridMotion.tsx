@@ -3,7 +3,7 @@ import { gsap } from "gsap";
 import "./GridMotion.css";
 
 interface GridMotionProps {
-  items?: string[];
+  items?: string[] | any[];
   gradientColor?: string;
 }
 
@@ -89,7 +89,7 @@ const GridMotion: FC<GridMotionProps> = ({
                       style={{ backgroundColor: "#111" }}
                     >
                       {typeof content === "string" &&
-                      content.startsWith("http") ? (
+                      (content.startsWith("http") || content.match(/\.(jpeg|jpg|gif|png|svg)$/i)) ? (
                         <div
                           className="row__item-img"
                           style={{

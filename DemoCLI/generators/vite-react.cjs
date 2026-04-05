@@ -69,6 +69,16 @@ async function generateViteReact(options) {
     enhancedPrompt.technicalRequirements.dependencies.forEach(d => discoveredDeps.add(d));
   }
 
+  // Merge dynamic manual dependencies if passed from ReactBits component Install.json
+  if (installData?.manual?.[packageManager]) {
+    const manualLine = installData.manual[packageManager];
+    const match = manualLine.match(/(?:add|install)\s+([^&]+)/);
+    if (match && match[1]) {
+      const pkgNames = match[1].trim().split(/\s+/).filter(p => p && !p.startsWith('-'));
+      pkgNames.forEach(p => discoveredDeps.add(p));
+    }
+  }
+
   // 2. Install dependencies
   const depList = Array.from(discoveredDeps).join(' ');
   notify(`Installing project dependencies via ${packageManager}...`);

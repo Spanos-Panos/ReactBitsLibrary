@@ -1,22 +1,16 @@
-import CurvedLoop from './CurvedLoop';
+import CurvedLoop from './components/TextAnimations/CurvedLoop/CurvedLoop'
 
-// Basic usage
-<CurvedLoop marqueeText="Welcome to React Bits ✦" />
-
-// With custom props
-<CurvedLoop 
-  marqueeText="Be ✦ Creative ✦ With ✦ React ✦ Bits ✦"
-  speed={3}
-  curveAmount={500}
-  direction="right"
-  interactive={true}
-  className="custom-text-style"
-/>
-
-// Non-interactive with slower speed
-<CurvedLoop 
-  marqueeText="Smooth Curved Animation"
-  speed={1}
-  curveAmount={300}
-  interactive={false}
-/>
+export default function App() {
+  return (
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>
+      <CurvedLoop 
+        marqueeText="Be ✦ Creative ✦ With ✦ React ✦ Bits ✦"
+        speed={3}
+        curveAmount={500}
+        direction="right"
+        interactive={true}
+        className="custom-text-style"
+      />
+    </div>
+  );
+}

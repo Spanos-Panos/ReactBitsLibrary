@@ -1,7 +1,6 @@
 import LightRays from './LightRays';
 
-<div style={{ width: '100%', height: '600px', position: 'relative' }}>
-  <LightRays
+<LightRays
     raysOrigin="top-center"
     raysColor="#00ffff"
     raysSpeed={1.5}
@@ -13,4 +12,4 @@ import LightRays from './LightRays';
     distortion={0.05}
     className="custom-rays"
   />
-</div>
+

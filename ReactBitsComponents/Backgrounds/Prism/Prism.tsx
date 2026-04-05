@@ -453,6 +453,9 @@ const Prism: React.FC<PrismProps> = ({
       }
       if (gl.canvas.parentElement === container)
         container.removeChild(gl.canvas);
+      
+      geometry.remove();
+      program.remove();
     };
   }, [
     height,

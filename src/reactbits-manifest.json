@@ -115,7 +115,7 @@
     "id": "Components/GlassSurface",
     "name": "GlassSurface",
     "category": "Components",
-    "usageMarkdown": "import GlassSurface from './GlassSurface'\r\n\r\n// Basic usage\r\n<GlassSurface \r\n  width={300} \r\n  height={200}\r\n  borderRadius={24}\r\n  className=\"my-custom-class\"\r\n>\r\n  <h2>Glass Surface Content</h2>\r\n</GlassSurface>\r\n\r\n// Custom displacement effects\r\n<GlassSurface\r\n  displace={15}\r\n  distortionScale={-150}\r\n  redOffset={5}\r\n  greenOffset={15}\r\n  blueOffset={25}\r\n  brightness={60}\r\n  opacity={0.8}\r\n  mixBlendMode=\"screen\"\r\n>\r\n  <span>Advanced Glass Distortion</span>\r\n</GlassSurface>",
+    "usageMarkdown": "import GlassSurface from './components/Components/GlassSurface/GlassSurface'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>\r\n      <GlassSurface\r\n        width={300} \r\n        height={200}\r\n        borderRadius={24}\r\n        displace={15}\r\n        distortionScale={-150}\r\n        redOffset={5}\r\n        greenOffset={15}\r\n        blueOffset={25}\r\n        brightness={60}\r\n        opacity={0.8}\r\n        mixBlendMode=\"screen\"\r\n      >\r\n        <span style={{color: \"white\"}}>Advanced Glass Distortion</span>\r\n      </GlassSurface>\r\n    </div>\r\n  );\r\n}",
     "relativePath": "ReactBitsComponents/Components/GlassSurface/UsageGlassSurface.md"
   },
   {
@@ -416,70 +416,70 @@
     "id": "Backgrounds/Ballpit",
     "name": "Ballpit",
     "category": "Backgrounds",
-    "usageMarkdown": "import Ballpit from './Ballpit'\n\n{/* \n  Component inspired by Kevin Levron:\n  https://x.com/soju22/status/1858925191671271801\n*/}\n\n<div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>\n  <Ballpit\n    count={200}\n    gravity={0.7}\n    friction={0.8}\n    wallBounce={0.95}\n    followCursor={true}\n  />\n</div>",
+    "usageMarkdown": "import Ballpit from './components/Backgrounds/Ballpit/Ballpit'\n\nexport default function App() {\n  return (\n    \n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\n      <Ballpit\n        count={100}\n        gravity={0.9}\n        friction={0.8}\n        wallBounce={0.95}\n        followCursor={true}\n      />\n    </div>\n  );\n}",
     "relativePath": "ReactBitsComponents/Backgrounds/Ballpit/UsageBallpit.md"
   },
   {
     "id": "Backgrounds/Beams",
     "name": "Beams",
     "category": "Backgrounds",
-    "usageMarkdown": "import Beams from './Beams';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Beams\r\n    beamWidth={2}\r\n    beamHeight={15}\r\n    beamNumber={12}\r\n    lightColor=\"#ffffff\"\r\n    speed={2}\r\n    noiseIntensity={1.75}\r\n    scale={0.2}\r\n    rotation={0}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Beams from './Beams';\r\n\r\n<Beams\r\n    beamWidth={2}\r\n    beamHeight={15}\r\n    beamNumber={12}\r\n    lightColor=\"#ffffff\"\r\n    speed={2}\r\n    noiseIntensity={1.75}\r\n    scale={0.2}\r\n    rotation={0}\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Beams/UsageBeams.md"
   },
   {
     "id": "Backgrounds/DarkVeil",
     "name": "DarkVeil",
     "category": "Backgrounds",
-    "usageMarkdown": "import DarkVeil from './DarkVeil';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <DarkVeil />\r\n</div>",
+    "usageMarkdown": "import DarkVeil from './DarkVeil';\r\n\r\n<DarkVeil />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/DarkVeil/UsageDarkVeil.md"
   },
   {
     "id": "Backgrounds/Dither",
     "name": "Dither",
     "category": "Backgrounds",
-    "usageMarkdown": "import Dither from './Dither';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Dither\r\n    waveColor={[0.5, 0.5, 0.5]}\r\n    disableAnimation={false}\r\n    enableMouseInteraction={true}\r\n    mouseRadius={0.3}\r\n    colorNum={4}\r\n    waveAmplitude={0.3}\r\n    waveFrequency={3}\r\n    waveSpeed={0.05}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Dither from './Dither';\r\n\r\n<Dither\r\n    waveColor={[0.5, 0.5, 0.5]}\r\n    disableAnimation={false}\r\n    enableMouseInteraction={true}\r\n    mouseRadius={0.3}\r\n    colorNum={4}\r\n    waveAmplitude={0.3}\r\n    waveFrequency={3}\r\n    waveSpeed={0.05}\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Dither/UsageDither.md"
   },
   {
     "id": "Backgrounds/DotGrid",
     "name": "DotGrid",
     "category": "Backgrounds",
-    "usageMarkdown": "import DotGrid from './DotGrid';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <DotGrid\r\n    dotSize={10}\r\n    gap={15}\r\n    baseColor=\"#5227FF\"\r\n    activeColor=\"#5227FF\"\r\n    proximity={120}\r\n    shockRadius={250}\r\n    shockStrength={5}\r\n    resistance={750}\r\n    returnDuration={1.5}\r\n  />\r\n</div>",
+    "usageMarkdown": "import DotGrid from './DotGrid';\r\n\r\n<DotGrid\r\n    dotSize={10}\r\n    gap={15}\r\n    baseColor=\"#5227FF\"\r\n    activeColor=\"#5227FF\"\r\n    proximity={120}\r\n    shockRadius={250}\r\n    shockStrength={5}\r\n    resistance={750}\r\n    returnDuration={1.5}\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/DotGrid/UsageDotGrid.md"
   },
   {
     "id": "Backgrounds/FaultyTerminal",
     "name": "FaultyTerminal",
     "category": "Backgrounds",
-    "usageMarkdown": "import FaultyTerminal from './FaultyTerminal';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <FaultyTerminal\r\n    scale={1.5}\r\n    gridMul={[2, 1]}\r\n    digitSize={1.2}\r\n    timeScale={1}\r\n    pause={false}\r\n    scanlineIntensity={1}\r\n    glitchAmount={1}\r\n    flickerAmount={1}\r\n    noiseAmp={1}\r\n    chromaticAberration={0}\r\n    dither={0}\r\n    curvature={0}\r\n    tint=\"#ffffff\"\r\n    mouseReact={true}\r\n    mouseStrength={0.5}\r\n    pageLoadAnimation={false}\r\n    brightness={1}\r\n  />\r\n</div>",
+    "usageMarkdown": "import FaultyTerminal from './FaultyTerminal';\r\n\r\n<FaultyTerminal\r\n    scale={1.5}\r\n    gridMul={[2, 1]}\r\n    digitSize={1.2}\r\n    timeScale={1}\r\n    pause={false}\r\n    scanlineIntensity={1}\r\n    glitchAmount={1}\r\n    flickerAmount={1}\r\n    noiseAmp={1}\r\n    chromaticAberration={0}\r\n    dither={0}\r\n    curvature={0}\r\n    tint=\"#ffffff\"\r\n    mouseReact={true}\r\n    mouseStrength={0.5}\r\n    pageLoadAnimation={false}\r\n    brightness={1}\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/FaultyTerminal/UsageFaultyTerminal.md"
   },
   {
     "id": "Backgrounds/Galaxy",
     "name": "Galaxy",
     "category": "Backgrounds",
-    "usageMarkdown": "import Galaxy from './Galaxy';\r\n\r\n// Basic usage\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Galaxy />\r\n</div>\r\n\r\n// With custom prop values\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Galaxy \r\n    mouseRepulsion={true}\r\n    mouseInteraction={true}\r\n    density={1.5}\r\n    glowIntensity={0.5}\r\n    saturation={0.8}\r\n    hueShift={240}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Galaxy from './components/Backgrounds/Galaxy/Galaxy'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <Galaxy \r\n        mouseRepulsion={true}\r\n        mouseInteraction={true}\r\n        density={1.5}\r\n        glowIntensity={0.5}\r\n        saturation={0.8}\r\n        hueShift={240}\r\n      />\r\n    </div>\r\n  );\r\n}\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Galaxy/UsageGalaxy.md"
   },
   {
     "id": "Backgrounds/GridDistortion",
     "name": "GridDistortion",
     "category": "Backgrounds",
-    "usageMarkdown": "import GridDistortion from './GridDistortion';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <GridDistortion\r\n    imageSrc=\"https://picsum.photos/1920/1080?grayscale\"\r\n    grid={10}\r\n    mouse={0.1}\r\n    strength={0.15}\r\n    relaxation={0.9}\r\n    className=\"custom-class\"\r\n  />\r\n</div>",
+    "usageMarkdown": "import GridDistortion from './components/Backgrounds/GridDistortion/GridDistortion';\n\nexport default function App() {\n  return (\n    <div style={{ width: '100%', height: '100vh', position: 'relative' }}>\n  <GridDistortion\n    imageSrc=\"https://picsum.photos/1920/1080?grayscale\"\n    grid={10}\n    mouse={0.1}\n    strength={0.15}\n    relaxation={0.9}\n    className=\"custom-class\"\n  />\n</div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/Backgrounds/GridDistortion/UsageGridDistortion.md"
   },
   {
     "id": "Backgrounds/GridMotion",
     "name": "GridMotion",
     "category": "Backgrounds",
-    "usageMarkdown": "import GridMotion from './GridMotion';\r\n  \r\n// note: you'll need to make sure the parent container of this component is sized properly\r\nconst items = [\r\n  'Item 1',\r\n  <div key='jsx-item-1'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 2',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 4',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 5',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 7',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 8',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 10',\r\n  <div key='jsx-item-3'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 11',\r\n  <div key='jsx-item-2'>Custom JSX Content</div>,\r\n  'Item 13',\r\n  <div key='jsx-item-4'>Custom JSX Content</div>,\r\n  '/joker-portrait.jpg',\r\n  'Item 14',\r\n  // Add more items as needed\r\n];\r\n\r\n<GridMotion items={items} />",
+    "usageMarkdown": "import GridMotion from './components/Backgrounds/GridMotion/GridMotion'\r\n\r\nexport default function App() {\r\n  // Generates 28 random images for the grid\r\n  const items = Array.from({ length: 28 }, (_, i) => {\r\n    return `https://picsum.photos/800/800?random=${i}`;\r\n  });\r\n\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#111' }}>\r\n      <GridMotion items={items} />\r\n    </div>\r\n  );\r\n}",
     "relativePath": "ReactBitsComponents/Backgrounds/GridMotion/UsageGridMotion.md"
   },
   {
     "id": "Backgrounds/HyperSpeed",
     "name": "HyperSpeed",
     "category": "Backgrounds",
-    "usageMarkdown": "import Hyperspeed from './Hyperspeed';\r\n\r\n// the component will fill the height/width of its parent container, edit the CSS to change this\r\n// the options below are the default values\r\n\r\n<Hyperspeed\r\n  effectOptions={{\r\n    onSpeedUp: () => { },\r\n    onSlowDown: () => { },\r\n    distortion: 'turbulentDistortion',\r\n    length: 400,\r\n    roadWidth: 10,\r\n    islandWidth: 2,\r\n    lanesPerRoad: 4,\r\n    fov: 90,\r\n    fovSpeedUp: 150,\r\n    speedUp: 2,\r\n    carLightsFade: 0.4,\r\n    totalSideLightSticks: 20,\r\n    lightPairsPerRoadWay: 40,\r\n    shoulderLinesWidthPercentage: 0.05,\r\n    brokenLinesWidthPercentage: 0.1,\r\n    brokenLinesLengthPercentage: 0.5,\r\n    lightStickWidth: [0.12, 0.5],\r\n    lightStickHeight: [1.3, 1.7],\r\n    movingAwaySpeed: [60, 80],\r\n    movingCloserSpeed: [-120, -160],\r\n    carLightsLength: [400 * 0.03, 400 * 0.2],\r\n    carLightsRadius: [0.05, 0.14],\r\n    carWidthPercentage: [0.3, 0.5],\r\n    carShiftX: [-0.8, 0.8],\r\n    carFloorSeparation: [0, 5],\r\n    colors: {\r\n      roadColor: 0x080808,\r\n      islandColor: 0x0a0a0a,\r\n      background: 0x000000,\r\n      shoulderLines: 0xFFFFFF,\r\n      brokenLines: 0xFFFFFF,\r\n      leftCars: [0xD856BF, 0x6750A2, 0xC247AC],\r\n      rightCars: [0x03B3C3, 0x0E5EA5, 0x324555],\r\n      sticks: 0x03B3C3,\r\n    }\r\n  }}\r\n/>",
+    "usageMarkdown": "import HyperSpeed from './components/Backgrounds/HyperSpeed/HyperSpeed'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <HyperSpeed\r\n        effectOptions={{\r\n          onSpeedUp: () => { },\r\n          onSlowDown: () => { },\r\n          distortion: 'turbulentDistortion',\r\n          length: 400,\r\n          roadWidth: 10,\r\n          islandWidth: 2,\r\n          lanesPerRoad: 4,\r\n          fov: 90,\r\n          fovSpeedUp: 150,\r\n          speedUp: 2,\r\n          carLightsFade: 0.4,\r\n          totalSideLightSticks: 20,\r\n          lightPairsPerRoadWay: 40,\r\n          shoulderLinesWidthPercentage: 0.05,\r\n          brokenLinesWidthPercentage: 0.1,\r\n          brokenLinesLengthPercentage: 0.5,\r\n          lightStickWidth: [0.12, 0.5],\r\n          lightStickHeight: [1.3, 1.7],\r\n          movingAwaySpeed: [60, 80],\r\n          movingCloserSpeed: [-120, -160],\r\n          carLightsLength: [400 * 0.03, 400 * 0.2],\r\n          carLightsRadius: [0.05, 0.14],\r\n          carWidthPercentage: [0.3, 0.5],\r\n          carShiftX: [-0.8, 0.8],\r\n          carFloorSeparation: [0, 5],\r\n          colors: {\r\n            roadColor: 0x080808,\r\n            islandColor: 0x0a0a0a,\r\n            background: 0x000000,\r\n            shoulderLines: 0xFFFFFF,\r\n            brokenLines: 0xFFFFFF,\r\n            leftCars: [0xD856BF, 0x6750A2, 0xC247AC],\r\n            rightCars: [0x03B3C3, 0x0E5EA5, 0x324555],\r\n            sticks: 0x03B3C3,\r\n          }\r\n        }}\r\n      />\r\n    </div>\r\n  );\r\n}",
     "relativePath": "ReactBitsComponents/Backgrounds/HyperSpeed/UsageHyperSpeed.md"
   },
   {
@@ -493,70 +493,70 @@
     "id": "Backgrounds/LatterGlitch",
     "name": "LatterGlitch",
     "category": "Backgrounds",
-    "usageMarkdown": "import LetterGlitch from './LetterGlitch';\r\n  \r\n<LetterGlitch\r\n  glitchSpeed={50}\r\n  centerVignette={true}\r\n  outerVignette={false}\r\n  smooth={true}\r\n/>",
+    "usageMarkdown": "import LetterGlitch from './components/Backgrounds/LatterGlitch/LatterGlitch'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <LetterGlitch\r\n        glitchSpeed={50}\r\n        centerVignette={true}\r\n        outerVignette={false}\r\n        smooth={true}\r\n      />\r\n    </div>\r\n  );\r\n}",
     "relativePath": "ReactBitsComponents/Backgrounds/LatterGlitch/UsageLatterGlitch.md"
   },
   {
-    "id": "Backgrounds/Lighning",
-    "name": "Lighning",
+    "id": "Backgrounds/Lightning",
+    "name": "Lightning",
     "category": "Backgrounds",
-    "usageMarkdown": "import Lightning from './Lightning';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Lightning\r\n    hue={220}\r\n    xOffset={0}\r\n    speed={1}\r\n    intensity={1}\r\n    size={1}\r\n  />\r\n</div>",
-    "relativePath": "ReactBitsComponents/Backgrounds/Lighning/UsageLighning.md"
+    "usageMarkdown": "import Lightning from './components/Backgrounds/Lightning/Lightning'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <Lightning\r\n        hue={220}\r\n        xOffset={0}\r\n        speed={1}\r\n        intensity={1}\r\n        size={1}\r\n      />\r\n    </div>\r\n  );\r\n}\n",
+    "relativePath": "ReactBitsComponents/Backgrounds/Lightning/UsageLightning.md"
   },
   {
     "id": "Backgrounds/LightRays",
     "name": "LightRays",
     "category": "Backgrounds",
-    "usageMarkdown": "import LightRays from './LightRays';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <LightRays\r\n    raysOrigin=\"top-center\"\r\n    raysColor=\"#00ffff\"\r\n    raysSpeed={1.5}\r\n    lightSpread={0.8}\r\n    rayLength={1.2}\r\n    followMouse={true}\r\n    mouseInfluence={0.1}\r\n    noiseAmount={0.1}\r\n    distortion={0.05}\r\n    className=\"custom-rays\"\r\n  />\r\n</div>",
+    "usageMarkdown": "import LightRays from './LightRays';\r\n\r\n<LightRays\r\n    raysOrigin=\"top-center\"\r\n    raysColor=\"#00ffff\"\r\n    raysSpeed={1.5}\r\n    lightSpread={0.8}\r\n    rayLength={1.2}\r\n    followMouse={true}\r\n    mouseInfluence={0.1}\r\n    noiseAmount={0.1}\r\n    distortion={0.05}\r\n    className=\"custom-rays\"\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/LightRays/UsageLightRays.md"
   },
   {
     "id": "Backgrounds/LiquidChrome",
     "name": "LiquidChrome",
     "category": "Backgrounds",
-    "usageMarkdown": "import LiquidChrome from './LiquidChrome';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <LiquidChrome\r\n    baseColor={[0.1, 0.1, 0.1]}\r\n    speed={1}\r\n    amplitude={0.6}\r\n    interactive={true}\r\n  />\r\n</div>",
+    "usageMarkdown": "import LiquidChrome from './LiquidChrome';\r\n\r\n<LiquidChrome\r\n    baseColor={[0.1, 0.1, 0.1]}\r\n    speed={1}\r\n    amplitude={0.6}\r\n    interactive={true}\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/LiquidChrome/UsageLiquidChrome.md"
   },
   {
     "id": "Backgrounds/Orb",
     "name": "Orb",
     "category": "Backgrounds",
-    "usageMarkdown": "import Orb from './Orb';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Orb\r\n    hoverIntensity={0.5}\r\n    rotateOnHover={true}\r\n    hue={0}\r\n    forceHoverState={false}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Orb from './Orb';\r\n\r\n<Orb\r\n    hoverIntensity={0.5}\r\n    rotateOnHover={true}\r\n    hue={0}\r\n    forceHoverState={false}\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Orb/UsageOrb.md"
   },
   {
     "id": "Backgrounds/Particles",
     "name": "Particles",
     "category": "Backgrounds",
-    "usageMarkdown": "import Particles from './Particles';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Particles\r\n    particleColors={['#ffffff', '#ffffff']}\r\n    particleCount={200}\r\n    particleSpread={10}\r\n    speed={0.1}\r\n    particleBaseSize={100}\r\n    moveParticlesOnHover={true}\r\n    alphaParticles={false}\r\n    disableRotation={false}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Particles from './Particles';\r\n\r\n<Particles\r\n    particleColors={['#ffffff', '#ffffff']}\r\n    particleCount={200}\r\n    particleSpread={10}\r\n    speed={0.1}\r\n    particleBaseSize={100}\r\n    moveParticlesOnHover={true}\r\n    alphaParticles={false}\r\n    disableRotation={false}\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Particles/UsageParticles.md"
   },
   {
     "id": "Backgrounds/Plasma",
     "name": "Plasma",
     "category": "Backgrounds",
-    "usageMarkdown": "import Plasma from './Plasma';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Plasma \r\n    color=\"#ff6b35\"\r\n    speed={0.6}\r\n    direction=\"forward\"\r\n    scale={1.1}\r\n    opacity={0.8}\r\n    mouseInteractive={true}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Plasma from './components/Backgrounds/Plasma/Plasma';\n\nexport default function App() {\n  return (\n    <div style={{ width: '100%', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\n      <Plasma \n        color=\"#3498db\"\n        speed={1.0}\n        scale={1.0}\n        // --- NEW CUSTOMIZATION PROPS ---\n        twist={10.0}        // Higher = more spiral/winding\n        topWidth={0.6}      // Width at the top of the screen\n        bottomWidth={0.02}  // Width at the bottom (0.01 is a sharp point)\n        flarePow={1.6}      // 1.0 is linear, 2.0+ is a curved \"funnel\" look\n        opacity={1}\n      />\n    </div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Plasma/UsagePlasma.md"
   },
   {
     "id": "Backgrounds/Prism",
     "name": "Prism",
     "category": "Backgrounds",
-    "usageMarkdown": "import Prism from './Prism';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Prism\r\n    animationType=\"rotate\"\r\n    timeScale={0.5}\r\n    height={3.5}\r\n    baseWidth={5.5}\r\n    scale={3.6}\r\n    hueShift={0}\r\n    colorFrequency={1}\r\n    noise={0.5}\r\n    glow={1}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Prism from './components/Backgrounds/Prism/Prism';\n\nexport default function App() {\n  return (\n    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>\n      <Prism\n          animationType=\"rotate\"\n          timeScale={0.3}\n          height={2.5}\n          baseWidth={5}\n          scale={3}\n          hueShift={0}\n          colorFrequency={2}\n          noise={0.1}\n          glow={1}\n        />\n    </div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Prism/UsagePrism.md"
   },
   {
     "id": "Backgrounds/RippleGrid",
     "name": "RippleGrid",
     "category": "Backgrounds",
-    "usageMarkdown": "import RippleGrid from './RippleGrid';\r\n\r\n<div style={{position: 'relative', height: '500px', overflow: 'hidden'}}>\r\n  <RippleGrid\r\n    enableRainbow={false}\r\n    gridColor=\"#ffffff\"\r\n    rippleIntensity={0.05}\r\n    gridSize={10}\r\n    gridThickness={15}\r\n    mouseInteraction={true}\r\n    mouseInteractionRadius={1.2}\r\n    opacity={0.8}\r\n  />\r\n</div>",
+    "usageMarkdown": "import RippleGrid from './components/Backgrounds/RippleGrid/RippleGrid';\n\nexport default function App() {\n  return (\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>\n      <div style={{ position: 'relative', height: '100vh', width: '100%', overflow: 'hidden' }}>\n        <RippleGrid\n          enableRainbow={true}\n          gridColor=\"#ffffff\"\n          rippleIntensity={0.05}\n          gridSize={10}\n          gridThickness={15}\n          mouseInteraction={true}\n          mouseInteractionRadius={1.2}\n          opacity={0.8}\n          // --- NEW PROP ---\n          // Set to 0.0 to fill the whole screen. \n          // Set to 2.0+ to make edges fade out.\n          vignetteStrength={0} \n        />\n      </div>\n    </div>\n  );\n}",
     "relativePath": "ReactBitsComponents/Backgrounds/RippleGrid/UsageRippleGrid.md"
   },
   {
     "id": "Backgrounds/Silk",
     "name": "Silk",
     "category": "Backgrounds",
-    "usageMarkdown": "import Silk from './Silk';\r\n\r\n<Silk\r\n  speed={5}\r\n  scale={1}\r\n  color=\"#7B7481\"\r\n  noiseIntensity={1.5}\r\n  rotation={0}\r\n/>",
+    "usageMarkdown": "import Silk from './components/Backgrounds/Silk/Silk';\n\nexport default function App() {\n  return (\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000', overflow: 'hidden' }}>\n      <Silk\n        speed={0.5}        // Slowed down for a silkier feel\n        scale={0.5}        // Adjusted scale\n        color=\"#7B7481\"\n        noiseIntensity={0.2}\n        rotation={Math.PI / -1}\n      />\n    </div>\n  );\n}",
     "relativePath": "ReactBitsComponents/Backgrounds/Silk/UsageSilk.md"
   },
   {
@@ -570,7 +570,7 @@
     "id": "Backgrounds/Threads",
     "name": "Threads",
     "category": "Backgrounds",
-    "usageMarkdown": "import Threads from './Threads';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <Threads\r\n    amplitude={1}\r\n    distance={0}\r\n    enableMouseInteraction={true}\r\n  />\r\n</div>",
+    "usageMarkdown": "import Threads from './Threads';\r\n\r\n<Threads\r\n    amplitude={1}\r\n    distance={0}\r\n    enableMouseInteraction={true}\r\n  />\r\n\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Threads/UsageThreads.md"
   },
   {
@@ -612,7 +612,7 @@
     "id": "TextAnimations/CurvedLoop",
     "name": "CurvedLoop",
     "category": "TextAnimations",
-    "usageMarkdown": "import CurvedLoop from './CurvedLoop';\r\n\r\n// Basic usage\r\n<CurvedLoop marqueeText=\"Welcome to React Bits ✦\" />\r\n\r\n// With custom props\r\n<CurvedLoop \r\n  marqueeText=\"Be ✦ Creative ✦ With ✦ React ✦ Bits ✦\"\r\n  speed={3}\r\n  curveAmount={500}\r\n  direction=\"right\"\r\n  interactive={true}\r\n  className=\"custom-text-style\"\r\n/>\r\n\r\n// Non-interactive with slower speed\r\n<CurvedLoop \r\n  marqueeText=\"Smooth Curved Animation\"\r\n  speed={1}\r\n  curveAmount={300}\r\n  interactive={false}\r\n/>",
+    "usageMarkdown": "import CurvedLoop from './components/TextAnimations/CurvedLoop/CurvedLoop'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <CurvedLoop \r\n        marqueeText=\"Be ✦ Creative ✦ With ✦ React ✦ Bits ✦\"\r\n        speed={3}\r\n        curveAmount={500}\r\n        direction=\"right\"\r\n        interactive={true}\r\n        className=\"custom-text-style\"\r\n      />\r\n    </div>\r\n  );\r\n}",
     "relativePath": "ReactBitsComponents/TextAnimations/CurvedLoop/UsageCurvedLoop.md"
   },
   {
@@ -654,7 +654,7 @@
     "id": "TextAnimations/PixelTrail",
     "name": "PixelTrail",
     "category": "TextAnimations",
-    "usageMarkdown": "import TextTrail from './TextTrail';\r\n\r\n// Basic usage\r\n<TextTrail text=\"Hello World\" />\r\n\r\n// Usage with all props\r\n<TextTrail \r\n  text=\"React Bits\"\r\n  fontFamily=\"Figtree\"\r\n  fontWeight=\"900\"\r\n  noiseFactor={1.2}\r\n  noiseScale={0.001}\r\n  rgbPersistFactor={0.95}\r\n  alphaPersistFactor={0.92}\r\n  animateColor={true}\r\n  startColor=\"#ff6b6b\"\r\n  textColor=\"#4ecdc4\"\r\n  backgroundColor=\"#1a1a2e\"\r\n  colorCycleInterval={2000}\r\n  supersample={2}\r\n/>\r\n\r\n// With animated color cycling\r\n<TextTrail \r\n  text=\"Colorful\"\r\n  animateColor={true}\r\n  colorCycleInterval={1500}\r\n  noiseFactor={1.5}\r\n  noiseScale={0.002}\r\n/>",
+    "usageMarkdown": "import TextTrail from './components/TextAnimations/PixelTrail/TextTrail'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyItems: 'center', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <TextTrail \r\n        text=\"React Bits\"\r\n        fontFamily=\"Arial\"\r\n        fontWeight=\"900\"\r\n        noiseFactor={1.2}\r\n        noiseScale={0.001}\r\n        rgbPersistFactor={0.95}\r\n        alphaPersistFactor={0.92}\r\n        animateColor={true}\r\n        startColor=\"#ff6b6b\"\r\n        textColor=\"#4ecdc4\"\r\n        backgroundColor=\"#000\"\r\n        colorCycleInterval={2000}\r\n        supersample={2}\r\n      />\r\n    </div>\r\n  );\r\n}",
     "relativePath": "ReactBitsComponents/TextAnimations/PixelTrail/UsagePixelTrail.md"
   },
   {

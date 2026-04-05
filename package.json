@@ -9,7 +9,7 @@
     "url": "https://github.com/Spanos-Panos/ReactBitsLibrary.git"
   },
   "scripts": {
-    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev": "npm run generate:manifest && concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "generate:manifest": "node scripts/generate-manifest.cjs",
     "build": "vite build",
     "preview": "vite preview",

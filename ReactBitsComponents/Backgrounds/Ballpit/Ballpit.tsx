@@ -147,27 +147,39 @@ class X {
   }
 
   #onResize() {
-    if (this.#resizeTimer) clearTimeout(this.#resizeTimer);
-    this.#resizeTimer = window.setTimeout(this.resize.bind(this), 100);
+    this.resize();
   }
 
   resize() {
     let w: number, h: number;
+    const parent = this.canvas.parentNode as HTMLElement;
+
     if (this.#config.size instanceof Object) {
       w = this.#config.size.width;
       h = this.#config.size.height;
-    } else if (this.#config.size === 'parent' && this.canvas.parentNode) {
-      w = (this.canvas.parentNode as HTMLElement).offsetWidth;
-      h = (this.canvas.parentNode as HTMLElement).offsetHeight;
+    } else if (this.#config.size === 'parent' && parent) {
+      w = parent.offsetWidth;
+      h = parent.offsetHeight;
     } else {
       w = window.innerWidth;
       h = window.innerHeight;
     }
+
     this.size.width = w;
     this.size.height = h;
     this.size.ratio = w / h;
-    this.#updateCamera();
-    this.#updateRenderer();
+
+    // Update Renderer
+    this.renderer.setSize(w, h, true); // The 'true' ensures CSS is updated
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Update Camera
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+
+    // Recalculate world boundaries for physics
+    this.updateWorldSize();
+
     this.onAfterResize(this.size);
   }
 
@@ -193,15 +205,12 @@ class X {
   }
 
   updateWorldSize() {
-    if (this.camera.isPerspectiveCamera) {
-      const fovRad = (this.camera.fov * Math.PI) / 180;
-      this.size.wHeight = 2 * Math.tan(fovRad / 2) * this.camera.position.length();
-      this.size.wWidth = this.size.wHeight * this.camera.aspect;
-    } else if ((this.camera as any).isOrthographicCamera) {
-      const cam = this.camera as any;
-      this.size.wHeight = cam.top - cam.bottom;
-      this.size.wWidth = cam.right - cam.left;
-    }
+    const fovRad = MathUtils.degToRad(this.camera.fov);
+    // Distance from camera to the origin (0,0,0)
+    const distance = this.camera.position.z;
+
+    this.size.wHeight = 2 * Math.tan(fovRad / 2) * distance;
+    this.size.wWidth = this.size.wHeight * this.camera.aspect;
   }
 
   #updateRenderer() {

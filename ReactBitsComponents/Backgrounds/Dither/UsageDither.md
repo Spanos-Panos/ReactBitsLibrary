@@ -1,7 +1,6 @@
 import Dither from './Dither';
 
-<div style={{ width: '100%', height: '600px', position: 'relative' }}>
-  <Dither
+<Dither
     waveColor={[0.5, 0.5, 0.5]}
     disableAnimation={false}
     enableMouseInteraction={true}
@@ -11,4 +10,4 @@ import Dither from './Dither';
     waveFrequency={3}
     waveSpeed={0.05}
   />
-</div>
+

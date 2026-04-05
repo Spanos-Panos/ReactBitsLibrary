@@ -1,9 +1,7 @@
 /* eslint-disable react/no-unknown-property */
-import React, { forwardRef, useMemo, useRef, useLayoutEffect } from "react";
-import "./Silk.css";
-import { Canvas, useFrame, useThree, RootState } from "@react-three/fiber";
+import React, { forwardRef, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Color, Mesh, ShaderMaterial } from "three";
-import { IUniform } from "three";
 
 type NormalizedRGB = [number, number, number];
 
@@ -15,26 +13,9 @@ const hexToNormalizedRGB = (hex: string): NormalizedRGB => {
   return [r, g, b];
 };
 
-interface UniformValue<T = number | Color> {
-  value: T;
-}
-
-interface SilkUniforms {
-  uSpeed: UniformValue<number>;
-  uScale: UniformValue<number>;
-  uNoiseIntensity: UniformValue<number>;
-  uColor: UniformValue<Color>;
-  uRotation: UniformValue<number>;
-  uTime: UniformValue<number>;
-  [uniform: string]: IUniform;
-}
-
 const vertexShader = `
 varying vec2 vUv;
-varying vec3 vPosition;
-
 void main() {
-  vPosition = position;
   vUv = uv;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
@@ -42,10 +23,8 @@ void main() {
 
 const fragmentShader = `
 varying vec2 vUv;
-varying vec3 vPosition;
-
 uniform float uTime;
-uniform vec3  uColor;
+uniform vec3 uColor;
 uniform float uSpeed;
 uniform float uScale;
 uniform float uRotation;
@@ -53,69 +32,53 @@ uniform float uNoiseIntensity;
 
 const float e = 2.71828182845904523536;
 
-float noise(vec2 texCoord) {
-  float G = e;
-  vec2  r = (G * sin(G * texCoord));
-  return fract(r.x * r.y * (1.0 + texCoord.x));
+// Optimized Noise using vUv instead of gl_FragCoord for zoom stability
+float noise(vec2 uv) {
+  vec2 r = (e * sin(e * uv));
+  return fract(r.x * r.y * (1.0 + uv.x));
 }
 
 vec2 rotateUvs(vec2 uv, float angle) {
   float c = cos(angle);
   float s = sin(angle);
-  mat2  rot = mat2(c, -s, s, c);
-  return rot * uv;
+  mat2 rot = mat2(c, -s, s, c);
+  return rot * (uv - 0.5) + 0.5;
 }
 
 void main() {
-  float rnd        = noise(gl_FragCoord.xy);
-  vec2  uv         = rotateUvs(vUv * uScale, uRotation);
-  vec2  tex        = uv * uScale;
-  float tOffset    = uSpeed * uTime;
+  // Use UV coordinates so the pattern doesn't change size when zooming
+  vec2 uv = rotateUvs(vUv, uRotation);
+  float rnd = noise(vUv * 100.0); 
+  
+  float tOffset = uSpeed * uTime;
+  vec2 tex = uv * uScale * 2.0;
 
   tex.y += 0.03 * sin(8.0 * tex.x - tOffset);
 
-  float pattern = 0.6 +
-                  0.4 * sin(5.0 * (tex.x + tex.y +
-                                   cos(3.0 * tex.x + 5.0 * tex.y) +
-                                   0.02 * tOffset) +
-                           sin(20.0 * (tex.x + tex.y - 0.1 * tOffset)));
+  float pattern = 0.6 + 0.4 * sin(5.0 * (tex.x + tex.y + cos(3.0 * tex.x + 5.0 * tex.y) + 0.02 * tOffset) + sin(20.0 * (tex.x + tex.y - 0.1 * tOffset)));
 
-  vec4 col = vec4(uColor, 1.0) * vec4(pattern) - rnd / 15.0 * uNoiseIntensity;
-  col.a = 1.0;
-  gl_FragColor = col;
+  vec3 finalColor = uColor * pattern;
+  // Apply noise grain based on intensity
+  finalColor -= (rnd / 15.0) * uNoiseIntensity;
+
+  gl_FragColor = vec4(finalColor, 1.0);
 }
 `;
 
-interface SilkPlaneProps {
-  uniforms: SilkUniforms;
-}
-
-const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane(
-  { uniforms },
-  ref
-) {
+const SilkPlane = forwardRef<Mesh, any>(({ uniforms }, ref) => {
   const { viewport } = useThree();
 
-  useLayoutEffect(() => {
-    const mesh = ref as React.MutableRefObject<Mesh | null>;
-    if (mesh.current) {
-      mesh.current.scale.set(viewport.width, viewport.height, 1);
-    }
-  }, [ref, viewport]);
-
-  useFrame((_state: RootState, delta: number) => {
-    const mesh = ref as React.MutableRefObject<Mesh | null>;
-    if (mesh.current) {
-      const material = mesh.current.material as ShaderMaterial & {
-        uniforms: SilkUniforms;
-      };
-      material.uniforms.uTime.value += 0.1 * delta;
+  useFrame((state) => {
+    if (ref && "current" in ref && ref.current) {
+      const material = ref.current.material as ShaderMaterial;
+      // Use state.clock.getElapsedTime() for smoother time than delta addition
+      material.uniforms.uTime.value = state.clock.getElapsedTime();
     }
   });
 
   return (
-    <mesh ref={ref}>
-      <planeGeometry args={[1, 1, 1, 1]} />
+    <mesh ref={ref} scale={[viewport.width, viewport.height, 1]}>
+      <planeGeometry args={[1, 1]} />
       <shaderMaterial
         uniforms={uniforms}
         vertexShader={vertexShader}
@@ -124,7 +87,6 @@ const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane(
     </mesh>
   );
 });
-SilkPlane.displayName = "SilkPlane";
 
 export interface SilkProps {
   speed?: number;
@@ -143,21 +105,21 @@ const Silk: React.FC<SilkProps> = ({
 }) => {
   const meshRef = useRef<Mesh>(null);
 
-  const uniforms = useMemo<SilkUniforms>(
-    () => ({
-      uSpeed: { value: speed },
-      uScale: { value: scale },
-      uNoiseIntensity: { value: noiseIntensity },
-      uColor: { value: new Color(...hexToNormalizedRGB(color)) },
-      uRotation: { value: rotation },
-      uTime: { value: 0 },
-    }),
-    [speed, scale, noiseIntensity, color, rotation]
-  );
+  const uniforms = useMemo(() => ({
+    uSpeed: { value: speed },
+    uScale: { value: scale },
+    uNoiseIntensity: { value: noiseIntensity },
+    uColor: { value: new Color(...hexToNormalizedRGB(color)) },
+    uRotation: { value: rotation },
+    uTime: { value: 0 },
+  }), [speed, scale, noiseIntensity, color, rotation]);
 
   return (
-    <div className="silk-container">
-      <Canvas dpr={[1, 2]} frameloop="always">
+    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden" }}>
+      {/* ANTI-LAG: we cap dpr at 1.5. 
+          R3F automatically handles the resize/zoom listener for the Canvas.
+      */}
+      <Canvas dpr={Math.min(window.devicePixelRatio, 1.5)} camera={{ position: [0, 0, 1] }}>
         <SilkPlane ref={meshRef} uniforms={uniforms} />
       </Canvas>
     </div>

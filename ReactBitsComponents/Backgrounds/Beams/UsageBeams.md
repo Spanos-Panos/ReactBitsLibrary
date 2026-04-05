@@ -1,7 +1,6 @@
 import Beams from './Beams';
 
-<div style={{ width: '100%', height: '600px', position: 'relative' }}>
-  <Beams
+<Beams
     beamWidth={2}
     beamHeight={15}
     beamNumber={12}
@@ -11,4 +10,4 @@ import Beams from './Beams';
     scale={0.2}
     rotation={0}
   />
-</div>
+

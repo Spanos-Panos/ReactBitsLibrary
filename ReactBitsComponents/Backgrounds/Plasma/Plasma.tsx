@@ -1,208 +1,223 @@
-import React, { useEffect, useRef } from "react";
-import { Renderer, Program, Mesh, Triangle } from "ogl";
-import "./Plasma.css";
+import React, { useEffect, useRef } from 'react';
+import { Renderer, Program, Mesh, Triangle } from 'ogl';
 
 interface PlasmaProps {
   color?: string;
   speed?: number;
-  direction?: "forward" | "reverse" | "pingpong";
   scale?: number;
   opacity?: number;
-  mouseInteractive?: boolean;
+  twist?: number;
+  topWidth?: number;
+  bottomWidth?: number;
+  flarePow?: number;
 }
 
 const hexToRgb = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return [1, 0.5, 0.2];
-  return [
-    parseInt(result[1], 16) / 255,
-    parseInt(result[2], 16) / 255,
-    parseInt(result[3], 16) / 255,
-  ];
+  if (!result) return [0.2, 0.5, 1.0]; 
+  return [parseInt(result[1], 16) / 255, parseInt(result[2], 16) / 255, parseInt(result[3], 16) / 255];
 };
 
 const vertex = `#version 300 es
 precision highp float;
 in vec2 position;
-in vec2 uv;
-out vec2 vUv;
 void main() {
-  vUv = uv;
   gl_Position = vec4(position, 0.0, 1.0);
 }
 `;
 
 const fragment = `#version 300 es
 precision highp float;
+
 uniform vec2 iResolution;
 uniform float iTime;
-uniform vec3 uCustomColor;
-uniform float uUseCustomColor;
-uniform float uSpeed;
-uniform float uDirection;
+uniform vec3 uColor;
 uniform float uScale;
 uniform float uOpacity;
-uniform vec2 uMouse;
-uniform float uMouseInteractive;
+uniform float uTwist;
+uniform float uTopWidth;
+uniform float uBottomWidth;
+uniform float uFlarePow;
+
 out vec4 fragColor;
 
-void mainImage(out vec4 o, vec2 C) {
-  vec2 center = iResolution.xy * 0.5;
-  C = (C - center) / uScale + center;
-  
-  vec2 mouseOffset = (uMouse - center) * 0.0002;
-  C += mouseOffset * length(C - center) * step(0.5, uMouseInteractive);
-  
-  float i, d, z, T = iTime * uSpeed * uDirection;
-  vec3 O, p, S;
-
-  for (vec2 r = iResolution.xy, Q; ++i < 60.; O += o.w/d*o.xyz) {
-    p = z*normalize(vec3(C-.5*r,r.y)); 
-    p.z -= 4.; 
-    S = p;
-    d = p.y-T;
-    
-    p.x += .4*(1.+p.y)*sin(d + p.x*0.1)*cos(.34*d + p.x*0.05); 
-    Q = p.xz *= mat2(cos(p.y+vec4(0,11,33,0)-T)); 
-    z+= d = abs(sqrt(length(Q*Q)) - .25*(5.+S.y))/3.+8e-4; 
-    o = 1.+sin(S.y+p.z*.5+S.z-length(S-p)+vec4(2,1,0,8));
-  }
-  
-  o.xyz = tanh(O/1e4);
+// --- NOISE ENGINE ---
+vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+float snoise(vec2 v){
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+  vec2 i = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod(i, 289.0);
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+  m = m*m; m = m*m;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+  vec3 g;
+  g.x = a0.x * x0.x + h.x * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
 }
 
-bool finite1(float x){ return !(isnan(x) || isinf(x)); }
-vec3 sanitize(vec3 c){
-  return vec3(
-    finite1(c.r) ? c.r : 0.0,
-    finite1(c.g) ? c.g : 0.0,
-    finite1(c.b) ? c.b : 0.0
-  );
+float ridgedFbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 3; i++) {
+        v += a * (1.0 - abs(snoise(p)));
+        p *= 2.8;
+        a *= 0.5;
+    }
+    return v;
+}
+
+mat2 rotate(float a) {
+    float s = sin(a), c = cos(a);
+    return mat2(c, s, -s, c);
 }
 
 void main() {
-  vec4 o = vec4(0.0);
-  mainImage(o, gl_FragCoord.xy);
-  vec3 rgb = sanitize(o.rgb);
-  
-  float intensity = (rgb.r + rgb.g + rgb.b) / 3.0;
-  vec3 customColor = intensity * uCustomColor;
-  vec3 finalColor = mix(rgb, customColor, step(0.5, uUseCustomColor));
-  
-  float alpha = length(rgb) * uOpacity;
-  fragColor = vec4(finalColor, alpha);
-}`;
+    vec2 uv = gl_FragCoord.xy / iResolution.xy;
+    float ratio = iResolution.x / iResolution.y;
+    vec2 p = (uv - 0.5);
+    p.x *= ratio;
+    p /= uScale;
+
+    float h = uv.y;
+
+    // --- GEOMETRY ---
+    float flare = mix(uBottomWidth, uTopWidth, pow(h, uFlarePow));
+    float twistVal = h * uTwist - iTime * 4.0;
+    vec2 twistedP = rotate(twistVal) * p;
+    float wiggle = sin(twistVal * 0.5) * flare * 0.3;
+    float dist = abs(p.x + wiggle);
+
+    // --- NOISE ---
+    vec2 warp = vec2(snoise(p * 2.0), snoise(p * 2.0 + 10.0));
+    vec2 noiseSt = vec2(twistedP.x * 3.0, p.y * 1.5 - iTime * 1.2) + warp * 0.3;
+    
+    float n = ridgedFbm(noiseSt);
+    
+    // DENSITY CALCULATION (Crucial for white background)
+    // We sharpen the noise but keep enough mid-tones for "body"
+    float density = smoothstep(0.2, 0.8, n);
+    density = pow(density, 1.2);
+
+    // --- EDGE MASK ---
+    float edgeMask = smoothstep(flare * 1.2, flare * 0.0, dist);
+    edgeMask = pow(edgeMask, 1.5);
+
+    // --- COLOR & DEPTH ---
+    // On white, we need internal shadows. We use the noise to create "Dark" smoke.
+    vec3 smokeColor = uColor;
+    vec3 shadowColor = smokeColor * 0.4; // Darker version for depth
+    
+    // Mix between shadow and main color based on noise
+    vec3 finalCol = mix(shadowColor, smokeColor, n);
+    
+    // Add a tiny bit of "core light" only if it's dense
+    finalCol += 0.2 * pow(n, 4.0);
+
+    // --- FINAL ALPHA ---
+    // Increase base visibility so it doesn't look thin
+    float alpha = density * edgeMask;
+    
+    // Separation from background: Increase alpha strength
+    alpha = clamp(alpha * 1.5, 0.0, 1.0);
+    
+    // Bounds & Fades
+    alpha *= smoothstep(0.0, 0.1, h); 
+    alpha *= smoothstep(1.0, 0.75, h);
+
+    // We use uOpacity as a global multiplier
+    fragColor = vec4(finalCol, alpha * uOpacity);
+}
+`;
 
 export const Plasma: React.FC<PlasmaProps> = ({
-  color = "#ffffff",
+  color = '#3498db',
   speed = 1,
-  direction = "forward",
   scale = 1,
   opacity = 1,
-  mouseInteractive = true,
+  twist = 12.0,
+  topWidth = 0.6,
+  bottomWidth = 0.02,
+  flarePow = 2.0
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mousePos = useRef({ x: 0, y: 0 });
+  const rafRef = useRef<number>(0);
 
   useEffect(() => {
     if (!containerRef.current) return;
-
-    const useCustomColor = color ? 1.0 : 0.0;
-    const customColorRgb = color ? hexToRgb(color) : [1, 1, 1];
-
-    const directionMultiplier = direction === "reverse" ? -1.0 : 1.0;
+    const container = containerRef.current;
 
     const renderer = new Renderer({
       webgl: 2,
       alpha: true,
-      antialias: false,
-      dpr: Math.min(window.devicePixelRatio || 1, 2),
+      antialias: true,
+      // IMPORTANT: Premultiplied alpha ensures clean edges on white backgrounds
+      premultipliedAlpha: false, 
+      dpr: Math.min(window.devicePixelRatio, 1.5)
     });
     const gl = renderer.gl;
-    const canvas = gl.canvas as HTMLCanvasElement;
-    canvas.style.display = "block";
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
-    containerRef.current.appendChild(canvas);
+    container.appendChild(gl.canvas);
 
     const geometry = new Triangle(gl);
-
     const program = new Program(gl, {
-      vertex: vertex,
-      fragment: fragment,
+      vertex,
+      fragment,
+      transparent: true, // Critical for non-black backgrounds
       uniforms: {
         iTime: { value: 0 },
-        iResolution: { value: new Float32Array([1, 1]) },
-        uCustomColor: { value: new Float32Array(customColorRgb) },
-        uUseCustomColor: { value: useCustomColor },
-        uSpeed: { value: speed * 0.4 },
-        uDirection: { value: directionMultiplier },
+        iResolution: { value: new Float32Array([0, 0]) },
+        uColor: { value: new Float32Array(hexToRgb(color)) },
         uScale: { value: scale },
         uOpacity: { value: opacity },
-        uMouse: { value: new Float32Array([0, 0]) },
-        uMouseInteractive: { value: mouseInteractive ? 1.0 : 0.0 },
-      },
+        uTwist: { value: twist },
+        uTopWidth: { value: topWidth },
+        uBottomWidth: { value: bottomWidth },
+        uFlarePow: { value: flarePow }
+      }
     });
 
     const mesh = new Mesh(gl, { geometry, program });
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!mouseInteractive) return;
-      const rect = containerRef.current!.getBoundingClientRect();
-      mousePos.current.x = e.clientX - rect.left;
-      mousePos.current.y = e.clientY - rect.top;
-      const mouseUniform = program.uniforms.uMouse.value as Float32Array;
-      mouseUniform[0] = mousePos.current.x;
-      mouseUniform[1] = mousePos.current.y;
+    const resize = () => {
+      const rect = container.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      renderer.setSize(rect.width, rect.height);
+      program.uniforms.iResolution.value[0] = gl.drawingBufferWidth;
+      program.uniforms.iResolution.value[1] = gl.drawingBufferHeight;
     };
 
-    if (mouseInteractive) {
-      containerRef.current.addEventListener("mousemove", handleMouseMove);
-    }
+    const ro = new ResizeObserver(resize);
+    ro.observe(container);
+    resize();
 
-    const setSize = () => {
-      const rect = containerRef.current!.getBoundingClientRect();
-      const width = Math.max(1, Math.floor(rect.width));
-      const height = Math.max(1, Math.floor(rect.height));
-      renderer.setSize(width, height);
-      const res = program.uniforms.iResolution.value as Float32Array;
-      res[0] = gl.drawingBufferWidth;
-      res[1] = gl.drawingBufferHeight;
-    };
-
-    const ro = new ResizeObserver(setSize);
-    ro.observe(containerRef.current);
-    setSize();
-
-    let raf = 0;
-    const t0 = performance.now();
-    const loop = (t: number) => {
-      let timeValue = (t - t0) * 0.001;
-
-      if (direction === "pingpong") {
-        const cycle = Math.sin(timeValue * 0.5) * directionMultiplier;
-        (program.uniforms.uDirection as any).value = cycle;
-      }
-
-      (program.uniforms.iTime as any).value = timeValue;
+    const update = (t: number) => {
+      program.uniforms.iTime.value = t * 0.001 * speed;
       renderer.render({ scene: mesh });
-      raf = requestAnimationFrame(loop);
+      rafRef.current = requestAnimationFrame(update);
     };
-    raf = requestAnimationFrame(loop);
+    rafRef.current = requestAnimationFrame(update);
 
     return () => {
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(rafRef.current);
       ro.disconnect();
-      if (mouseInteractive && containerRef.current) {
-        containerRef.current.removeEventListener("mousemove", handleMouseMove);
-      }
-      try {
-        containerRef.current?.removeChild(canvas);
-      } catch {}
+      const ext = gl.getExtension('WEBGL_lose_context');
+      if (ext) ext.loseContext();
+      if (gl.canvas.parentNode) container.removeChild(gl.canvas);
+      geometry.remove();
+      program.remove();
     };
-  }, [color, speed, direction, scale, opacity, mouseInteractive]);
+  }, [color, speed, scale, opacity, twist, topWidth, bottomWidth, flarePow]);
 
-  return <div ref={containerRef} className="plasma-container" />;
+  return <div ref={containerRef} className="plasma-container" style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }} />;
 };
 
 export default Plasma;

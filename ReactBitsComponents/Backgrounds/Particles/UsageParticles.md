@@ -1,7 +1,6 @@
 import Particles from './Particles';
 
-<div style={{ width: '100%', height: '600px', position: 'relative' }}>
-  <Particles
+<Particles
     particleColors={['#ffffff', '#ffffff']}
     particleCount={200}
     particleSpread={10}
@@ -11,4 +10,4 @@ import Particles from './Particles';
     alphaParticles={false}
     disableRotation={false}
   />
-</div>
+

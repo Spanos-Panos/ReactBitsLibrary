@@ -1,6 +1,8 @@
-import GridDistortion from './GridDistortion';
+import GridDistortion from './components/Backgrounds/GridDistortion/GridDistortion';
 
-<div style={{ width: '100%', height: '600px', position: 'relative' }}>
+export default function App() {
+  return (
+    <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
   <GridDistortion
     imageSrc="https://picsum.photos/1920/1080?grayscale"
     grid={10}
@@ -10,3 +12,5 @@ import GridDistortion from './GridDistortion';
     className="custom-class"
   />
 </div>
+  );
+}
