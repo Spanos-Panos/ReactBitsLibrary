@@ -3,7 +3,7 @@ import { gsap } from "gsap";
 import { SplitText } from "gsap/SplitText";
 import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin";
 
-import "./ScrambledText.css";
+import "./ScrambleText.css";
 
 gsap.registerPlugin(SplitText, ScrambleTextPlugin);
 

@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs/promises');
+const { injectColorPropsIntoUsage, buildColorGuidanceSection } = require('../utils/colorContrast.cjs');
 
 // Helper to spawn and pipe logs
 function runCommand(command, args, cwd, onLog) {
@@ -111,11 +112,32 @@ async function generateViteReact(options) {
       new RegExp(`from\\s+['"]\\.\\/${componentName}['"]`, 'g'),
       `from './components/${componentCategory || "Components"}/${componentName}/${componentName}'`
     );
+
+    // Inject contrast-safe color props for TextAnimation components.
+    // index.css always sets background: #000000, so we contrast against that.
+    if (componentCategory === 'TextAnimations') {
+      const DEMO_BG = '#000000';
+      modifiedUsageCode = injectColorPropsIntoUsage(modifiedUsageCode, componentName, DEMO_BG);
+    }
+
     if (!modifiedUsageCode.includes("export default") && !modifiedUsageCode.includes("const App =")) {
       const lines = modifiedUsageCode.split('\n');
       const importLines = lines.filter(l => l.trim().startsWith('import '));
-      const bodyText = lines.filter(l => !l.trim().startsWith('import ')).join('\n').trim();
-      modifiedUsageCode = `${importLines.join('\n')}\n\nexport default function App() {\n  return (\n    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>\n      ${bodyText.replace(/\n/g, '\n      ')}\n    </div>\n  );\n}\n`;
+      const nonImportLines = lines.filter(l => !l.trim().startsWith('import '));
+
+      // Separate JS declarations (const/let/function/etc.) from JSX elements.
+      // Usage markdowns sometimes include callback functions or variables before the JSX tag.
+      const firstJsxIndex = nonImportLines.findIndex(l => l.trim().startsWith('<'));
+      let preReturnCode = '';
+      let jsxContent = nonImportLines.join('\n').trim();
+
+      if (firstJsxIndex > 0) {
+        preReturnCode = nonImportLines.slice(0, firstJsxIndex).join('\n').trim();
+        jsxContent = nonImportLines.slice(firstJsxIndex).join('\n').trim();
+      }
+
+      const preReturn = preReturnCode ? `\n  ${preReturnCode.replace(/\n/g, '\n  ')}\n` : '';
+      modifiedUsageCode = `${importLines.join('\n')}\n\nexport default function App() {${preReturn}\n  return (\n    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>\n      ${jsxContent.replace(/\n/g, '\n      ')}\n    </div>\n  );\n}\n`;
     }
     await fs.writeFile(appTsxPath, modifiedUsageCode, 'utf-8');
   }
@@ -149,6 +171,14 @@ async function generateViteReact(options) {
     await fs.writeFile(path.join(targetDir, 'enhancedPrompt.json'), JSON.stringify(enhancedPrompt, null, 2), 'utf-8');
 
     notify(`Configuring Claude Mission Control...`);
+
+    // Build color guidance for any TextAnimation components in this build
+    const bgColor = enhancedPrompt?.designTokens?.colors?.background || '#000000';
+    const textAnimComponents = (selectedComponents || [])
+      .filter(c => c.category === 'TextAnimations')
+      .map(c => c.name);
+    const colorGuidanceSection = buildColorGuidanceSection(textAnimComponents, bgColor);
+
     const claudeMdContent = `# Project Mission: ${enhancedPrompt?.projectMeta?.title || projectName}
 
 You are an expert Frontend Developer. Your mission is to build the UI designed in \`enhancedPrompt.json\`.
@@ -167,7 +197,7 @@ To minimize token costs and ensure speed:
 5. **DO NOT** delete the component source files.
 6. **DO NOT** scan the node_modules folder or any unnecessary files.
 7. **STOP EXACTLY HERE AND EXIT**. Do not propose next steps.
-`;
+${colorGuidanceSection}`;
     await fs.writeFile(path.join(targetDir, 'CLAUDE.md'), claudeMdContent, 'utf-8');
   }
 

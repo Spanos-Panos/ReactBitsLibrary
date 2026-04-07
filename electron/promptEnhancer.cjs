@@ -76,6 +76,7 @@ Return ONLY a raw JSON object. No preamble, no backticks.
 1. **No Code Blocks**: Do NOT use triple backticks ( \\\`\\\`\\\` ) inside the JSON string fields. Explain code in words or simple single-line strings.
 2. **Atomic Steps**: Break project instructions into a clear list of 5-10 short strings.
 3. **Prop Precision**: Use EXACT prop names from the provided component source code.
+4. **TextAnimation Contrast**: When any TextAnimation component is included, you MUST set its color props explicitly in the \`props\` field so the text has WCAG AA contrast (≥4.5:1) against the section/page background. Use exact prop names from source (e.g. \`color\`, \`textColor\`, \`colors\`). Never leave TextAnimation color props unset — invisible text is a critical bug.
 `;
 
 // ─── Main export ──────────────────────────────────────────────────────────────

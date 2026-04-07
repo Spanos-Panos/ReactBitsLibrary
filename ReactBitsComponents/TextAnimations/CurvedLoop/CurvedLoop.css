@@ -13,7 +13,7 @@
     overflow: visible;
     display: block;
     font-size: 6rem;
-    fill: #ffffff;
+    fill: currentColor;
     user-select: none;
     -moz-user-select: none;
     -webkit-user-select: none;

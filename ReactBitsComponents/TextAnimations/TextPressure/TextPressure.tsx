@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface TextPressureProps {
     text?: string;
@@ -28,7 +28,7 @@ const TextPressure: React.FC<TextPressureProps> = ({
     flex = true,
     stroke = false,
     scale = false,
-    textColor = '#FFFFFF',
+    textColor = 'currentColor',
     strokeColor = '#FF0000',
     className = '',
     minFontSize = 24,

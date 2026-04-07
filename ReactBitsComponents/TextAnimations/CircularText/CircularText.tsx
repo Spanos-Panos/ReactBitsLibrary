@@ -3,8 +3,8 @@ import {
   motion,
   useAnimation,
   useMotionValue,
-  MotionValue,
-  Transition,
+  type MotionValue,
+  type Transition,
 } from "motion/react";
 
 import "./CircularText.css";
