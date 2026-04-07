@@ -1,12 +1,23 @@
-import PixelTrail from './PixelTrail';
+import PixelTrail from './PixelTrail'
 
-<div style={{ height: '500px', position: 'relative', overflow: 'hidden'}}>
-  <PixelTrail
-    gridSize={50}
-    trailSize={0.1}
-    maxAge={250}
-    interpolate={5}
-    color="#fff"
-    gooeyFilter={{ id: "custom-goo-filter", strength: 2 }}
-  />
-</div>
+export default function App() {
+  return (
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyItems: 'center', position: 'relative', overflow: 'hidden', background: '#000' }}>
+      <PixelTrail 
+        text="React Bits"
+        fontFamily="Arial"
+        fontWeight="900"
+        noiseFactor={1.2}
+        noiseScale={0.001}
+        rgbPersistFactor={0.95}
+        alphaPersistFactor={0.92}
+        animateColor={true}
+        startColor="#ff6b6b"
+        textColor="#4ecdc4"
+        backgroundColor="#000"
+        colorCycleInterval={2000}
+        supersample={2}
+      />
+    </div>
+  );
+}

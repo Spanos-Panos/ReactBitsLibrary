@@ -4,3 +4,6 @@ and then
 npm run dev
 
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process; npm run dev
+
+--/ Kill all node project running /--
+taskkill /F /IM node.exe
