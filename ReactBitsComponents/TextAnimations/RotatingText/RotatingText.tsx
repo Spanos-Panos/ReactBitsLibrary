@@ -8,13 +8,17 @@ import React, {
   useMemo,
   useState,
 } from "react";
+
 import {
   motion,
   AnimatePresence,
-  Transition,
-  type VariantLabels,
-  type Target,
-  type TargetAndTransition,
+} from "motion/react";
+
+import type { 
+  Transition, 
+  VariantLabels, 
+  Target, 
+  TargetAndTransition 
 } from "motion/react";
 
 import "./RotatingText.css";

@@ -1,9 +1,9 @@
 Install 
 CLI
-pnpm = pnpm dlx shadcn@latest add @react-bits/ScrambledText-JS-CSS
-npm = npx shadcn@latest add @react-bits/ScrambledText-JS-CSS
-yarn = yarn shadcn@latest add @react-bits/ScrambledText-JS-CSS
-bun = bun x --bun shadcn@latest add @react-bits/ScrambledText-JS-CSS
+pnpm = pnpm dlx shadcn@latest add @react-bits/ScrambleText-JS-CSS
+npm = npx shadcn@latest add @react-bits/ScrambleText-JS-CSS
+yarn = yarn shadcn@latest add @react-bits/ScrambleText-JS-CSS
+bun = bun x --bun shadcn@latest add @react-bits/ScrambleText-JS-CSS
 
 Install 
 MANUAL

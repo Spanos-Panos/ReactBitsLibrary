@@ -661,7 +661,7 @@
     "id": "TextAnimations/ScrambleText",
     "name": "ScrambleText",
     "category": "TextAnimations",
-    "usageMarkdown": "// Component inspired by Tom Miller from the GSAP community\r\n// https://codepen.io/creativeocean/pen/NPWLwJM\r\n\r\nimport ScrambledText from './ScrambledText';\r\n  \r\n<ScrambledText\r\n  className=\"scrambled-text-demo\"\r\n  radius={100}\r\n  duration={1.2}\r\n  speed={0.5}\r\n  scrambleChars={.:}\r\n>\r\n  Lorem ipsum dolor sit amet consectetur adipisicing elit. \r\n  Similique pariatur dignissimos porro eius quam doloremque \r\n  et enim velit nobis maxime.\r\n</ScrambledText>",
+    "usageMarkdown": "// Component inspired by Tom Miller from the GSAP community\r\n// https://codepen.io/creativeocean/pen/NPWLwJM\r\n\r\nimport ScrambleText from './ScrambleText';\r\n  \r\n<ScrambleText\r\n  className=\"scramble-text-demo\"\r\n  radius={100}\r\n  duration={1.2}\r\n  speed={0.5}\r\n  scrambleChars={.:}\r\n>\r\n  Lorem ipsum dolor sit amet consectetur adipisicing elit. \r\n  Similique pariatur dignissimos porro eius quam doloremque \r\n  et enim velit nobis maxime.\r\n</ScrambleText>",
     "relativePath": "ReactBitsComponents/TextAnimations/ScrambleText/UsageScrambleText.md"
   },
   {
