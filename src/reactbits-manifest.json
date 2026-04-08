@@ -346,7 +346,7 @@
     "id": "Animations/PixelTrail",
     "name": "PixelTrail",
     "category": "Animations",
-    "usageMarkdown": "import PixelTrail from './PixelTrail'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyItems: 'center', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <PixelTrail \r\n        text=\"React Bits\"\r\n        fontFamily=\"Arial\"\r\n        fontWeight=\"900\"\r\n        noiseFactor={1.2}\r\n        noiseScale={0.001}\r\n        rgbPersistFactor={0.95}\r\n        alphaPersistFactor={0.92}\r\n        animateColor={true}\r\n        startColor=\"#ff6b6b\"\r\n        textColor=\"#4ecdc4\"\r\n        backgroundColor=\"#000\"\r\n        colorCycleInterval={2000}\r\n        supersample={2}\r\n      />\r\n    </div>\r\n  );\r\n}",
+    "usageMarkdown": "import PixelTrail from './PixelTrail'\n\nexport default function App() {\n  return (\n    <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyItems: 'center', position: 'relative', overflow: 'hidden', background: '#000' }}>\n      <PixelTrail \n        text=\"React Bits\"\n        fontFamily=\"Arial\"\n        fontWeight=\"900\"\n        noiseFactor={1.2}\n        noiseScale={0.001}\n        rgbPersistFactor={0.95}\n        alphaPersistFactor={0.92}\n        animateColor={true}\n        startColor=\"#ff6b6b\"\n        textColor=\"#4ecdc4\"\n        backgroundColor=\"#000\"\n        colorCycleInterval={2000}\n        supersample={2}\n      />\n    </div>\n  );\n}",
     "relativePath": "ReactBitsComponents/Animations/PixelTrail/UsagePixelTrail.md"
   },
   {
@@ -661,35 +661,35 @@
     "id": "TextAnimations/ScrambleText",
     "name": "ScrambleText",
     "category": "TextAnimations",
-    "usageMarkdown": "// Component inspired by Tom Miller from the GSAP community\r\n// https://codepen.io/creativeocean/pen/NPWLwJM\r\n\r\nimport ScrambleText from './ScrambleText';\r\n  \r\n<ScrambleText\r\n  className=\"scramble-text-demo\"\r\n  radius={100}\r\n  duration={1.2}\r\n  speed={0.5}\r\n  scrambleChars={.:}\r\n>\r\n  Lorem ipsum dolor sit amet consectetur adipisicing elit. \r\n  Similique pariatur dignissimos porro eius quam doloremque \r\n  et enim velit nobis maxime.\r\n</ScrambleText>",
+    "usageMarkdown": "// Component inspired by Tom Miller from the GSAP community\r\n// https://codepen.io/creativeocean/pen/NPWLwJM\r\n\r\nimport ScrambleText from './ScrambleText';\r\n  \r\n<ScrambleText\r\n  className=\"scrambled-text-demo\"\r\n  radius={100}\r\n  duration={1.2}\r\n  speed={0.5}\r\n  scrambleChars={.:}\r\n>\r\n  Lorem ipsum dolor sit amet consectetur adipisicing elit. \r\n  Similique pariatur dignissimos porro eius quam doloremque \r\n  et enim velit nobis maxime.\r\n</ScrambleText>",
     "relativePath": "ReactBitsComponents/TextAnimations/ScrambleText/UsageScrambleText.md"
   },
   {
     "id": "TextAnimations/ScrollFloat",
     "name": "ScrollFloat",
     "category": "TextAnimations",
-    "usageMarkdown": "import ScrollFloat from './ScrollFloat';\r\n\r\n<ScrollFloat\r\n  animationDuration={1}\r\n  ease='back.inOut(2)'\r\n  scrollStart='center bottom+=50%'\r\n  scrollEnd='bottom bottom-=40%'\r\n  stagger={0.03}\r\n>\r\n  React Bits\r\n</ScrollFloat>",
+    "usageMarkdown": "import ScrollFloat from './ScrollFloat';\n\nexport default function App() {\n  return (\n    <div style={{ background: '#000', color: '#fff', overflowX: 'hidden' }}>\n      <div style={{ height: '48vh' }} />\n      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', padding: '0 2rem', textAlign: 'center' }}>\n        <ScrollFloat animationDuration={1} ease='back.inOut(2)' scrollStart='center bottom+=50%' scrollEnd='bottom bottom-=40%' stagger={0.03}>\n          Scroll Float\n        </ScrollFloat>\n        <ScrollFloat animationDuration={1} ease='back.inOut(2)' scrollStart='center bottom+=50%' scrollEnd='bottom bottom-=40%' stagger={0.03}>\n          React Bits\n        </ScrollFloat>\n        <ScrollFloat animationDuration={1.2} ease='back.inOut(2)' scrollStart='center bottom+=50%' scrollEnd='bottom bottom-=40%' stagger={0.04}>\n          Beautiful Text\n        </ScrollFloat>\n        <ScrollFloat animationDuration={0.8} ease='back.inOut(2)' scrollStart='center bottom+=50%' scrollEnd='bottom bottom-=40%' stagger={0.02}>\n          Animations\n        </ScrollFloat>\n        <ScrollFloat animationDuration={1} ease='back.inOut(2)' scrollStart='center bottom+=50%' scrollEnd='bottom bottom-=40%' stagger={0.03}>\n          For Your App\n        </ScrollFloat>\n      </div>\n      <div style={{ height: '48vh' }} />\n    </div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/TextAnimations/ScrollFloat/UsageScrollFloat.md"
   },
   {
     "id": "TextAnimations/ScrollReveal",
     "name": "ScrollReveal",
     "category": "TextAnimations",
-    "usageMarkdown": "import ScrollReveal from './ScrollReveal';\r\n\r\n<ScrollReveal\r\n  baseOpacity={0}\r\n  enableBlur={true}\r\n  baseRotation={5}\r\n  blurStrength={10}\r\n>\r\n  When does a man die? When he is hit by a bullet? No! When he suffers a disease?\r\n  No! When he ate a soup made out of a poisonous mushroom?\r\n  No! A man dies when he is forgotten!\r\n</ScrollReveal>",
+    "usageMarkdown": "import ScrollReveal from './ScrollReveal';\n\nexport default function App() {\n  return (\n    <div style={{ background: '#000', color: '#fff', overflowX: 'hidden' }}>\n      <div style={{ height: '48vh' }} />\n      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 2rem' }}>\n        <ScrollReveal\n          baseOpacity={0}\n          enableBlur={true}\n          baseRotation={5}\n          blurStrength={10}\n        >\n          When does a man die? When he is hit by a bullet? No! When he suffers a disease? No! When he ate a soup made out of a poisonous mushroom? No! A man dies when he is forgotten! So as long as we remember the ones we love, they remain alive within us. Their stories, their laughter, their wisdom — all of it lives on through the memories we carry. And so they are never truly gone.\n        </ScrollReveal>\n      </div>\n      <div style={{ height: '48vh' }} />\n    </div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/TextAnimations/ScrollReveal/UsageScrollReveal.md"
   },
   {
     "id": "TextAnimations/ScrollVelocity",
     "name": "ScrollVelocity",
     "category": "TextAnimations",
-    "usageMarkdown": "import ScrollVelocity from './ScrollVelocity';\r\n  \r\n<ScrollVelocity\r\n  texts={['React Bits', 'Scroll Down']} \r\n  velocity={velocity} \r\n  className=\"custom-scroll-text\"\r\n/>",
+    "usageMarkdown": "import ScrollVelocity from './ScrollVelocity';\n\nexport default function App() {\n  const velocity = 100;\n  return (\n    <div style={{ background: '#000', color: '#fff', overflowX: 'hidden' }}>\n      <div style={{ height: '48vh' }} />\n      <ScrollVelocity\n        texts={['React Bits', 'Scroll Down', 'Beautiful UI', 'Open Source']}\n        velocity={velocity}\n        className=\"custom-scroll-text\"\n      />\n      <div style={{ height: '48vh' }} />\n    </div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/TextAnimations/ScrollVelocity/UsageScrollVelocity.md"
   },
   {
     "id": "TextAnimations/ShinyText",
     "name": "ShinyText",
     "category": "TextAnimations",
-    "usageMarkdown": "import ShinyText from './ShinyText';\r\n  \r\n<ShinyText text=\"Just some shiny text!\" disabled={false} speed={3} className='custom-class' />",
+    "usageMarkdown": "import ShinyText from './ShinyText';\r\n\r\n<div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111', padding: '2rem' }}>\r\n  <ShinyText \r\n    text=\"✨ Shiny Text Effect\" \r\n    disabled={false} \r\n    speed={2} \r\n    className='custom-class' \r\n    color=\"#555555\"\r\n    shineColor=\"#ffffff\"\r\n  />\r\n</div>",
     "relativePath": "ReactBitsComponents/TextAnimations/ShinyText/UsageShinyText.md"
   },
   {
