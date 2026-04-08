@@ -689,7 +689,7 @@
     "id": "TextAnimations/ShinyText",
     "name": "ShinyText",
     "category": "TextAnimations",
-    "usageMarkdown": "import ShinyText from './ShinyText';\r\n\r\n<div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111', padding: '2rem' }}>\r\n  <ShinyText \r\n    text=\"✨ Shiny Text Effect\" \r\n    disabled={false} \r\n    speed={2} \r\n    className='custom-class' \r\n    color=\"#555555\"\r\n    shineColor=\"#ffffff\"\r\n  />\r\n</div>",
+    "usageMarkdown": "import ShinyText from './components/TextAnimations/ShinyText/ShinyText';\n\nexport default function App() {\n  return (\n    <div style={{ \n      width: '100vw', \n      height: '100vh', \n      display: 'flex', \n      alignItems: 'center', \n      justifyContent: 'center', \n      background: '#111' // Dark background makes it pop!\n    }}>\n      <ShinyText \n        text=\"✨ Shiny Text Effect\" \n        disabled={false} \n        speed={2} \n        className='custom-class' \n        color=\"#555555\"\n        shineColor=\"#ffffff\"\n      />\n    </div>\n  );\n}",
     "relativePath": "ReactBitsComponents/TextAnimations/ShinyText/UsageShinyText.md"
   },
   {

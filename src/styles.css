@@ -293,10 +293,82 @@ body {
 .component-list-pane {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-right: 0.5rem;
   height: 65vh;
   min-height: 480px;
+}
+
+/* ── Search bar ─────────────────────────────────────────────────────────── */
+.search-bar-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+}
+
+.search-bar-icon {
+  position: absolute;
+  left: 0.8rem;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.search-bar-wrapper:focus-within .search-bar-icon {
+  color: #0ea5e9;
+}
+
+.search-bar-input {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 0.75rem;
+  padding: 0.6rem 2.4rem 0.6rem 2.2rem;
+  color: #f1f5f9;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: -0.01em;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-bar-input::placeholder {
+  color: #334155;
+  font-family: 'Archivo Black', sans-serif;
+}
+
+.search-bar-input:focus {
+  outline: none;
+  border-color: rgba(14, 165, 233, 0.45);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.07);
+}
+
+.search-bar-clear {
+  position: absolute;
+  right: 0.55rem;
+  background: none;
+  border: none;
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.search-bar-clear:hover {
+  color: #94a3b8;
+}
+
+/* Scrollable items area inside the list pane */
+.items-scroll-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.5rem;
+  flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
 }

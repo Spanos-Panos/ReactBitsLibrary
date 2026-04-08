@@ -95,11 +95,22 @@ function App() {
 
   const [lastEnhancedPrompt, setLastEnhancedPrompt] = useState<any>(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Reset search whenever the user switches category
+  useEffect(() => { setSearchQuery(""); }, [activeCategory]);
+
   const filtered = useMemo(() => {
     return items.filter((item) => {
       return activeCategory === "all" || item.category === activeCategory;
     });
   }, [items, activeCategory]);
+
+  const displayedItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return filtered;
+    return filtered.filter(item => item.name.toLowerCase().includes(q));
+  }, [filtered, searchQuery]);
 
   const selected = items.find((item) => item.id === selectedId) ?? null;
 
@@ -431,33 +442,56 @@ function App() {
 
                   <div className="split-view-container">
                     <div className="component-list-pane" onMouseLeave={() => setHoveredComponentId(null)}>
-                      {filtered.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`split-list-item ${hoveredComponentId === item.id ? 'hovered' : ''} ${selectedId === item.id ? 'active' : ''}`}
-                          onMouseEnter={() => setHoveredComponentId(item.id)}
-                          onClick={() => handleSelectComponent(item.id)}
-                        >
-                          <div className="split-list-item-content">
-                            <span className="split-list-item-title">{item.name}</span>
-                          </div>
-
-                          <div className="selection-container">
-                            <div
-                              className="checkbox-custom"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleSelection(item.id, e);
-                              }}
-                            >
-                              <input type="checkbox" checked={selectedIds.includes(item.id)} readOnly />
-                              <span className="checkmark"></span>
+                      <div className="search-bar-wrapper">
+                        <span className="search-bar-icon">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                          </svg>
+                        </span>
+                        <input
+                          type="text"
+                          className="search-bar-input"
+                          placeholder="Search..."
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                          <button className="search-bar-clear" onClick={() => setSearchQuery("")}>×</button>
+                        )}
+                      </div>
+                      <div className="items-scroll-area">
+                        {displayedItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`split-list-item ${hoveredComponentId === item.id ? 'hovered' : ''} ${selectedId === item.id ? 'active' : ''}`}
+                            onMouseEnter={() => setHoveredComponentId(item.id)}
+                            onClick={() => handleSelectComponent(item.id)}
+                          >
+                            <div className="split-list-item-content">
+                              <span className="split-list-item-title">{item.name}</span>
                             </div>
-                            <span className="split-list-item-arrow">→</span>
+
+                            <div className="selection-container">
+                              <div
+                                className="checkbox-custom"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelection(item.id, e);
+                                }}
+                              >
+                                <input type="checkbox" checked={selectedIds.includes(item.id)} readOnly />
+                                <span className="checkmark"></span>
+                              </div>
+                              <span className="split-list-item-arrow">→</span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                      {filtered.length === 0 && <div className="empty-state"><p>No components found.</p></div>}
+                        ))}
+                        {displayedItems.length === 0 && (
+                          <div className="empty-state">
+                            <p>{searchQuery ? `No results for "${searchQuery}"` : "No components found."}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="component-preview-pane">
