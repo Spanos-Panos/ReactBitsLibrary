@@ -63,7 +63,7 @@ async function generateViteReact(options) {
   await runCommand(scaffoldCmd, [], parentDir, log);
 
   notify(`Scanning for required dependencies...`);
-  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'motion', 'gsap', 'ogl', '@react-three/fiber', '@react-three/drei', 'three', 'react-spring', '@react-spring/three']);
+  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'motion', 'gsap', 'ogl', '@react-three/fiber', '@react-three/drei', 'three', 'react-spring', '@react-spring/three', 'react-icons']);
 
   // Merge AI dependencies if present
   if (enhancedPrompt?.technicalRequirements?.dependencies) {

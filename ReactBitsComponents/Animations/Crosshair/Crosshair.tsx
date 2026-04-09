@@ -1,160 +1,127 @@
-import React, { useEffect, useRef, RefObject } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 
 const lerp = (a: number, b: number, n: number): number => (1 - n) * a + n * b;
 
-const getMousePos = (e: Event, container?: HTMLElement | null): { x: number; y: number } => {
-  const mouseEvent = e as MouseEvent;
-  if (container) {
-    const bounds = container.getBoundingClientRect();
-    return {
-      x: mouseEvent.clientX - bounds.left,
-      y: mouseEvent.clientY - bounds.top
-    };
-  }
-  return { x: mouseEvent.clientX, y: mouseEvent.clientY };
-};
-
 interface CrosshairProps {
   color?: string;
-  containerRef?: RefObject<HTMLElement>;
+  containerRef?: React.RefObject<HTMLElement | null>;
 }
 
-const Crosshair: React.FC<CrosshairProps> = ({ color = 'white', containerRef = null }) => {
-  const cursorRef = useRef<HTMLDivElement>(null);
+const Crosshair: React.FC<CrosshairProps> = ({ color = 'white', containerRef }) => {
   const lineHorizontalRef = useRef<HTMLDivElement>(null);
   const lineVerticalRef = useRef<HTMLDivElement>(null);
   const filterXRef = useRef<SVGFETurbulenceElement>(null);
   const filterYRef = useRef<SVGFETurbulenceElement>(null);
-
-  let mouse = { x: 0, y: 0 };
+  
+  // Refs for tracking values outside the render cycle
+  const mouse = useRef({ x: 0, y: 0 });
+  const renderedStyles = useRef({
+    tx: { previous: 0, current: 0, amt: 0.15 },
+    ty: { previous: 0, current: 0, amt: 0.15 }
+  });
+  const requestRef = useRef<number>(0);
 
   useEffect(() => {
+    const target = containerRef?.current || window;
+
+    // --- MOUSE TRACKING ---
     const handleMouseMove = (ev: Event) => {
       const mouseEvent = ev as MouseEvent;
-      mouse = getMousePos(mouseEvent, containerRef?.current);
       if (containerRef?.current) {
         const bounds = containerRef.current.getBoundingClientRect();
-        if (
-          mouseEvent.clientX < bounds.left ||
-          mouseEvent.clientX > bounds.right ||
-          mouseEvent.clientY < bounds.top ||
-          mouseEvent.clientY > bounds.bottom
-        ) {
-          gsap.to([lineHorizontalRef.current, lineVerticalRef.current].filter(Boolean), { opacity: 0 });
-        } else {
-          gsap.to([lineHorizontalRef.current, lineVerticalRef.current].filter(Boolean), { opacity: 1 });
-        }
+        mouse.current.x = mouseEvent.clientX - bounds.left;
+        mouse.current.y = mouseEvent.clientY - bounds.top;
+
+        // Auto-show/hide based on bounds
+        const isInside = 
+          mouseEvent.clientX >= bounds.left &&
+          mouseEvent.clientX <= bounds.right &&
+          mouseEvent.clientY >= bounds.top &&
+          mouseEvent.clientY <= bounds.bottom;
+
+        gsap.to([lineHorizontalRef.current, lineVerticalRef.current], {
+          opacity: isInside ? 1 : 0,
+          duration: 0.3,
+          ease: "power2.out"
+        });
+      } else {
+        mouse.current.x = mouseEvent.clientX;
+        mouse.current.y = mouseEvent.clientY;
       }
     };
 
-    const target: HTMLElement | Window = containerRef?.current || window;
-    target.addEventListener('mousemove', handleMouseMove);
-
-    const renderedStyles: {
-      [key: string]: { previous: number; current: number; amt: number };
-    } = {
-      tx: { previous: 0, current: 0, amt: 0.15 },
-      ty: { previous: 0, current: 0, amt: 0.15 }
-    };
-
-    gsap.set([lineHorizontalRef.current, lineVerticalRef.current].filter(Boolean), { opacity: 0 });
-
-    const onMouseMove = (_ev: Event) => {
-      renderedStyles.tx.previous = renderedStyles.tx.current = mouse.x;
-      renderedStyles.ty.previous = renderedStyles.ty.current = mouse.y;
-
-      gsap.to([lineHorizontalRef.current, lineVerticalRef.current].filter(Boolean), {
-        duration: 0.9,
-        ease: 'Power3.easeOut',
-        opacity: 1
-      });
-
-      requestAnimationFrame(render);
-
-      target.removeEventListener('mousemove', onMouseMove);
-    };
-
-    target.addEventListener('mousemove', onMouseMove);
-
+    // --- NOISE ANIMATION ---
     const primitiveValues = { turbulence: 0 };
-
-    const tl = gsap
-      .timeline({
-        paused: true,
-        onStart: () => {
-          if (lineHorizontalRef.current) {
-            lineHorizontalRef.current.style.filter = 'url(#filter-noise-x)';
-          }
-          if (lineVerticalRef.current) {
-            lineVerticalRef.current.style.filter = 'url(#filter-noise-y)';
-          }
-        },
-        onUpdate: () => {
-          if (filterXRef.current && filterYRef.current) {
-            filterXRef.current.setAttribute('baseFrequency', primitiveValues.turbulence.toString());
-            filterYRef.current.setAttribute('baseFrequency', primitiveValues.turbulence.toString());
-          }
-        },
-        onComplete: () => {
-          if (lineHorizontalRef.current && lineVerticalRef.current) {
-            lineHorizontalRef.current.style.filter = 'none';
-            lineVerticalRef.current.style.filter = 'none';
-          }
-        }
-      })
-      .to(primitiveValues, {
-        duration: 0.5,
-        ease: 'power1',
-        startAt: { turbulence: 1 },
-        turbulence: 0
-      });
-
-    const enter = () => tl.restart();
-    const leave = () => {
-      tl.progress(1).kill();
-    };
-
-    const render = () => {
-      renderedStyles.tx.current = mouse.x;
-      renderedStyles.ty.current = mouse.y;
-
-      for (const key in renderedStyles) {
-        const style = renderedStyles[key];
-        style.previous = lerp(style.previous, style.current, style.amt);
+    const tl = gsap.timeline({
+      paused: true,
+      onStart: () => {
+        if (lineHorizontalRef.current) lineHorizontalRef.current.style.filter = 'url(#filter-noise-x)';
+        if (lineVerticalRef.current) lineVerticalRef.current.style.filter = 'url(#filter-noise-y)';
+      },
+      onUpdate: () => {
+        if (filterXRef.current) filterXRef.current.setAttribute('baseFrequency', primitiveValues.turbulence.toString());
+        if (filterYRef.current) filterYRef.current.setAttribute('baseFrequency', primitiveValues.turbulence.toString());
+      },
+      onComplete: () => {
+        if (lineHorizontalRef.current) lineHorizontalRef.current.style.filter = 'none';
+        if (lineVerticalRef.current) lineVerticalRef.current.style.filter = 'none';
       }
-
-      if (lineHorizontalRef.current && lineVerticalRef.current) {
-        gsap.set(lineVerticalRef.current, { x: renderedStyles.tx.previous });
-        gsap.set(lineHorizontalRef.current, { y: renderedStyles.ty.previous });
-      }
-
-      requestAnimationFrame(render);
-    };
-
-    const links: NodeListOf<HTMLAnchorElement> = containerRef?.current
-      ? containerRef.current.querySelectorAll('a')
-      : document.querySelectorAll('a');
-
-    links.forEach(link => {
-      link.addEventListener('mouseenter', enter);
-      link.addEventListener('mouseleave', leave);
+    }).to(primitiveValues, {
+      duration: 0.5,
+      startAt: { turbulence: 0.08 }, // Subtler noise scale
+      turbulence: 0,
+      ease: 'power2.out'
     });
+
+    const onMouseEnterLink = () => tl.restart();
+
+    // --- RENDER LOOP ---
+    const render = () => {
+      renderedStyles.current.tx.current = mouse.current.x;
+      renderedStyles.current.ty.current = mouse.current.y;
+
+      // Lerp for smooth "lagging" movement
+      renderedStyles.current.tx.previous = lerp(
+        renderedStyles.current.tx.previous, 
+        renderedStyles.current.tx.current, 
+        renderedStyles.current.tx.amt
+      );
+      renderedStyles.current.ty.previous = lerp(
+        renderedStyles.current.ty.previous, 
+        renderedStyles.current.ty.current, 
+        renderedStyles.current.ty.amt
+      );
+
+      // Apply coordinates
+      if (lineVerticalRef.current) {
+        gsap.set(lineVerticalRef.current, { x: renderedStyles.current.tx.previous });
+      }
+      if (lineHorizontalRef.current) {
+        gsap.set(lineHorizontalRef.current, { y: renderedStyles.current.ty.previous });
+      }
+
+      requestRef.current = requestAnimationFrame(render);
+    };
+
+    // Initialize
+    target.addEventListener('mousemove', handleMouseMove);
+    requestRef.current = requestAnimationFrame(render);
+
+    const links = (containerRef?.current || document).querySelectorAll('a');
+    links.forEach(link => link.addEventListener('mouseenter', onMouseEnterLink));
 
     return () => {
       target.removeEventListener('mousemove', handleMouseMove);
-      target.removeEventListener('mousemove', onMouseMove);
-      links.forEach(link => {
-        link.removeEventListener('mouseenter', enter);
-        link.removeEventListener('mouseleave', leave);
-      });
+      cancelAnimationFrame(requestRef.current);
+      links.forEach(link => link.removeEventListener('mouseenter', onMouseEnterLink));
+      tl.kill();
     };
   }, [containerRef]);
 
   return (
     <div
-      ref={cursorRef}
-      className="cursor"
+      className="crosshair-wrapper"
       style={{
         position: containerRef ? 'absolute' : 'fixed',
         top: 0,
@@ -162,51 +129,49 @@ const Crosshair: React.FC<CrosshairProps> = ({ color = 'white', containerRef = n
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        zIndex: 10000
+        zIndex: 9999,
+        overflow: 'hidden'
       }}
     >
-      <svg
+      {/* SVG Filters for the noise effect */}
+      <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+        <defs>
+          <filter id="filter-noise-x">
+            <feTurbulence type="fractalNoise" baseFrequency="0" numOctaves="1" ref={filterXRef} />
+            <feDisplacementMap in="SourceGraphic" scale="30" />
+          </filter>
+          <filter id="filter-noise-y">
+            <feTurbulence type="fractalNoise" baseFrequency="0" numOctaves="1" ref={filterYRef} />
+            <feDisplacementMap in="SourceGraphic" scale="30" />
+          </filter>
+        </defs>
+      </svg>
+
+      {/* Crosshair Lines */}
+      <div
+        ref={lineHorizontalRef}
         style={{
           position: 'absolute',
           left: 0,
           top: 0,
           width: '100%',
-          height: '100%'
-        }}
-      >
-        <defs>
-          <filter id="filter-noise-x">
-            <feTurbulence type="fractalNoise" baseFrequency="0.000001" numOctaves="1" ref={filterXRef} />
-            <feDisplacementMap in="SourceGraphic" scale="40" />
-          </filter>
-          <filter id="filter-noise-y">
-            <feTurbulence type="fractalNoise" baseFrequency="0.000001" numOctaves="1" ref={filterYRef} />
-            <feDisplacementMap in="SourceGraphic" scale="40" />
-          </filter>
-        </defs>
-      </svg>
-      <div
-        ref={lineHorizontalRef}
-        style={{
-          position: 'absolute',
-          width: '100%',
           height: '1px',
           background: color,
-          pointerEvents: 'none',
-          transform: 'translateY(50%)',
-          opacity: 0
+          opacity: 0,
+          willChange: 'transform, opacity'
         }}
       />
       <div
         ref={lineVerticalRef}
         style={{
           position: 'absolute',
-          height: '100%',
+          left: 0,
+          top: 0,
           width: '1px',
+          height: '100%',
           background: color,
-          pointerEvents: 'none',
-          transform: 'translateX(50%)',
-          opacity: 0
+          opacity: 0,
+          willChange: 'transform, opacity'
         }}
       />
     </div>
