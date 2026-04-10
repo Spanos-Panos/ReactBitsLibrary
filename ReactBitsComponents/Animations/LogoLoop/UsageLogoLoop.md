@@ -1,35 +1,29 @@
-import LogoLoop from './LogoLoop';
+import LogoLoop from './components/Animations/LogoLoop/LogoLoop';
 import { SiReact, SiNextdotjs, SiTypescript, SiTailwindcss } from 'react-icons/si';
 
-const techLogos = [
-  { node: <SiReact />, title: "React", href: "https://react.dev" },
-  { node: <SiNextdotjs />, title: "Next.js", href: "https://nextjs.org" },
-  { node: <SiTypescript />, title: "TypeScript", href: "https://www.typescriptlang.org" },
-  { node: <SiTailwindcss />, title: "Tailwind CSS", href: "https://tailwindcss.com" },
-];
+export default function App() {
+  const techLogos = [
+    { node: <SiReact color="#61DAFB" />, title: "React" },
+    { node: <SiNextdotjs color="#ffffff" />, title: "Next.js" },
+    { node: <SiTypescript color="#3178C6" />, title: "TypeScript" },
+    { node: <SiTailwindcss color="#06B6D4" />, title: "Tailwind" },
+  ];
 
-// Alternative with image sources
-const imageLogos = [
-  { src: "/logos/company1.png", alt: "Company 1", href: "https://company1.com" },
-  { src: "/logos/company2.png", alt: "Company 2", href: "https://company2.com" },
-  { src: "/logos/company3.png", alt: "Company 3", href: "https://company3.com" },
-];
-
-function App() {
   return (
-    <div style={{ height: '200px', position: 'relative', overflow: 'hidden'}}>
-      <LogoLoop
-        logos={techLogos}
-        speed={120}
-        direction="left"
-        logoHeight={48}
-        gap={40}
-        pauseOnHover
-        scaleOnHover
-        fadeOut
-        fadeOutColor="#ffffff"
-        ariaLabel="Technology partners"
-      />
+    <div style={{ width: '100vw', height: '100vh', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{ width: '100%', height: '120px', display: 'flex', alignItems: 'center' }}>
+        <LogoLoop
+          logos={techLogos}
+          speed={60}
+          direction="left"
+          logoHeight={60}
+          gap={80}
+          scaleOnHover={true}
+          fadeOut={true}
+          fadeOutColor="#000000"
+          verticalPosition="center"
+        />
+      </div>
     </div>
   );
 }

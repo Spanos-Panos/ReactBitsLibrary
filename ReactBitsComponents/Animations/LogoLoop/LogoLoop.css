@@ -1,126 +1,128 @@
 .logoloop {
-    position: relative;
-    overflow-x: hidden;
-  
-    --logoloop-gap: 32px;
-    --logoloop-logoHeight: 28px;
-    --logoloop-fadeColorAuto: #ffffff;
-  }
-  
-  .logoloop--scale-hover {
-    padding-top: calc(var(--logoloop-logoHeight) * 0.1);
-    padding-bottom: calc(var(--logoloop-logoHeight) * 0.1);
-  }
-  
-  @media (prefers-color-scheme: dark) {
-    .logoloop {
-      --logoloop-fadeColorAuto: #0b0b0b;
-    }
-  }
-  
+  position: relative;
+  overflow: hidden;
+  --logoloop-gap: 32px;
+  --logoloop-logoHeight: 28px;
+  --logoloop-fadeColor: #000000;
+}
+
+.logoloop--horizontal {
+  width: 100%;
+  height: auto;
+}
+
+.logoloop--vertical {
+  height: 100%;
+  width: auto;
+}
+
+/* ── Track ─────────────────────────────────────────────────── */
+
+.logoloop__track {
+  display: flex;
+  will-change: transform;
+  user-select: none;
+}
+
+.logoloop--vertical .logoloop__track {
+  flex-direction: column;
+}
+
+/* ── List & Items ───────────────────────────────────────────── */
+
+.logoloop__list {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.logoloop--vertical .logoloop__list {
+  flex-direction: column;
+}
+
+.logoloop__item {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--logoloop-gap);
+}
+
+.logoloop--vertical .logoloop__item {
+  margin-right: 0;
+  margin-bottom: var(--logoloop-gap);
+}
+
+/* ── Logo content ───────────────────────────────────────────── */
+
+.logoloop__node,
+.logoloop__item img {
+  height: var(--logoloop-logoHeight);
+  width: auto;
+  font-size: var(--logoloop-logoHeight);
+  display: flex;
+  align-items: center;
+}
+
+.logoloop__item img {
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* ── Scale on hover ─────────────────────────────────────────── */
+
+.logoloop--scale-hover .logoloop__item .logoloop__node,
+.logoloop--scale-hover .logoloop__item img {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logoloop--scale-hover .logoloop__item:hover .logoloop__node,
+.logoloop--scale-hover .logoloop__item:hover img {
+  transform: scale(1.2);
+  transform-origin: center center;
+}
+
+/* ── Fade edges ─────────────────────────────────────────────── */
+
+.logoloop--fade::before,
+.logoloop--fade::after {
+  content: '';
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.logoloop--horizontal.logoloop--fade::before {
+  left: 0; top: 0; bottom: 0; width: clamp(24px, 8%, 120px);
+  background: linear-gradient(to right, var(--logoloop-fadeColor), transparent);
+}
+
+.logoloop--horizontal.logoloop--fade::after {
+  right: 0; top: 0; bottom: 0; width: clamp(24px, 8%, 120px);
+  background: linear-gradient(to left, var(--logoloop-fadeColor), transparent);
+}
+
+.logoloop--vertical.logoloop--fade::before {
+  top: 0; left: 0; right: 0; height: clamp(24px, 8%, 120px);
+  background: linear-gradient(to bottom, var(--logoloop-fadeColor), transparent);
+}
+
+.logoloop--vertical.logoloop--fade::after {
+  bottom: 0; left: 0; right: 0; height: clamp(24px, 8%, 120px);
+  background: linear-gradient(to top, var(--logoloop-fadeColor), transparent);
+}
+
+/* ── Reduced motion ─────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
   .logoloop__track {
-    display: flex;
-    width: max-content;
-    will-change: transform;
-    user-select: none;
+    transform: translate3d(0, 0, 0) !important;
   }
-  
-  .logoloop__list {
-    display: flex;
-    align-items: center;
-  }
-  
-  .logoloop__item {
-    flex: 0 0 auto;
-    margin-right: var(--logoloop-gap);
-    font-size: var(--logoloop-logoHeight);
-    line-height: 1;
-  }
-  
-  .logoloop__item:last-child {
-    margin-right: var(--logoloop-gap);
-  }
-  
-  .logoloop__node {
-    display: inline-flex;
-    align-items: center;
-  }
-  
+  .logoloop__node,
   .logoloop__item img {
-    height: var(--logoloop-logoHeight);
-    width: auto;
-    display: block;
-    object-fit: contain;
-    image-rendering: -webkit-optimize-contrast;
-    -webkit-user-drag: none;
-    pointer-events: none;
-    /* Links handle interaction */
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: none !important;
   }
-  
-  .logoloop--scale-hover .logoloop__item {
-    overflow: visible;
-  }
-  
-  .logoloop--scale-hover .logoloop__item:hover img,
-  .logoloop--scale-hover .logoloop__item:hover .logoloop__node {
-    transform: scale(1.2);
-    transform-origin: center center;
-  }
-  
-  .logoloop--scale-hover .logoloop__node {
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .logoloop__link {
-    display: inline-flex;
-    align-items: center;
-    text-decoration: none;
-    border-radius: 4px;
-    transition: opacity 0.2s ease;
-  }
-  
-  .logoloop__link:hover {
-    opacity: 0.8;
-  }
-  
-  .logoloop__link:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-  }
-  
-  .logoloop--fade::before,
-  .logoloop--fade::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: clamp(24px, 8%, 120px);
-    pointer-events: none;
-    z-index: 1;
-  }
-  
-  .logoloop--fade::before {
-    left: 0;
-    background: linear-gradient(to right,
-        var(--logoloop-fadeColor, var(--logoloop-fadeColorAuto)) 0%,
-        rgba(0, 0, 0, 0) 100%);
-  }
-  
-  .logoloop--fade::after {
-    right: 0;
-    background: linear-gradient(to left,
-        var(--logoloop-fadeColor, var(--logoloop-fadeColorAuto)) 0%,
-        rgba(0, 0, 0, 0) 100%);
-  }
-  
-  @media (prefers-reduced-motion: reduce) {
-    .logoloop__track {
-      transform: translate3d(0, 0, 0) !important;
-    }
-  
-    .logoloop__item img,
-    .logoloop__node {
-      transition: none !important;
-    }
-  }
+}
