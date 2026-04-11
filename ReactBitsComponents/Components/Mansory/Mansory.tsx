@@ -7,7 +7,7 @@ import React, {
   } from "react";
   import { gsap } from "gsap";
   
-  import "./Masonry.css";
+  import "./Mansory.css";
   
   const useMedia = (
     queries: string[],

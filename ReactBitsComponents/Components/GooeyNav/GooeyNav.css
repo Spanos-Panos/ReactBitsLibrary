@@ -4,6 +4,10 @@
   
   .gooey-nav-container {
     position: relative;
+    /* FIX: Ensure the container doesn't stretch to 100% width */
+    width: fit-content; 
+    /* Added some top margin for breathing room */
+    margin: 2rem auto 0 auto; 
   }
   
   .gooey-nav-container nav {

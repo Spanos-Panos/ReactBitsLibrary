@@ -32,6 +32,10 @@ type ModeProps = Record<string, unknown>;
 
 interface FluidGlassProps {
   mode?: Mode;
+  /** Path to a custom .glb model (placed in /public). Defaults to /sphere.glb */
+  glb?: string;
+  /** Node name of the mesh inside the GLB. Auto-detected if omitted. */
+  geometryKey?: string;
   lensProps?: ModeProps;
   barProps?: ModeProps;
   cubeProps?: ModeProps;
@@ -39,6 +43,8 @@ interface FluidGlassProps {
 
 export default function FluidGlass({
   mode = "lens",
+  glb = "/sphere.glb",
+  geometryKey,
   lensProps = {},
   barProps = {},
   cubeProps = {},
@@ -60,7 +66,7 @@ export default function FluidGlass({
     <Canvas camera={{ position: [0, 0, 20], fov: 15 }} gl={{ alpha: true }}>
       <ScrollControls damping={0.2} pages={3} distance={0.4}>
         {mode === "bar" && <NavItems items={navItems as NavItem[]} />}
-        <Wrapper modeProps={modeProps}>
+        <Wrapper glb={glb} geometryKey={geometryKey} modeProps={modeProps}>
           <Scroll>
             <Typography />
             <Images />
@@ -78,7 +84,7 @@ type MeshProps = ThreeElements["mesh"];
 interface ModeWrapperProps extends MeshProps {
   children?: ReactNode;
   glb: string;
-  geometryKey: string;
+  geometryKey?: string;
   lockToBottom?: boolean;
   followPointer?: boolean;
   modeProps?: ModeProps;
@@ -91,6 +97,22 @@ interface ZoomMaterial extends THREE.Material {
 interface ZoomMesh extends THREE.Mesh<THREE.BufferGeometry, ZoomMaterial> {}
 
 type ZoomGroup = THREE.Group & { children: ZoomMesh[] };
+
+/** Resolve the first mesh node from a GLTF nodes map */
+function resolveGeometry(
+  nodes: Record<string, THREE.Object3D>,
+  preferredKey?: string
+): THREE.BufferGeometry | null {
+  if (preferredKey && (nodes[preferredKey] as THREE.Mesh)?.geometry) {
+    return (nodes[preferredKey] as THREE.Mesh).geometry;
+  }
+  // Auto-detect: find the first node that is a Mesh with geometry
+  for (const key of Object.keys(nodes)) {
+    const node = nodes[key] as THREE.Mesh;
+    if (node?.isMesh && node.geometry) return node.geometry;
+  }
+  return null;
+}
 
 const ModeWrapper = memo(function ModeWrapper({
   children,
@@ -108,11 +130,18 @@ const ModeWrapper = memo(function ModeWrapper({
   const [scene] = useState<THREE.Scene>(() => new THREE.Scene());
   const geoWidthRef = useRef<number>(1);
 
+  const geometry = resolveGeometry(
+    nodes as Record<string, THREE.Object3D>,
+    geometryKey
+  );
+
   useEffect(() => {
-    const geo = (nodes[geometryKey] as THREE.Mesh)?.geometry;
-    geo.computeBoundingBox();
-    geoWidthRef.current = geo.boundingBox!.max.x - geo.boundingBox!.min.x || 1;
-  }, [nodes, geometryKey]);
+    if (!geometry) return;
+    geometry.computeBoundingBox();
+    geoWidthRef.current =
+      (geometry.boundingBox?.max.x ?? 0) -
+        (geometry.boundingBox?.min.x ?? 0) || 1;
+  }, [geometry]);
 
   useFrame((state, delta) => {
     const { gl, viewport, pointer, camera } = state;
@@ -154,6 +183,8 @@ const ModeWrapper = memo(function ModeWrapper({
     [key: string]: unknown;
   };
 
+  if (!geometry) return null;
+
   return (
     <>
       {createPortal(children, scene)}
@@ -165,7 +196,7 @@ const ModeWrapper = memo(function ModeWrapper({
         ref={ref}
         scale={scale ?? 0.15}
         rotation-x={Math.PI / 2}
-        geometry={(nodes[geometryKey] as THREE.Mesh)?.geometry}
+        geometry={geometry}
         {...props}
       >
         <MeshTransmissionMaterial
@@ -183,11 +214,17 @@ const ModeWrapper = memo(function ModeWrapper({
   );
 });
 
-function Lens({ modeProps, ...p }: { modeProps?: ModeProps } & MeshProps) {
+interface ModeShapeProps extends MeshProps {
+  glb: string;
+  geometryKey?: string;
+  modeProps?: ModeProps;
+}
+
+function Lens({ modeProps, glb, geometryKey, ...p }: ModeShapeProps) {
   return (
     <ModeWrapper
-      glb="/assets/3d/lens.glb"
-      geometryKey="Cylinder"
+      glb={glb}
+      geometryKey={geometryKey}
       followPointer
       modeProps={modeProps}
       {...p}
@@ -195,11 +232,11 @@ function Lens({ modeProps, ...p }: { modeProps?: ModeProps } & MeshProps) {
   );
 }
 
-function Cube({ modeProps, ...p }: { modeProps?: ModeProps } & MeshProps) {
+function Cube({ modeProps, glb, geometryKey, ...p }: ModeShapeProps) {
   return (
     <ModeWrapper
-      glb="/assets/3d/cube.glb"
-      geometryKey="Cube"
+      glb={glb}
+      geometryKey={geometryKey}
       followPointer
       modeProps={modeProps}
       {...p}
@@ -207,7 +244,7 @@ function Cube({ modeProps, ...p }: { modeProps?: ModeProps } & MeshProps) {
   );
 }
 
-function Bar({ modeProps = {}, ...p }: { modeProps?: ModeProps } & MeshProps) {
+function Bar({ modeProps = {}, glb, geometryKey, ...p }: ModeShapeProps) {
   const defaultMat = {
     transmission: 1,
     roughness: 0,
@@ -220,8 +257,8 @@ function Bar({ modeProps = {}, ...p }: { modeProps?: ModeProps } & MeshProps) {
 
   return (
     <ModeWrapper
-      glb="/assets/3d/bar.glb"
-      geometryKey="Cube"
+      glb={glb}
+      geometryKey={geometryKey}
       lockToBottom
       followPointer={false}
       modeProps={{ ...defaultMat, ...modeProps }}
@@ -284,7 +321,6 @@ function NavItems({ items }: { items: NavItem[] }) {
           color="white"
           anchorX="center"
           anchorY="middle"
-          font="/assets/fonts/figtreeblack.ttf"
           outlineWidth={0}
           outlineBlur="20%"
           outlineColor="#000"
@@ -348,7 +384,7 @@ function Images() {
         url="/joker-portrait.jpg"
       />
     </group>
-  )
+  );
 }
 
 function Typography() {
@@ -375,7 +411,6 @@ function Typography() {
   return (
     <Text
       position={[0, 0, 12]}
-      font="/assets/fonts/figtreeblack.ttf"
       fontSize={fontSize}
       letterSpacing={-0.05}
       outlineWidth={0}

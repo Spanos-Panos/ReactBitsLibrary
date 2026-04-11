@@ -1,11 +1,17 @@
-import FlyingPosters from './FlyingPosters'
+import FlyingPosters from './FlyingPosters';
 
-const items = [
-  'https://picsum.photos/500/500?grayscale', 
-  'https://picsum.photos/600/600?grayscale', 
-  'https://picsum.photos/400/400?grayscale'
-];
+export default function App() {
+  const items = [
+    'https://picsum.photos/500/500?grayscale', 
+    'https://picsum.photos/600/600?grayscale', 
+    'https://picsum.photos/400/400?grayscale'
+  ];
 
-<div style={{ height: '600px', position: 'relative' }}>
-  <FlyingPosters items={items}/>
-</div>
+  return (
+    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+      <div style={{ height: '100vh', position: 'relative' }}>
+        <FlyingPosters items={items}/>
+      </div>
+    </div>
+  );
+}

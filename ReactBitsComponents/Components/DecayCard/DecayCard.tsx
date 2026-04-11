@@ -12,52 +12,29 @@ interface DecayCardProps {
 const DecayCard: React.FC<DecayCardProps> = ({
   width = 300,
   height = 400,
-  image = "https://picsum.photos/300/400?grayscale",
+  image = "https://picsum.photos/600/800?grayscale",
   children,
 }) => {
   const svgRef = useRef<HTMLDivElement>(null);
   const displacementMapRef = useRef<SVGFEDisplacementMapElement>(null);
-  const cursor = useRef<{ x: number; y: number }>({
-    x: window.innerWidth / 2,
-    y: window.innerHeight / 2,
-  });
-  const cachedCursor = useRef<{ x: number; y: number }>({ ...cursor.current });
-  const winsize = useRef<{ width: number; height: number }>({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  });
+  const cursor = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+  const cachedCursor = useRef({ ...cursor.current });
+  const winsize = useRef({ width: window.innerWidth, height: window.innerHeight });
 
   useEffect(() => {
-    const lerp = (a: number, b: number, n: number): number =>
-      (1 - n) * a + n * b;
+    let isActive = true; // FIX: Flag to stop the loop on unmount
 
-    const map = (
-      x: number,
-      a: number,
-      b: number,
-      c: number,
-      d: number
-    ): number => ((x - a) * (d - c)) / (b - a) + c;
+    const lerp = (a: number, b: number, n: number) => (1 - n) * a + n * b;
+    const map = (x: number, a: number, b: number, c: number, d: number) => 
+      ((x - a) * (d - c)) / (b - a) + c;
+    const distance = (x1: number, x2: number, y1: number, y2: number) => 
+      Math.hypot(x1 - x2, y1 - y2);
 
-    const distance = (
-      x1: number,
-      x2: number,
-      y1: number,
-      y2: number
-    ): number => {
-      const a = x1 - x2;
-      const b = y1 - y2;
-      return Math.hypot(a, b);
+    const handleResize = () => {
+      winsize.current = { width: window.innerWidth, height: window.innerHeight };
     };
 
-    const handleResize = (): void => {
-      winsize.current = {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      };
-    };
-
-    const handleMouseMove = (ev: MouseEvent): void => {
+    const handleMouseMove = (ev: MouseEvent) => {
       cursor.current = { x: ev.clientX, y: ev.clientY };
     };
 
@@ -70,28 +47,29 @@ const DecayCard: React.FC<DecayCardProps> = ({
     };
 
     const render = () => {
+      if (!isActive) return; // FIX: Stop loop if component is gone
+
       let targetX = lerp(
         imgValues.imgTransforms.x,
-        map(cursor.current.x, 0, winsize.current.width, -120, 120),
+        map(cursor.current.x, 0, winsize.current.width, -80, 80),
         0.1
       );
       let targetY = lerp(
         imgValues.imgTransforms.y,
-        map(cursor.current.y, 0, winsize.current.height, -120, 120),
+        map(cursor.current.y, 0, winsize.current.height, -80, 80),
         0.1
       );
       let targetRz = lerp(
         imgValues.imgTransforms.rz,
-        map(cursor.current.x, 0, winsize.current.width, -10, 10),
+        map(cursor.current.x, 0, winsize.current.width, -5, 5),
         0.1
       );
 
-      const bound = 50;
+      // Limit the movement bounds
+      const bound = 40;
       if (targetX > bound) targetX = bound + (targetX - bound) * 0.2;
       if (targetX < -bound) targetX = -bound + (targetX + bound) * 0.2;
-      if (targetY > bound) targetY = bound + (targetY - bound) * 0.2;
-      if (targetY < -bound) targetY = -bound + (targetY + bound) * 0.2;
-
+      
       imgValues.imgTransforms.x = targetX;
       imgValues.imgTransforms.y = targetY;
       imgValues.imgTransforms.rz = targetRz;
@@ -104,16 +82,15 @@ const DecayCard: React.FC<DecayCardProps> = ({
         });
       }
 
-      const cursorTravelledDistance = distance(
-        cachedCursor.current.x,
-        cursor.current.x,
-        cachedCursor.current.y,
-        cursor.current.y
+      const movedDist = distance(
+        cachedCursor.current.x, cursor.current.x,
+        cachedCursor.current.y, cursor.current.y
       );
+
       imgValues.displacementScale = lerp(
         imgValues.displacementScale,
-        map(cursorTravelledDistance, 0, 200, 0, 400),
-        0.06
+        map(movedDist, 0, 150, 0, 300),
+        0.08
       );
 
       if (displacementMapRef.current) {
@@ -123,13 +100,13 @@ const DecayCard: React.FC<DecayCardProps> = ({
       }
 
       cachedCursor.current = { ...cursor.current };
-
       requestAnimationFrame(render);
     };
 
     render();
 
     return () => {
+      isActive = false; // Kill loop
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("mousemove", handleMouseMove);
     };
@@ -137,55 +114,42 @@ const DecayCard: React.FC<DecayCardProps> = ({
 
   return (
     <div
-      className="content"
+      className="decay-card-wrapper"
       style={{ width: `${width}px`, height: `${height}px` }}
       ref={svgRef}
     >
       <svg
-        viewBox="-60 -75 720 900"
-        preserveAspectRatio="xMidYMid slice"
-        className="svg"
+        viewBox="0 0 600 800"
+        className="decay-svg"
       >
-        <filter id="imgFilter">
+        <filter id="decayFilter">
           <feTurbulence
             type="turbulence"
-            baseFrequency="0.015"
-            numOctaves="5"
-            seed="4"
-            stitchTiles="stitch"
-            x="0%"
-            y="0%"
-            width="100%"
-            height="100%"
-            result="turbulence1"
+            baseFrequency="0.02"
+            numOctaves="3"
+            seed="2"
+            result="noise"
           />
           <feDisplacementMap
             ref={displacementMapRef}
             in="SourceGraphic"
-            in2="turbulence1"
+            in2="noise"
             scale="0"
             xChannelSelector="R"
-            yChannelSelector="B"
-            x="0%"
-            y="0%"
-            width="100%"
-            height="100%"
-            result="displacementMap3"
+            yChannelSelector="G"
           />
         </filter>
-        <g>
-          <image
-            href={image}
-            x="0"
-            y="0"
-            width="600"
-            height="750"
-            filter="url(#imgFilter)"
-            preserveAspectRatio="xMidYMid slice"
-          />
-        </g>
+        <image
+          href={image}
+          x="0"
+          y="0"
+          width="600"
+          height="800"
+          filter="url(#decayFilter)"
+          preserveAspectRatio="xMidYMid slice"
+        />
       </svg>
-      <div className="card-text">{children}</div>
+      <div className="card-text-overlay">{children}</div>
     </div>
   );
 };

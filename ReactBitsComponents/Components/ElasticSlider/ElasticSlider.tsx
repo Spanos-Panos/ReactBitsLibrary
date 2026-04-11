@@ -6,9 +6,9 @@ import {
   useMotionValueEvent,
   useTransform,
 } from "motion/react";
-import { Icon } from "@chakra-ui/react";
 import { RiVolumeDownFill, RiVolumeUpFill } from "react-icons/ri";
 
+// This looks for the CSS file in the same folder
 import "./ElasticSlider.css";
 
 const MAX_OVERFLOW = 50;
@@ -31,42 +31,8 @@ const ElasticSlider: React.FC<ElasticSliderProps> = ({
   className = "",
   isStepped = false,
   stepSize = 1,
-  leftIcon = <Icon as={RiVolumeDownFill} />,
-  rightIcon = <Icon as={RiVolumeUpFill} />,
-}) => {
-  return (
-    <div className={`slider-container ${className}`}>
-      <Slider
-        defaultValue={defaultValue}
-        startingValue={startingValue}
-        maxValue={maxValue}
-        isStepped={isStepped}
-        stepSize={stepSize}
-        leftIcon={leftIcon}
-        rightIcon={rightIcon}
-      />
-    </div>
-  );
-};
-
-interface SliderProps {
-  defaultValue: number;
-  startingValue: number;
-  maxValue: number;
-  isStepped: boolean;
-  stepSize: number;
-  leftIcon: React.ReactNode;
-  rightIcon: React.ReactNode;
-}
-
-const Slider: React.FC<SliderProps> = ({
-  defaultValue,
-  startingValue,
-  maxValue,
-  isStepped,
-  stepSize,
-  leftIcon,
-  rightIcon,
+  leftIcon = <RiVolumeDownFill size={20} />,
+  rightIcon = <RiVolumeUpFill size={20} />,
 }) => {
   const [value, setValue] = useState<number>(defaultValue);
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -100,9 +66,7 @@ const Slider: React.FC<SliderProps> = ({
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.buttons > 0 && sliderRef.current) {
       const { left, width } = sliderRef.current.getBoundingClientRect();
-      let newValue =
-        startingValue +
-        ((e.clientX - left) / width) * (maxValue - startingValue);
+      let newValue = startingValue + ((e.clientX - left) / width) * (maxValue - startingValue);
       if (isStepped) {
         newValue = Math.round(newValue / stepSize) * stepSize;
       }
@@ -123,33 +87,21 @@ const Slider: React.FC<SliderProps> = ({
 
   const getRangePercentage = (): number => {
     const totalRange = maxValue - startingValue;
-    if (totalRange === 0) return 0;
-    return ((value - startingValue) / totalRange) * 100;
+    return totalRange === 0 ? 0 : ((value - startingValue) / totalRange) * 100;
   };
 
   return (
-    <>
+    <div className={`slider-container ${className}`}>
       <motion.div
-        onHoverStart={() => animate(scale, 1.2)}
+        onHoverStart={() => animate(scale, 1.1)}
         onHoverEnd={() => animate(scale, 1)}
-        onTouchStart={() => animate(scale, 1.2)}
-        onTouchEnd={() => animate(scale, 1)}
-        style={{
-          scale,
-          opacity: useTransform(scale, [1, 1.2], [0.7, 1]),
-        }}
+        style={{ scale }}
         className="slider-wrapper"
       >
         <motion.div
-          animate={{
-            scale: region === "left" ? [1, 1.4, 1] : 1,
-            transition: { duration: 0.25 },
-          }}
-          style={{
-            x: useTransform(() =>
-              region === "left" ? -overflow.get() / scale.get() : 0
-            ),
-          }}
+          animate={{ scale: region === "left" ? [1, 1.4, 1] : 1 }}
+          style={{ x: useTransform(() => (region === "left" ? -overflow.get() : 0)) }}
+          className="slider-icon"
         >
           {leftIcon}
         </motion.div>
@@ -170,53 +122,37 @@ const Slider: React.FC<SliderProps> = ({
                 }
                 return 1;
               }),
-              scaleY: useTransform(overflow, [0, MAX_OVERFLOW], [1, 0.8]),
               transformOrigin: useTransform(() => {
                 if (sliderRef.current) {
-                  const { left, width } =
-                    sliderRef.current.getBoundingClientRect();
+                  const { left, width } = sliderRef.current.getBoundingClientRect();
                   return clientX.get() < left + width / 2 ? "right" : "left";
                 }
                 return "center";
               }),
-              height: useTransform(scale, [1, 1.2], [6, 12]),
-              marginTop: useTransform(scale, [1, 1.2], [0, -3]),
-              marginBottom: useTransform(scale, [1, 1.2], [0, -3]),
             }}
             className="slider-track-wrapper"
           >
             <div className="slider-track">
-              <div
-                className="slider-range"
-                style={{ width: `${getRangePercentage()}%` }}
-              />
+              <div className="slider-range" style={{ width: `${getRangePercentage()}%` }} />
             </div>
           </motion.div>
         </div>
 
         <motion.div
-          animate={{
-            scale: region === "right" ? [1, 1.4, 1] : 1,
-            transition: { duration: 0.25 },
-          }}
-          style={{
-            x: useTransform(() =>
-              region === "right" ? overflow.get() / scale.get() : 0
-            ),
-          }}
+          animate={{ scale: region === "right" ? [1, 1.4, 1] : 1 }}
+          style={{ x: useTransform(() => (region === "right" ? overflow.get() : 0)) }}
+          className="slider-icon"
         >
           {rightIcon}
         </motion.div>
       </motion.div>
       <p className="value-indicator">{Math.round(value)}</p>
-    </>
+    </div>
   );
 };
 
 function decay(value: number, max: number): number {
-  if (max === 0) {
-    return 0;
-  }
+  if (max === 0) return 0;
   const entry = value / max;
   const sigmoid = 2 * (1 / (1 + Math.exp(-entry)) - 0.5);
   return sigmoid * max;

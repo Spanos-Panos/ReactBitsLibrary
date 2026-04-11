@@ -1,5 +1,4 @@
-import CardNav from './CardNav'
-import logo from './logo.svg';
+import CardNav from './CardNav';
 
 const App = () => {
   const items = [
@@ -8,8 +7,8 @@ const App = () => {
       bgColor: "#0D0716",
       textColor: "#fff",
       links: [
-        { label: "Company", ariaLabel: "About Company" },
-        { label: "Careers", ariaLabel: "About Careers" }
+        { label: "Company", href: "#", ariaLabel: "About Company" },
+        { label: "Careers", href: "#", ariaLabel: "About Careers" }
       ]
     },
     {
@@ -17,8 +16,8 @@ const App = () => {
       bgColor: "#170D27",
       textColor: "#fff",
       links: [
-        { label: "Featured", ariaLabel: "Featured Projects" },
-        { label: "Case Studies", ariaLabel: "Project Case Studies" }
+        { label: "Featured", href: "#", ariaLabel: "Featured Projects" },
+        { label: "Case Studies", href: "#", ariaLabel: "Project Case Studies" }
       ]
     },
     {
@@ -26,23 +25,30 @@ const App = () => {
       bgColor: "#271E37", 
       textColor: "#fff",
       links: [
-        { label: "Email", ariaLabel: "Email us" },
-        { label: "Twitter", ariaLabel: "Twitter" },
-        { label: "LinkedIn", ariaLabel: "LinkedIn" }
+        { label: "Email", href: "#", ariaLabel: "Email us" },
+        { label: "Twitter", href: "#", ariaLabel: "Twitter" },
+        { label: "LinkedIn", href: "#", ariaLabel: "LinkedIn" }
       ]
     }
   ];
 
   return (
-    <CardNav
-      logo={logo}
-      logoAlt="Company Logo"
-      items={items}
-      baseColor="#fff"
-      menuColor="#000"
-      buttonBgColor="#111"
-      buttonTextColor="#fff"
-      ease="power3.out"
-    />
+    <div style={{ width: '100vw', height: '100vh', backgroundColor: '#050505' }}>
+      <CardNav
+        // Since the file is in /public/ReactIcon.svg, 
+        // Vite sees it at the root URL "/"
+        logo="/ReactIcon.svg"
+        logoAlt="Company Logo"
+        items={items}
+        baseColor="#fff"
+        menuColor="#000"
+        buttonBgColor="#111"
+        buttonTextColor="#fff"
+        ease="power3.out"
+      />
+    </div>
   );
 };
+
+// CRITICAL FIX: This solves the 'export named default' error
+export default App;

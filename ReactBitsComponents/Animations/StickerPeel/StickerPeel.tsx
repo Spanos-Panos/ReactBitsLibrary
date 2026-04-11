@@ -1,7 +1,7 @@
-import { useRef, useEffect, useMemo, CSSProperties } from "react";
-import { gsap } from "gsap";
-import { Draggable } from "gsap/Draggable";
-import "./StickerPeel.css";
+import { useRef, useEffect, useMemo, CSSProperties } from 'react';
+import { gsap } from 'gsap';
+import { Draggable } from 'gsap/Draggable';
+import './StickerPeel.css';
 
 gsap.registerPlugin(Draggable);
 
@@ -15,22 +15,22 @@ interface StickerPeelProps {
   width?: number;
   shadowIntensity?: number;
   lightingIntensity?: number;
-  initialPosition?: "center" | "random" | { x: number; y: number };
+  initialPosition?: 'center' | 'random' | { x: number; y: number };
   peelDirection?: number;
   className?: string;
 }
 
 interface CSSVars extends CSSProperties {
-  "--sticker-rotate"?: string;
-  "--sticker-p"?: string;
-  "--sticker-peelback-hover"?: string;
-  "--sticker-peelback-active"?: string;
-  "--sticker-peel-easing"?: string;
-  "--sticker-peel-hover-easing"?: string;
-  "--sticker-width"?: string;
-  "--sticker-shadow-opacity"?: number;
-  "--sticker-lighting-constant"?: number;
-  "--peel-direction"?: string;
+  '--sticker-rotate'?: string;
+  '--sticker-p'?: string;
+  '--sticker-peelback-hover'?: string;
+  '--sticker-peelback-active'?: string;
+  '--sticker-peel-easing'?: string;
+  '--sticker-peel-hover-easing'?: string;
+  '--sticker-width'?: string;
+  '--sticker-shadow-opacity'?: number;
+  '--sticker-lighting-constant'?: number;
+  '--peel-direction'?: string;
 }
 
 const StickerPeel: React.FC<StickerPeelProps> = ({
@@ -38,14 +38,14 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
   rotate = 30,
   peelBackHoverPct = 30,
   peelBackActivePct = 40,
-  peelEasing = "power3.out",
-  peelHoverEasing = "power2.out",
+  peelEasing = 'power3.out',
+  peelHoverEasing = 'power2.out',
   width = 200,
   shadowIntensity = 0.6,
   lightingIntensity = 0.1,
-  initialPosition = "center",
+  initialPosition = 'center',
   peelDirection = 0,
-  className = "",
+  className = ''
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragTargetRef = useRef<HTMLDivElement>(null);
@@ -62,15 +62,11 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
     let startX = 0,
       startY = 0;
 
-    if (initialPosition === "center") {
+    if (initialPosition === 'center') {
       return;
     }
 
-    if (
-      typeof initialPosition === "object" &&
-      initialPosition.x !== undefined &&
-      initialPosition.y !== undefined
-    ) {
+    if (typeof initialPosition === 'object' && initialPosition.x !== undefined && initialPosition.y !== undefined) {
       startX = initialPosition.x;
       startY = initialPosition.y;
     }
@@ -85,18 +81,18 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
     const boundsEl = target.parentNode as HTMLElement;
 
     const draggable = Draggable.create(target, {
-      type: "x,y",
+      type: 'x,y',
       bounds: boundsEl,
       inertia: true,
       onDrag(this: Draggable) {
         const rot = gsap.utils.clamp(-24, 24, this.deltaX * 0.4);
-        gsap.to(target, { rotation: rot, duration: 0.15, ease: "power1.out" });
+        gsap.to(target, { rotation: rot, duration: 0.15, ease: 'power1.out' });
       },
       onDragEnd() {
-        const rotationEase = "power2.out";
+        const rotationEase = 'power2.out';
         const duration = 0.8;
         gsap.to(target, { rotation: 0, duration, ease: rotationEase });
-      },
+      }
     });
 
     draggableInstanceRef.current = draggable[0];
@@ -104,25 +100,25 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
     const handleResize = () => {
       if (draggableInstanceRef.current) {
         draggableInstanceRef.current.update();
-        
-        const currentX = gsap.getProperty(target, "x") as number;
-        const currentY = gsap.getProperty(target, "y") as number;
-        
+
+        const currentX = gsap.getProperty(target, 'x') as number;
+        const currentY = gsap.getProperty(target, 'y') as number;
+
         const boundsRect = boundsEl.getBoundingClientRect();
         const targetRect = target.getBoundingClientRect();
-        
+
         const maxX = boundsRect.width - targetRect.width;
         const maxY = boundsRect.height - targetRect.height;
-        
+
         const newX = Math.max(0, Math.min(currentX, maxX));
         const newY = Math.max(0, Math.min(currentY, maxY));
-        
+
         if (newX !== currentX || newY !== currentY) {
-          gsap.to(target, { 
-            x: newX, 
-            y: newY, 
-            duration: 0.3, 
-            ease: "power2.out" 
+          gsap.to(target, {
+            x: newX,
+            y: newY,
+            duration: 0.3,
+            ease: 'power2.out'
           });
         }
       }
@@ -157,18 +153,18 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
       if (pointLightFlippedRef.current) {
         if (normalizedAngle !== 180) {
           gsap.set(pointLightFlippedRef.current, {
-            attr: { x, y: rect.height - y },
+            attr: { x, y: rect.height - y }
           });
         } else {
           gsap.set(pointLightFlippedRef.current, {
-            attr: { x: -1000, y: -1000 },
+            attr: { x: -1000, y: -1000 }
           });
         }
       }
     };
 
     const container = containerRef.current;
-    const eventType = "mousemove";
+    const eventType = 'mousemove';
 
     if (container) {
       container.addEventListener(eventType, updateLight);
@@ -201,16 +197,16 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
 
   const cssVars: CSSVars = useMemo(
     () => ({
-      "--sticker-rotate": `${rotate}deg`,
-      "--sticker-p": `${defaultPadding}px`,
-      "--sticker-peelback-hover": `${peelBackHoverPct}%`,
-      "--sticker-peelback-active": `${peelBackActivePct}%`,
-      "--sticker-peel-easing": peelEasing,
-      "--sticker-peel-hover-easing": peelHoverEasing,
-      "--sticker-width": `${width}px`,
-      "--sticker-shadow-opacity": shadowIntensity,
-      "--sticker-lighting-constant": lightingIntensity,
-      "--peel-direction": `${peelDirection}deg`,
+      '--sticker-rotate': `${rotate}deg`,
+      '--sticker-p': `${defaultPadding}px`,
+      '--sticker-peelback-hover': `${peelBackHoverPct}%`,
+      '--sticker-peelback-active': `${peelBackActivePct}%`,
+      '--sticker-peel-easing': peelEasing,
+      '--sticker-peel-hover-easing': peelHoverEasing,
+      '--sticker-width': `${width}px`,
+      '--sticker-shadow-opacity': shadowIntensity,
+      '--sticker-lighting-constant': lightingIntensity,
+      '--peel-direction': `${peelDirection}deg`
     }),
     [
       rotate,
@@ -221,16 +217,12 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
       width,
       shadowIntensity,
       lightingIntensity,
-      peelDirection,
+      peelDirection
     ]
   );
 
   return (
-    <div
-      className={`draggable ${className}`}
-      ref={dragTargetRef}
-      style={cssVars}
-    >
+    <div className={`draggable ${className}`} ref={dragTargetRef} style={cssVars}>
       <svg width="0" height="0">
         <defs>
           <filter id="pointLight">
@@ -244,11 +236,7 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
             >
               <fePointLight ref={pointLightRef} x="100" y="100" z="300" />
             </feSpecularLighting>
-            <feComposite
-              in="spec"
-              in2="SourceGraphic"
-              result="lit"
-            />
+            <feComposite in="spec" in2="SourceGraphic" result="lit" />
             <feComposite in="lit" in2="SourceAlpha" operator="in" />
           </filter>
 
@@ -261,18 +249,9 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
               specularConstant={lightingIntensity * 7}
               lightingColor="white"
             >
-              <fePointLight
-                ref={pointLightFlippedRef}
-                x="100"
-                y="100"
-                z="300"
-              />
+              <fePointLight ref={pointLightFlippedRef} x="100" y="100" z="300" />
             </feSpecularLighting>
-            <feComposite
-              in="spec"
-              in2="SourceGraphic"
-              result="lit"
-            />
+            <feComposite in="spec" in2="SourceGraphic" result="lit" />
             <feComposite in="lit" in2="SourceAlpha" operator="in" />
           </filter>
 
@@ -302,7 +281,7 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
               alt=""
               className="sticker-image"
               draggable="false"
-              onContextMenu={(e) => e.preventDefault()}
+              onContextMenu={e => e.preventDefault()}
             />
           </div>
         </div>
@@ -314,7 +293,7 @@ const StickerPeel: React.FC<StickerPeelProps> = ({
               alt=""
               className="flap-image"
               draggable="false"
-              onContextMenu={(e) => e.preventDefault()}
+              onContextMenu={e => e.preventDefault()}
             />
           </div>
         </div>

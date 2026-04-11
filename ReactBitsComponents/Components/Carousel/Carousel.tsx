@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
-import { motion, PanInfo, useMotionValue, useTransform } from "motion/react";
+import { motion, useMotionValue, useTransform } from "motion/react";
+import type { PanInfo } from "motion/react";
 // replace icons with your own if needed
 import {
   FiCircle,
