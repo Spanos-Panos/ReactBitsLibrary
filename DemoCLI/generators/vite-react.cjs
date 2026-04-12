@@ -63,7 +63,7 @@ async function generateViteReact(options) {
   await runCommand(scaffoldCmd, [], parentDir, log);
 
   notify(`Scanning for required dependencies...`);
-  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'motion', 'gsap', 'ogl', '@react-three/fiber', '@react-three/drei', 'three', 'react-spring', '@react-spring/three', 'react-icons']);
+  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'motion', 'gsap', 'ogl', '@react-three/fiber', '@react-three/drei', 'three', 'maath', 'react-spring', '@react-spring/three', 'react-icons']);
 
   // Merge AI dependencies if present
   if (enhancedPrompt?.technicalRequirements?.dependencies) {
@@ -177,10 +177,15 @@ async function generateViteReact(options) {
   notify(`Injecting Joker placeholder assets...`);
   const sourceJokerDir = path.join(__dirname, '..', 'joker-assets');
   const targetPublicDir = path.join(targetDir, 'public');
+  const target3dDir = path.join(targetPublicDir, 'assets', '3d');
   try {
+    await fs.mkdir(target3dDir, { recursive: true });
     const jokerFiles = await fs.readdir(sourceJokerDir);
     for (const f of jokerFiles) {
-      if (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.svg') || f.endsWith('.glb')) {
+      if (f.endsWith('.glb')) {
+        // FluidGlass and other 3D components expect GLBs at /assets/3d/
+        await fs.copyFile(path.join(sourceJokerDir, f), path.join(target3dDir, f));
+      } else if (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.svg')) {
         await fs.copyFile(path.join(sourceJokerDir, f), path.join(targetPublicDir, f));
       }
     }
