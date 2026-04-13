@@ -63,7 +63,7 @@ async function generateViteReact(options) {
   await runCommand(scaffoldCmd, [], parentDir, log);
 
   notify(`Scanning for required dependencies...`);
-  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'motion', 'gsap', 'ogl', '@react-three/fiber', '@react-three/drei', 'three', 'maath', 'react-spring', '@react-spring/three', 'react-icons']);
+  const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'motion', 'gsap', 'ogl', '@react-three/fiber', '@react-three/drei', 'three', 'maath', 'react-spring', '@react-spring/three', 'react-icons', 'meshline', '@react-three/rapier']);
 
   // Merge AI dependencies if present
   if (enhancedPrompt?.technicalRequirements?.dependencies) {
@@ -103,6 +103,38 @@ async function generateViteReact(options) {
       const filePath = path.join(compDirPath, file.name);
       await fs.writeFile(filePath, file.content, 'utf-8');
     }
+  }
+
+  // 3b. Lanyard-specific setup: copy assets + patch vite config + add type declarations
+  const hasLanyard = componentsToInject.some(c => c.name === 'Lanyard');
+  if (hasLanyard) {
+    notify(`Setting up Lanyard assets and config...`);
+    const lanyardCompDir = path.join(targetDir, 'src', 'components', 'Components', 'Lanyard');
+
+    // Copy card.glb and lanyard.png next to the component (relative imports)
+    const jokerAssetsDir = path.join(__dirname, '..', 'joker-assets');
+    for (const assetName of ['card.glb', 'lanyard.png']) {
+      const src = path.join(jokerAssetsDir, assetName);
+      const dest = path.join(lanyardCompDir, assetName);
+      try { await fs.copyFile(src, dest); } catch (e) { log(`[DemoCLI] Warning: Could not copy ${assetName}: ${e.message}\n`); }
+    }
+
+    // Patch vite.config.ts to add assetsInclude for .glb files
+    const viteConfigPath = path.join(targetDir, 'vite.config.ts');
+    try {
+      let viteConfig = await fs.readFile(viteConfigPath, 'utf-8');
+      if (!viteConfig.includes('assetsInclude')) {
+        viteConfig = viteConfig.replace(
+          /plugins:\s*\[/,
+          `assetsInclude: ['**/*.glb'],\n  plugins: [`
+        );
+        await fs.writeFile(viteConfigPath, viteConfig, 'utf-8');
+      }
+    } catch (e) { log(`[DemoCLI] Warning: Could not patch vite.config.ts: ${e.message}\n`); }
+
+    // Create global.d.ts with meshline and asset module declarations
+    const globalDts = `export {};\n\ndeclare module '*.glb';\ndeclare module '*.png';\n\ndeclare module 'meshline' {\n  export const MeshLineGeometry: any;\n  export const MeshLineMaterial: any;\n}\n\ndeclare global {\n  namespace JSX {\n    interface IntrinsicElements {\n      meshLineGeometry: any;\n      meshLineMaterial: any;\n    }\n  }\n}\n`;
+    await fs.writeFile(path.join(targetDir, 'src', 'global.d.ts'), globalDts, 'utf-8');
   }
 
   // 4. Overwrite App.tsx (For single component, legacy mode)

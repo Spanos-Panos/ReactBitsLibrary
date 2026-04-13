@@ -129,21 +129,21 @@
     "id": "Components/InfiniteMenu",
     "name": "InfiniteMenu",
     "category": "Components",
-    "usageMarkdown": "import InfiniteMenu from './InfiniteMenu'\r\n\r\nconst items = [\r\n  {\r\n    image: 'https://picsum.photos/300/300?grayscale',\r\n    link: 'https://google.com/',\r\n    title: 'Item 1',\r\n    description: 'This is pretty cool, right?'\r\n  },\r\n  {\r\n    image: 'https://picsum.photos/400/400?grayscale',\r\n    link: 'https://google.com/',\r\n    title: 'Item 2',\r\n    description: 'This is pretty cool, right?'\r\n  },\r\n  {\r\n    image: 'https://picsum.photos/500/500?grayscale',\r\n    link: 'https://google.com/',\r\n    title: 'Item 3',\r\n    description: 'This is pretty cool, right?'\r\n  },\r\n  {\r\n    image: 'https://picsum.photos/600/600?grayscale',\r\n    link: 'https://google.com/',\r\n    title: 'Item 4',\r\n    description: 'This is pretty cool, right?'\r\n  }\r\n];\r\n\r\n<div style={{ height: '600px', position: 'relative' }}>\r\n  <InfiniteMenu items={items}/>\r\n</div>",
+    "usageMarkdown": "import InfiniteMenu from './InfiniteMenu'\n\nconst items = [\n  { image: '/joker-square.jpg', link: '', title: 'Item 1', description: 'Description 1' },\n  { image: '/joker-landscape.jpg', link: '', title: 'Item 2', description: 'Description 2' },\n  { image: '/joker-portrait.jpg', link: '', title: 'Item 3', description: 'Description 3' },\n  { image: '/joker-square.jpg', link: '', title: 'Item 4', description: 'Description 4' },\n];\n\n<InfiniteMenu items={items} />\n",
     "relativePath": "ReactBitsComponents/Components/InfiniteMenu/UsageInfiniteMenu.md"
   },
   {
     "id": "Components/InfiniteScroll",
     "name": "InfiniteScroll",
     "category": "Components",
-    "usageMarkdown": "import InfiniteScroll from './InfiniteScroll';\r\n  \r\nconst items = [\r\n  { content: \"Text Item 1\" },\r\n  { content: <p>Paragraph Item 2</p> },\r\n  { content: \"Text Item 3\" },\r\n  { content: <p>Paragraph Item 4</p> },\r\n  { content: \"Text Item 5\" },\r\n  { content: <p>Paragraph Item 6</p> },\r\n  { content: \"Text Item 7\" },\r\n  { content: <p>Paragraph Item 8</p> },\r\n  { content: \"Text Item 9\" },\r\n  { content: <p>Paragraph Item 10</p> },\r\n  { content: \"Text Item 11\" },\r\n  { content: <p>Paragraph Item 12</p> },\r\n  { content: \"Text Item 13\" },\r\n  { content: <p>Paragraph Item 14</p> },\r\n];\r\n  \r\n<div style={{height: '500px', position: 'relative'}}>\r\n  <InfiniteScroll\r\n    items={items}\r\n    isTilted={true}\r\n    tiltDirection='left'\r\n    autoplay={true}\r\n    autoplaySpeed={0.1}\r\n    autoplayDirection=\"down\"\r\n    pauseOnHover={true}\r\n  />\r\n</div>",
+    "usageMarkdown": "import InfiniteScroll from './InfiniteScroll'\n\nconst items = [\n  { content: 'Placeholder 1' },\n  { content: 'Placeholder 2' },\n  { content: 'Placeholder 3' },\n  { content: 'Placeholder 4' },\n  { content: 'Placeholder 5' },\n  { content: 'Placeholder 6' },\n  { content: 'Placeholder 7' },\n  { content: 'Placeholder 8' },\n];\n\n<InfiniteScroll\n  items={items}\n  isTilted={false}\n  tiltDirection='left'\n  autoplay={true}\n  autoplaySpeed={1.2}\n  autoplayDirection=\"down\"\n  pauseOnHover={true}\n/>\n",
     "relativePath": "ReactBitsComponents/Components/InfiniteScroll/UsageInfiniteScroll.md"
   },
   {
     "id": "Components/Lanyard",
     "name": "Lanyard",
     "category": "Components",
-    "usageMarkdown": "import Lanyard from './Lanyard'\r\n\r\n<Lanyard position={[0, 0, 20]} gravity={[0, -40, 0]} />\r\n\r\n/* IMPORTANT INFO BELOW\r\n\r\n1. You MUST have the card.glb and lanyard.png files in your project and import them\r\n- these can be downloaded from the repo's files, under src/assets/lanyard\r\n\r\n2. You can edit your card.glb file in this online .glb editor and change the texture:\r\n- https://modelviewer.dev/editor/\r\n\r\n4. The png file is the texture for the lanyard's band and can be edited in any image editor\r\n\r\n5. Your Vite configuration must be updated to include the following in vite.config.js:\r\nassetsInclude: ['**/*.glb']\r\n\r\n6. For TS users, you might need these changes:\r\n\r\n- src/global.d.ts\r\nexport { };\r\n\r\ndeclare module '*.glb';\r\ndeclare module '*.png';\r\n\r\ndeclare module 'meshline' {\r\n  export const MeshLineGeometry: any;\r\n  export const MeshLineMaterial: any;\r\n}\r\n\r\ndeclare global {\r\n  namespace JSX {\r\n    interface IntrinsicElements {\r\n      meshLineGeometry: any;\r\n      meshLineMaterial: any;\r\n    }\r\n  }\r\n}\r\n\r\n- src/vite-env.d.ts\r\n/// <reference types=\"vite/client\" />\r\ndeclare module '*.glb';\r\ndeclare module '*.png';\r\n*/",
+    "usageMarkdown": "import Lanyard from './Lanyard'\n\n<Lanyard position={[0, 0, 20]} gravity={[0, -40, 0]} />\n",
     "relativePath": "ReactBitsComponents/Components/Lanyard/UsageLanyard.md"
   },
   {
@@ -157,21 +157,21 @@
     "id": "Components/Mansory",
     "name": "Mansory",
     "category": "Components",
-    "usageMarkdown": "import Masonry from './Mansory';\n\nexport default function App() {\n  const items = [\n    { id: \"1\", img: \"https://picsum.photos/id/1015/600/900\", height: 400 },\n    { id: \"2\", img: \"https://picsum.photos/id/1011/600/750\", height: 250 },\n    { id: \"3\", img: \"https://picsum.photos/id/1020/600/800\", height: 600 },\n    { id: \"4\", img: \"https://picsum.photos/id/1035/600/700\", height: 350 },\n    { id: \"5\", img: \"https://picsum.photos/id/1043/600/850\", height: 500 },\n    { id: \"6\", img: \"https://picsum.photos/id/1050/600/600\", height: 300 },\n  ];\n\n  return (\n    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', overflow: 'hidden' }}>\n      <Masonry\n        items={items}\n        ease=\"power3.out\"\n        duration={0.6}\n        stagger={0.05}\n        animateFrom=\"bottom\"\n        scaleOnHover={true}\n        hoverScale={0.95}\n        blurToFocus={true}\n        colorShiftOnHover={false}\n      />\n    </div>\n  );\n}\n",
+    "usageMarkdown": "import Masonry from './Mansory';\n\nexport default function App() {\n  const items = [\n    { id: \"1\", img: \"/joker-landscape.jpg\", height: 600, url: \"#\" },\n    { id: \"2\", img: \"/joker-portrait.jpg\", height: 300, url: \"#\" },\n    { id: \"3\", img: \"/joker-square.jpg\", height: 400, url: \"#\" },\n    { id: \"4\", img: \"/joker-landscape.jpg\", height: 350, url: \"#\" },\n    { id: \"5\", img: \"/joker-portrait.jpg\", height: 500, url: \"#\" },\n    { id: \"6\", img: \"/joker-square.jpg\", height: 300, url: \"#\" },\n    { id: \"7\", img: \"/joker-landscape.jpg\", height: 450, url: \"#\" },\n    { id: \"8\", img: \"/joker-portrait.jpg\", height: 350, url: \"#\" },\n    { id: \"9\", img: \"/joker-square.jpg\", height: 550, url: \"#\" },\n    { id: \"10\", img: \"/joker-landscape.jpg\", height: 400, url: \"#\" },\n    { id: \"11\", img: \"/joker-portrait.jpg\", height: 320, url: \"#\" },\n    { id: \"12\", img: \"/joker-square.jpg\", height: 520, url: \"#\" },\n  ];\n\n  return (\n    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', overflow: 'hidden' }}>\n      <Masonry\n        items={items}\n        containerWidth=\"100vw\"\n        containerHeight=\"100vh\"\n        gap={12}\n        ease=\"power3.out\"\n        duration={0.8}\n        stagger={0.03}\n        animateFrom=\"bottom\"\n        scaleOnHover={true}\n        hoverScale={1.05}\n        blurToFocus={true}\n        colorShiftOnHover={false}\n      />\n    </div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/Components/Mansory/UsageMansory.md"
   },
   {
     "id": "Components/ModelViewer",
     "name": "ModelViewer",
     "category": "Components",
-    "usageMarkdown": "import ModelViewer from './ModelViewer';\r\n\r\n<ModelViewer\r\n  url=\"https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/ToyCar/glTF-Binary/ToyCar.glb\"\r\n  width={400}\r\n  height={400}\r\n/>\r\n",
+    "usageMarkdown": "import ModelViewer from './ModelViewer';\n\nexport default function App() {\n  return (\n    <div style={{ width: '100vw', height: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>\n      <ModelViewer\n        url=\"https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/ToyCar/glTF-Binary/ToyCar.glb\"\n        width=\"100vw\"\n        height=\"100vh\"\n        modelScale={550}\n        modelXOffset={0}\n        modelYOffset={0}\n        enableMouseParallax={false}\n        enableHoverRotation={false}\n        enableManualZoom={false}\n        environmentPreset=\"city\"\n        autoRotate\n        autoRotateSpeed={0.5}\n        showScreenshotButton={false}\n      />\n    </div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/Components/ModelViewer/UsageModelViewer.md"
   },
   {
     "id": "Components/PillNav",
     "name": "PillNav",
     "category": "Components",
-    "usageMarkdown": "import PillNav from './PillNav';\n\nexport default function App() {\n  return (\n    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a' }}>\n      <PillNav\n        logo=\"/ReactIcon.svg\"\n        logoAlt=\"Logo\"\n        items={[\n          { label: 'Home', href: '#' },\n          { label: 'About', href: '#about' },\n          { label: 'Services', href: '#services' },\n          { label: 'Contact', href: '#contact' },\n        ]}\n        activeHref=\"#\"\n        ease=\"power2.out\"\n        baseColor=\"#ffffff\"\n        pillColor=\"#ffffff\"\n        hoveredPillTextColor=\"#000000\"\n        pillTextColor=\"#ffffff\"\n      />\n    </div>\n  );\n}\n",
+    "usageMarkdown": "import PillNav from './PillNav';\n\nexport default function App() {\n  return (\n    <div style={{ \n      width: '100vw', \n      height: '100vh', \n      background: '#000000', // Deep dark background\n      position: 'relative',\n      overflow: 'hidden'\n    }}>\n      <PillNav\n        logo=\"/ReactIcon.svg\"\n        logoAlt=\"Logo\"\n        items={[\n          { label: 'Home', href: '#' },\n          { label: 'About', href: '#about' },\n          { label: 'Services', href: '#services' },\n          { label: 'Contact', href: '#contact' },\n        ]}\n        activeHref=\"#\"\n        ease=\"power3.out\"\n        baseColor=\"#ffffff\" \n        pillColor=\"#1a1a1a\" \n        pillTextColor=\"#ffffff\" \n        hoveredPillTextColor=\"#000000\" \n      />\n    </div>\n  );\n}\n",
     "relativePath": "ReactBitsComponents/Components/PillNav/UsagePillNav.md"
   },
   {
@@ -416,7 +416,7 @@
     "id": "Backgrounds/Ballpit",
     "name": "Ballpit",
     "category": "Backgrounds",
-    "usageMarkdown": "import Ballpit from './components/Backgrounds/Ballpit/Ballpit'\r\n\r\nexport default function App() {\r\n  return (\r\n    \r\n    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <Ballpit\r\n        count={100}\r\n        gravity={0.9}\r\n        friction={0.8}\r\n        wallBounce={0.95}\r\n        followCursor={true}\r\n      />\r\n    </div>\r\n  );\r\n}",
+    "usageMarkdown": "//Component inspired by Kevin Levron:\n//https://x.com/soju22/status/1858925191671271801\n  \nimport Ballpit from './Ballpit'\n\n<div style={{position: 'relative', overflow: 'hidden', width: '100%', height: '100vh'}}>\n  <Ballpit\n    count={80}\n    gravity={0.8}\n    friction={0.95}\n    wallBounce={0.7}\n    followCursor={false}\n  />\n</div>",
     "relativePath": "ReactBitsComponents/Backgrounds/Ballpit/UsageBallpit.md"
   },
   {

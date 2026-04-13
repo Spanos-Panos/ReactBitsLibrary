@@ -127,12 +127,12 @@ const PillNav: React.FC<PillNavProps> = ({
     }
 
     if (initialLoadAnimation) {
-      const logo = logoRef.current;
+      const logoEl = logoRef.current;
       const navItems = navItemsRef.current;
 
-      if (logo) {
-        gsap.set(logo, { scale: 0 });
-        gsap.to(logo, {
+      if (logoEl) {
+        gsap.set(logoEl, { scale: 0 });
+        gsap.to(logoEl, {
           scale: 1,
           duration: 0.6,
           ease,

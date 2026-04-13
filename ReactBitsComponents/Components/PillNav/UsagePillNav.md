@@ -2,7 +2,13 @@ import PillNav from './PillNav';
 
 export default function App() {
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a' }}>
+    <div style={{ 
+      width: '100vw', 
+      height: '100vh', 
+      background: '#000000', // Deep dark background
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
       <PillNav
         logo="/ReactIcon.svg"
         logoAlt="Logo"
@@ -13,11 +19,11 @@ export default function App() {
           { label: 'Contact', href: '#contact' },
         ]}
         activeHref="#"
-        ease="power2.out"
-        baseColor="#ffffff"
-        pillColor="#ffffff"
-        hoveredPillTextColor="#000000"
-        pillTextColor="#ffffff"
+        ease="power3.out"
+        baseColor="#ffffff" 
+        pillColor="#1a1a1a" 
+        pillTextColor="#ffffff" 
+        hoveredPillTextColor="#000000" 
       />
     </div>
   );

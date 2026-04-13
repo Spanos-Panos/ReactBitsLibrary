@@ -15,7 +15,6 @@ import {
   RigidBody,
   useRopeJoint,
   useSphericalJoint,
-  RigidBodyProps,
 } from "@react-three/rapier";
 import { MeshLineGeometry, MeshLineMaterial } from "meshline";
 import * as THREE from "three";
@@ -27,6 +26,8 @@ import lanyard from "./lanyard.png";
 import "./Lanyard.css";
 
 extend({ MeshLineGeometry, MeshLineMaterial });
+
+type RigidBodyType = "fixed" | "dynamic" | "kinematicPosition" | "kinematicVelocity";
 
 interface LanyardProps {
   position?: [number, number, number];
@@ -109,7 +110,7 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
   const dir = new THREE.Vector3();
 
   const segmentProps: any = {
-    type: "dynamic" as RigidBodyProps["type"],
+    type: "dynamic" as RigidBodyType,
     canSleep: true,
     colliders: false,
     angularDamping: 4,
@@ -210,13 +211,13 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
         <RigidBody
           ref={fixed}
           {...segmentProps}
-          type={"fixed" as RigidBodyProps["type"]}
+          type={"fixed" as RigidBodyType}
         />
         <RigidBody
           position={[0.5, 0, 0]}
           ref={j1}
           {...segmentProps}
-          type={"dynamic" as RigidBodyProps["type"]}
+          type={"dynamic" as RigidBodyType}
         >
           <BallCollider args={[0.1]} />
         </RigidBody>
@@ -224,7 +225,7 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
           position={[1, 0, 0]}
           ref={j2}
           {...segmentProps}
-          type={"dynamic" as RigidBodyProps["type"]}
+          type={"dynamic" as RigidBodyType}
         >
           <BallCollider args={[0.1]} />
         </RigidBody>
@@ -232,7 +233,7 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
           position={[1.5, 0, 0]}
           ref={j3}
           {...segmentProps}
-          type={"dynamic" as RigidBodyProps["type"]}
+          type={"dynamic" as RigidBodyType}
         >
           <BallCollider args={[0.1]} />
         </RigidBody>
@@ -242,8 +243,8 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
           {...segmentProps}
           type={
             dragged
-              ? ("kinematicPosition" as RigidBodyProps["type"])
-              : ("dynamic" as RigidBodyProps["type"])
+              ? ("kinematicPosition" as RigidBodyType)
+              : ("dynamic" as RigidBodyType)
           }
         >
           <CuboidCollider args={[0.8, 1.125, 0.01]} />
