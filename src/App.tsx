@@ -5,7 +5,9 @@ import GradientText from "./components/TextAnimations/GradientText/GradientText"
 import FlowingMenu from "./components/Components/FlowingMenu/FlowingMenu";
 import PillNav from "./components/Components/PillNav/PillNav";
 import SplitText from "./components/TextAnimations/SplitText/SplitText";
-import ProjectBuilderPanel from "./components/ProjectBuilderPanel";
+import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, type DesignRules } from "./components/ProjectBuilderPanel";
+import LayoutConceptPicker from "./components/LayoutConceptPicker";
+import type { LayoutConcept } from "./lib/layoutConceptGenerator";
 import "./TaskStyles.css";
 
 interface Task {
@@ -85,6 +87,9 @@ function App() {
   // V0.2.1 Multi-Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [projectPrompt, setProjectPrompt] = useState("");
+  const [designRules, setDesignRules] = useState<DesignRules>(DEFAULT_DESIGN_RULES);
+  const [layoutConcept, setLayoutConcept] = useState<LayoutConcept | null>(null);
+  const [showLayoutPicker, setShowLayoutPicker] = useState(false);
 
   const CATEGORY_LIMITS: Record<string, number> = {
     Backgrounds: 1,
@@ -382,7 +387,9 @@ function App() {
             "Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.",
             "Maintain a Z-Index strategy where Backgrounds stay at Z:0.",
             "Use Lucide React for iconography."
-          ]
+          ],
+          designRules,
+          layoutMd: layoutConcept?.layoutMd ?? null
         }
       });
 
@@ -591,6 +598,10 @@ function App() {
                       prompt={projectPrompt}
                       onPromptChange={setProjectPrompt}
                       onGenerate={handleBuilderGenerate}
+                      designRules={designRules}
+                      onDesignRulesChange={setDesignRules}
+                      layoutConcept={layoutConcept}
+                      onOpenLayoutPicker={() => setShowLayoutPicker(true)}
                       onRestoreFromHistory={(p: string, sels: any[]) => {
                         setProjectPrompt(p);
                         setSelectedIds(sels.map((s: any) => s.id));
@@ -746,6 +757,18 @@ function App() {
         </div>
       )}
       {generateStatus && <div className={`status-toast ${toastType}`}>{generateStatus}</div>}
+
+      {showLayoutPicker && (
+        <LayoutConceptPicker
+          selectedComponentNames={selectedComponents.map(c => c.name)}
+          currentConcept={layoutConcept}
+          onConfirm={(concept) => {
+            setLayoutConcept(concept);
+            setShowLayoutPicker(false);
+          }}
+          onClose={() => setShowLayoutPicker(false)}
+        />
+      )}
     </div>
   );
 }

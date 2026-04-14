@@ -84,6 +84,49 @@ Return ONLY a raw JSON object. No preamble, no backticks.
 async function enhancePrompt(options) {
   try {
     const { rawPrompt, selectedComponents, systemContext } = options;
+    const dr = systemContext?.designRules;
+
+    // Build optional design preferences block
+    let designBlock = '';
+    if (dr) {
+      const lines = [];
+
+      if (Array.isArray(dr.fonts) && dr.fonts.some(f => f.value?.trim())) {
+        lines.push('Fonts:');
+        dr.fonts.forEach(f => {
+          if (f.value?.trim()) {
+            const role = f.role ? f.role : 'body (auto)';
+            lines.push(`  - ${f.value.trim()} → role: ${role}`);
+          }
+        });
+      }
+
+      if (Array.isArray(dr.colors) && dr.colors.some(c => c.value?.trim())) {
+        lines.push('Colors:');
+        dr.colors.forEach(c => {
+          if (c.value?.trim()) {
+            const role = c.role ? c.role : 'auto';
+            lines.push(`  - ${c.value.trim()} → role: ${role}`);
+          }
+        });
+      }
+
+      if (dr.sizes) {
+        lines.push('Sizes:');
+        lines.push(`  - Responsive strategy: ${dr.sizes.strategy}`);
+        if (dr.sizes.maxWidth) lines.push(`  - Max container width: ${dr.sizes.maxWidth}`);
+      }
+
+      if (lines.length > 0) {
+        designBlock = `\n\n## USER DESIGN PREFERENCES\nThe user has specified these design constraints. Follow them strictly.\n\n${lines.join('\n')}`;
+      }
+    }
+
+    // Layout blueprint block
+    let layoutBlock = '';
+    if (systemContext?.layoutMd) {
+      layoutBlock = `\n\n${systemContext.layoutMd}`;
+    }
     ensureDirsExist();
 
     const originalPayload = {
@@ -121,7 +164,7 @@ async function enhancePrompt(options) {
           model: modelId,
           max_tokens: 4096,
           temperature: 0, // Lower temperature = more stable JSON
-          system: PROMPT_ENHANCER_SKILL + "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object.",
+          system: PROMPT_ENHANCER_SKILL + designBlock + layoutBlock + "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object.",
           messages: [
             {
               role: "user",
