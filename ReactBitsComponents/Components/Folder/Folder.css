@@ -1,122 +1,84 @@
-:root {
-    --folder-color: #70a1ff;
-    --folder-back-color: #4785ff;
-    --paper-1: #e6e6e6;
-    --paper-2: #f2f2f2;
-    --paper-3: #ffffff;
-  }
-  
-  .folder {
-    transition: all 0.2s ease-in;
-    cursor: pointer;
-  }
-  
-  .folder:not(.folder--click):hover {
-    transform: translateY(-8px);
-  }
-  
-  .folder:not(.folder--click):hover .paper {
-    transform: translate(-50%, 0%);
-  }
-  
-  .folder:not(.folder--click):hover .folder__front {
-    transform: skew(15deg) scaleY(0.6);
-  }
-  
-  .folder:not(.folder--click):hover .right {
-    transform: skew(-15deg) scaleY(0.6);
-  }
-  
-  .folder.open {
-    transform: translateY(-8px);
-  }
-  
-  .folder.open .paper:nth-child(1) {
-    transform: translate(-120%, -70%) rotateZ(-15deg);
-  }
-  
-  .folder.open .paper:nth-child(1):hover {
-    transform: translate(-120%, -70%) rotateZ(-15deg) scale(1.1);
-  }
-  
-  .folder.open .paper:nth-child(2) {
-    transform: translate(10%, -70%) rotateZ(15deg);
-    height: 80%;
-  }
-  
-  .folder.open .paper:nth-child(2):hover {
-    transform: translate(10%, -70%) rotateZ(15deg) scale(1.1);
-  }
-  
-  .folder.open .paper:nth-child(3) {
-    transform: translate(-50%, -100%) rotateZ(5deg);
-    height: 80%;
-  }
-  
-  .folder.open .paper:nth-child(3):hover {
-    transform: translate(-50%, -100%) rotateZ(5deg) scale(1.1);
-  }
-  
-  .folder.open .folder__front {
-    transform: skew(15deg) scaleY(0.6);
-  }
-  
-  .folder.open .right {
-    transform: skew(-15deg) scaleY(0.6);
-  }
-  
-  .folder__back {
-    position: relative;
-    width: 100px;
-    height: 80px;
-    background: var(--folder-back-color);
-    border-radius: 0px 10px 10px 10px;
-  }
-  
-  .folder__back::after {
-    position: absolute;
-    z-index: 0;
-    bottom: 98%;
-    left: 0;
-    content: "";
-    width: 30px;
-    height: 10px;
-    background: var(--folder-back-color);
-    border-radius: 5px 5px 0 0;
-  }
-  
-  .paper {
-    position: absolute;
-    z-index: 2;
-    bottom: 10%;
-    left: 50%;
-    transform: translate(-50%, 10%);
-    width: 70%;
-    height: 80%;
-    background: var(--paper-1);
-    border-radius: 10px;
-    transition: all 0.3s ease-in-out;
-  }
-  
-  .paper:nth-child(2) {
-    background: var(--paper-2);
-    width: 80%;
-    height: 70%;
-  }
-  
-  .paper:nth-child(3) {
-    background: var(--paper-3);
-    width: 90%;
-    height: 60%;
-  }
-  
-  .folder__front {
-    position: absolute;
-    z-index: 3;
-    width: 100%;
-    height: 100%;
-    background: var(--folder-color);
-    border-radius: 5px 10px 10px 10px;
-    transform-origin: bottom;
-    transition: all 0.3s ease-in-out;
-  }
+.folder-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  /* Increased perspective for a more dramatic, less "flat" look */
+  perspective: 1200px;
+}
+
+.folder {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  /* Ensure children can move in 3D space */
+  transform-style: preserve-3d;
+}
+
+.folder__back {
+  position: relative;
+  width: 120px;
+  height: 90px;
+  background: var(--folder-back-color);
+  border-radius: 0px 10px 10px 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  transform-style: preserve-3d;
+}
+
+.folder__back::after {
+  position: absolute;
+  z-index: 0;
+  bottom: 98%;
+  left: 0;
+  content: "";
+  width: 30px;
+  height: 10px;
+  background: var(--folder-back-color);
+  border-radius: 5px 5px 0 0;
+}
+
+.paper {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  width: 80%;
+  height: 90%;
+  background: #fff;
+  border-radius: 8px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  /* The Secret Sauce: translateZ(1px) keeps it just in front of the back flap */
+  transform: translate(calc(-50% + var(--magnet-x, 0px)), calc(10% + var(--magnet-y, 0px))) translateZ(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* OPEN STATES: Using translateZ to prevent clipping with the front flap */
+.folder.open .paper:nth-child(1) {
+  transform: translate(calc(-130% + var(--magnet-x)), calc(-70% + var(--magnet-y))) rotate(-15deg) translateZ(20px);
+}
+.folder.open .paper:nth-child(2) {
+  transform: translate(calc(30% + var(--magnet-x)), calc(-70% + var(--magnet-y))) rotate(15deg) translateZ(15px);
+}
+.folder.open .paper:nth-child(3) {
+  transform: translate(calc(-50% + var(--magnet-x)), calc(-100% + var(--magnet-y))) rotate(5deg) translateZ(25px);
+}
+
+.folder__front {
+  position: absolute;
+  inset: 0;
+  /* Ensure front flap stays behind the "popped out" papers */
+  z-index: 5;
+  background: var(--folder-color);
+  border-radius: 5px 10px 10px 10px;
+  transform-origin: bottom;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Slight push back to ensure it doesn't clip with paper translations */
+  transform: translateZ(2px);
+}
+
+.folder.open .folder__front {
+  /* We rotate the front flap forward (away from the papers) */
+  transform: rotateX(-50deg) skewX(5deg) scaleY(0.85) translateZ(5px);
+}

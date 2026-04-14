@@ -49,14 +49,14 @@
     height: fit-content;
     align-items: center;
     justify-content: center;
-    padding: 8%;
+    padding: 4%;
     backface-visibility: hidden;
   }
-  
+
   .gallery-img {
     pointer-events: none;
-    height: 120px;
-    width: 300px;
+    height: 160px;
+    width: 100%;
     border-radius: 15px;
     border: 3px solid #fff;
     object-fit: cover;
@@ -70,11 +70,9 @@
   
   @media (max-width: 768px) {
     .gallery-item {
-      padding: 6%;
+      padding: 4%;
     }
     .gallery-img {
-      height: 100px;
-      width: 220px;
+      height: 110px;
     }
   }
-  

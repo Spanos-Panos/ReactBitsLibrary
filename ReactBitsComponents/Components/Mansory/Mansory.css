@@ -1,3 +1,21 @@
+.masonry-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
 
+.masonry-item-wrapper {
+  position: absolute;
+  cursor: pointer;
+  will-change: transform, width, height, opacity;
+}
 
-
+.masonry-item-img {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}

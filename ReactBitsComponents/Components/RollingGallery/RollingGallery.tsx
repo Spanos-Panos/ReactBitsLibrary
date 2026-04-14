@@ -1,11 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  motion,
-  useMotionValue,
-  useAnimation,
-  useTransform,
-  PanInfo,
-} from "motion/react";
+import { motion, useMotionValue, animate } from "framer-motion";
+import type { AnimationPlaybackControls } from "framer-motion";
 import "./RollingGallery.css";
 
 const IMGS: string[] = [
@@ -30,9 +25,8 @@ interface RollingGalleryProps {
 const RollingGallery: React.FC<RollingGalleryProps> = ({
   autoplay = false,
   pauseOnHover = false,
-  images = [],
+  images = IMGS,
 }) => {
-  images = IMGS;
   const [isScreenSizeSm, setIsScreenSizeSm] = useState<boolean>(
     window.innerWidth <= 640
   );
@@ -44,85 +38,71 @@ const RollingGallery: React.FC<RollingGalleryProps> = ({
   const radius: number = cylinderWidth / (2 * Math.PI);
 
   const rotation = useMotionValue(0);
-  const controls = useAnimation();
-  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dragStartRotation = useRef<number>(0);
+  const autoplayControls = useRef<AnimationPlaybackControls | null>(null);
 
-  const handleDrag = (
-    _: MouseEvent | TouchEvent | PointerEvent,
-    info: PanInfo
-  ): void => {
-    controls.stop();
-    rotation.set(rotation.get() + info.offset.x * dragFactor);
-  };
-
-  const handleDragEnd = (
-    _: MouseEvent | TouchEvent | PointerEvent,
-    info: PanInfo
-  ): void => {
-    controls.start({
-      rotateY: rotation.get() + info.velocity.x * dragFactor,
-      transition: {
-        type: "spring",
-        stiffness: 60,
-        damping: 20,
-        mass: 0.1,
-        ease: "easeOut",
-      },
+  const startAutoplay = () => {
+    autoplayControls.current = animate(rotation, [rotation.get(), rotation.get() - 360], {
+      duration: 20,
+      ease: "linear",
+      repeat: Infinity,
+      repeatType: "loop",
     });
   };
 
-  const transform = useTransform(rotation, (value: number) => {
-    return `rotate3d(0, 1, 0, ${value}deg)`;
-  });
+  const stopAutoplay = () => {
+    autoplayControls.current?.stop();
+    autoplayControls.current = null;
+  };
 
   useEffect(() => {
     if (autoplay) {
-      autoplayRef.current = setInterval(() => {
-        controls.start({
-          rotateY: rotation.get() - 360 / faceCount,
-          transition: { duration: 2, ease: "linear" },
-        });
-        rotation.set(rotation.get() - 360 / faceCount);
-      }, 2000);
-
-      return () => {
-        if (autoplayRef.current) clearInterval(autoplayRef.current);
-      };
+      startAutoplay();
+      return () => stopAutoplay();
     }
-  }, [autoplay, rotation, controls, faceCount]);
+  }, [autoplay]);
 
   useEffect(() => {
     const handleResize = () => {
       setIsScreenSizeSm(window.innerWidth <= 640);
     };
-
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const handleDragStart = (): void => {
+    dragStartRotation.current = rotation.get();
+    stopAutoplay();
+  };
+
+  const handleDrag = (
+    _: MouseEvent | TouchEvent | PointerEvent,
+    info: any
+  ): void => {
+    rotation.set(dragStartRotation.current + info.offset.x * dragFactor);
+  };
+
+  const handleDragEnd = (
+    _: MouseEvent | TouchEvent | PointerEvent,
+    info: any
+  ): void => {
+    animate(rotation, rotation.get() + info.velocity.x * dragFactor, {
+      type: "spring",
+      stiffness: 60,
+      damping: 20,
+      mass: 0.1,
+      onComplete: () => {
+        if (autoplay) startAutoplay();
+      },
+    });
+  };
+
   const handleMouseEnter = (): void => {
-    if (autoplay && pauseOnHover) {
-      if (autoplayRef.current) clearInterval(autoplayRef.current);
-      controls.stop();
-    }
+    if (autoplay && pauseOnHover && autoplayControls.current) stopAutoplay();
   };
 
   const handleMouseLeave = (): void => {
-    if (autoplay && pauseOnHover) {
-      controls.start({
-        rotateY: rotation.get() - 360 / faceCount,
-        transition: { duration: 2, ease: "linear" },
-      });
-      rotation.set(rotation.get() - 360 / faceCount);
-
-      autoplayRef.current = setInterval(() => {
-        controls.start({
-          rotateY: rotation.get() - 360 / faceCount,
-          transition: { duration: 2, ease: "linear" },
-        });
-        rotation.set(rotation.get() - 360 / faceCount);
-      }, 2000);
-    }
+    if (autoplay && pauseOnHover) startAutoplay();
   };
 
   return (
@@ -132,18 +112,19 @@ const RollingGallery: React.FC<RollingGalleryProps> = ({
       <div className="gallery-content">
         <motion.div
           drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0}
           className="gallery-track"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           style={{
-            transform: transform,
             rotateY: rotation,
             width: cylinderWidth,
             transformStyle: "preserve-3d",
           }}
+          onDragStart={handleDragStart}
           onDrag={handleDrag}
           onDragEnd={handleDragEnd}
-          animate={controls}
         >
           {images.map((url, i) => (
             <div

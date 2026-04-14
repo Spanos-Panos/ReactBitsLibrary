@@ -1,23 +1,34 @@
-import PixelTrail from './PixelTrail'
+import PixelTrail from './components/Animations/PixelTrail/PixelTrail';
 
 export default function App() {
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyItems: 'center', position: 'relative', overflow: 'hidden', background: '#000' }}>
-      <PixelTrail 
-        text="React Bits"
-        fontFamily="Arial"
-        fontWeight="900"
-        noiseFactor={1.2}
-        noiseScale={0.001}
-        rgbPersistFactor={0.95}
-        alphaPersistFactor={0.92}
-        animateColor={true}
-        startColor="#ff6b6b"
-        textColor="#4ecdc4"
-        backgroundColor="#000"
-        colorCycleInterval={2000}
-        supersample={2}
-      />
+    /* Full Screen setup */
+    <div style={{ width: '100vw', height: '100vh', background: '#000', margin: 0, padding: 0 }}>
+      
+      <div style={{ height: '100vh', position: 'relative', overflow: 'hidden' }}>
+        <PixelTrail
+          gridSize={60}
+          trailSize={0.08}
+          maxAge={300}
+          interpolate={2}
+          color="#5227FF"
+          // Correct prop structure
+          gooeyFilter={{ id: "custom-goo-filter", strength: 4 }}
+        />
+        
+        {/* Optional text overlay */}
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          pointerEvents: 'none' 
+        }}>
+          <h1 style={{ color: 'white', fontSize: '4rem', fontWeight: 900 }}>PIXEL</h1>
+        </div>
+      </div>
+
     </div>
   );
 }

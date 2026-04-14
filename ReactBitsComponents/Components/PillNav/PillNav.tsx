@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { gsap } from "gsap";
 import "./PillNav.css";
 
@@ -128,12 +127,12 @@ const PillNav: React.FC<PillNavProps> = ({
     }
 
     if (initialLoadAnimation) {
-      const logo = logoRef.current;
+      const logoEl = logoRef.current;
       const navItems = navItemsRef.current;
 
-      if (logo) {
-        gsap.set(logo, { scale: 0 });
-        gsap.to(logo, {
+      if (logoEl) {
+        gsap.set(logoEl, { scale: 0 });
+        gsap.to(logoEl, {
           scale: 1,
           duration: 0.6,
           ease,
@@ -239,16 +238,6 @@ const PillNav: React.FC<PillNavProps> = ({
     onMobileMenuClick?.();
   };
 
-  const isExternalLink = (href: string) =>
-    href.startsWith("http://") ||
-    href.startsWith("https://") ||
-    href.startsWith("//") ||
-    href.startsWith("mailto:") ||
-    href.startsWith("tel:") ||
-    href.startsWith("#");
-
-  const isRouterLink = (href?: string) => href && !isExternalLink(href);
-
   const cssVars = {
     ["--base"]: baseColor,
     ["--pill-bg"]: pillColor,
@@ -263,84 +252,44 @@ const PillNav: React.FC<PillNavProps> = ({
         aria-label="Primary"
         style={cssVars}
       >
-        {isRouterLink(items?.[0]?.href) ? (
-          <Link
-            className="pill-logo"
-            to={items[0].href}
-            aria-label="Home"
-            onMouseEnter={handleLogoEnter}
-            role="menuitem"
-            ref={(el) => {
-              logoRef.current = el;
-            }}
-          >
-            <img src={logo} alt={logoAlt} ref={logoImgRef} />
-          </Link>
-        ) : (
-          <a
-            className="pill-logo"
-            href={items?.[0]?.href || "#"}
-            aria-label="Home"
-            onMouseEnter={handleLogoEnter}
-            ref={(el) => {
-              logoRef.current = el;
-            }}
-          >
-            <img src={logo} alt={logoAlt} ref={logoImgRef} />
-          </a>
-        )}
+        <a
+          className="pill-logo"
+          href={items?.[0]?.href || "#"}
+          aria-label="Home"
+          onMouseEnter={handleLogoEnter}
+          ref={(el) => {
+            logoRef.current = el;
+          }}
+        >
+          <img src={logo} alt={logoAlt} ref={logoImgRef} />
+        </a>
 
         <div className="pill-nav-items desktop-only" ref={navItemsRef}>
           <ul className="pill-list" role="menubar">
             {items.map((item, i) => (
               <li key={item.href} role="none">
-                {isRouterLink(item.href) ? (
-                  <Link
-                    role="menuitem"
-                    to={item.href}
-                    className={`pill${activeHref === item.href ? " is-active" : ""}`}
-                    aria-label={item.ariaLabel || item.label}
-                    onMouseEnter={() => handleEnter(i)}
-                    onMouseLeave={() => handleLeave(i)}
-                  >
-                    <span
-                      className="hover-circle"
-                      aria-hidden="true"
-                      ref={(el) => {
-                        circleRefs.current[i] = el;
-                      }}
-                    />
-                    <span className="label-stack">
-                      <span className="pill-label">{item.label}</span>
-                      <span className="pill-label-hover" aria-hidden="true">
-                        {item.label}
-                      </span>
+                <a
+                  role="menuitem"
+                  href={item.href}
+                  className={`pill${activeHref === item.href ? " is-active" : ""}`}
+                  aria-label={item.ariaLabel || item.label}
+                  onMouseEnter={() => handleEnter(i)}
+                  onMouseLeave={() => handleLeave(i)}
+                >
+                  <span
+                    className="hover-circle"
+                    aria-hidden="true"
+                    ref={(el) => {
+                      circleRefs.current[i] = el;
+                    }}
+                  />
+                  <span className="label-stack">
+                    <span className="pill-label">{item.label}</span>
+                    <span className="pill-label-hover" aria-hidden="true">
+                      {item.label}
                     </span>
-                  </Link>
-                ) : (
-                  <a
-                    role="menuitem"
-                    href={item.href}
-                    className={`pill${activeHref === item.href ? " is-active" : ""}`}
-                    aria-label={item.ariaLabel || item.label}
-                    onMouseEnter={() => handleEnter(i)}
-                    onMouseLeave={() => handleLeave(i)}
-                  >
-                    <span
-                      className="hover-circle"
-                      aria-hidden="true"
-                      ref={(el) => {
-                        circleRefs.current[i] = el;
-                      }}
-                    />
-                    <span className="label-stack">
-                      <span className="pill-label">{item.label}</span>
-                      <span className="pill-label-hover" aria-hidden="true">
-                        {item.label}
-                      </span>
-                    </span>
-                  </a>
-                )}
+                  </span>
+                </a>
               </li>
             ))}
           </ul>
@@ -365,23 +314,13 @@ const PillNav: React.FC<PillNavProps> = ({
         <ul className="mobile-menu-list">
           {items.map((item) => (
             <li key={item.href}>
-              {isRouterLink(item.href) ? (
-                <Link
-                  to={item.href}
-                  className={`mobile-menu-link${activeHref === item.href ? " is-active" : ""}`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              ) : (
                 <a
-                  href={item.href}
-                  className={`mobile-menu-link${activeHref === item.href ? " is-active" : ""}`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item.label}
-                </a>
-              )}
+                href={item.href}
+                className={`mobile-menu-link${activeHref === item.href ? " is-active" : ""}`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {item.label}
+              </a>
             </li>
           ))}
         </ul>

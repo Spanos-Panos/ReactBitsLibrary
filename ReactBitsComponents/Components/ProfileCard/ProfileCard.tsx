@@ -173,13 +173,24 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
     [animationHandlers]
   );
 
-  const handlePointerEnter = useCallback(() => {
+  const handlePointerEnter = useCallback((event: PointerEvent) => {
     const card = cardRef.current;
     const wrap = wrapRef.current;
 
     if (!card || !wrap || !animationHandlers) return;
 
     animationHandlers.cancelAnimation();
+
+    // Set variables to the entry position BEFORE adding active (which sets transition: none),
+    // so the card is already in the right rotation when the instant transform takes effect.
+    const rect = card.getBoundingClientRect();
+    animationHandlers.updateCardTransform(
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+      card,
+      wrap
+    );
+
     wrap.classList.add("active");
     card.classList.add("active");
   }, [animationHandlers]);

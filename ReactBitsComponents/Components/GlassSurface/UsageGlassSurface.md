@@ -1,22 +1,26 @@
-import GlassSurface from './components/Components/GlassSurface/GlassSurface'
+import GlassSurface from './GlassSurface'
 
 export default function App() {
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ width: '100%', height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <GlassSurface
-        width={300} 
-        height={200}
-        borderRadius={24}
-        displace={15}
-        distortionScale={-150}
-        redOffset={5}
-        greenOffset={15}
-        blueOffset={25}
-        brightness={60}
-        opacity={0.8}
+        width={500}
+        height={100}
+        borderRadius={50}
+        backgroundOpacity={0.1}
+        saturation={1}
+        borderWidth={0.07}
+        displace={0.5}
+        distortionScale={-180}
+        blur={11}
+        redOffset={0}
+        greenOffset={10}
+        blueOffset={20}
+        brightness={50}
+        opacity={0.93}
         mixBlendMode="screen"
       >
-        <span style={{color: "white"}}>Advanced Glass Distortion</span>
+        <span style={{ color: 'white', fontWeight: 'bold' }}>Glass Surface Content</span>
       </GlassSurface>
     </div>
   );

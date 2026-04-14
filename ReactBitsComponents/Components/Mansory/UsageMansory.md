@@ -1,35 +1,37 @@
-import Masonry from './Masonry';
+import Masonry from './Mansory';
 
-const items = [
-    {
-      id: "1",
-      img: "https://picsum.photos/id/1015/600/900?grayscale",
-      url: "https://example.com/one",
-      height: 400,
-    },
-    {
-      id: "2",
-      img: "https://picsum.photos/id/1011/600/750?grayscale",
-      url: "https://example.com/two",
-      height: 250,
-    },
-    {
-      id: "3",
-      img: "https://picsum.photos/id/1020/600/800?grayscale",
-      url: "https://example.com/three",
-      height: 600,
-    },
-    // ... more items
-];
+export default function App() {
+  const items = [
+    { id: "1", img: "/joker-landscape.jpg", height: 600, url: "#" },
+    { id: "2", img: "/joker-portrait.jpg", height: 300, url: "#" },
+    { id: "3", img: "/joker-square.jpg", height: 400, url: "#" },
+    { id: "4", img: "/joker-landscape.jpg", height: 350, url: "#" },
+    { id: "5", img: "/joker-portrait.jpg", height: 500, url: "#" },
+    { id: "6", img: "/joker-square.jpg", height: 300, url: "#" },
+    { id: "7", img: "/joker-landscape.jpg", height: 450, url: "#" },
+    { id: "8", img: "/joker-portrait.jpg", height: 350, url: "#" },
+    { id: "9", img: "/joker-square.jpg", height: 550, url: "#" },
+    { id: "10", img: "/joker-landscape.jpg", height: 400, url: "#" },
+    { id: "11", img: "/joker-portrait.jpg", height: 320, url: "#" },
+    { id: "12", img: "/joker-square.jpg", height: 520, url: "#" },
+  ];
 
-<Masonry
-  items={items}
-  ease="power3.out"
-  duration={0.6}
-  stagger={0.05}
-  animateFrom="bottom"
-  scaleOnHover={true}
-  hoverScale={0.95}
-  blurToFocus={true}
-  colorShiftOnHover={false}
-/>
+  return (
+    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', overflow: 'hidden' }}>
+      <Masonry
+        items={items}
+        containerWidth="100vw"
+        containerHeight="100vh"
+        gap={12}
+        ease="power3.out"
+        duration={0.8}
+        stagger={0.03}
+        animateFrom="bottom"
+        scaleOnHover={true}
+        hoverScale={1.05}
+        blurToFocus={true}
+        colorShiftOnHover={false}
+      />
+    </div>
+  );
+}

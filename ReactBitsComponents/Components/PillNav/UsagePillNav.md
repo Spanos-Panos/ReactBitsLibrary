@@ -1,20 +1,30 @@
 import PillNav from './PillNav';
-import logo from '/path/to/logo.svg';
 
-<PillNav
-  logo={logo}
-  logoAlt="Company Logo"
-  items={[
-    { label: 'Home', href: '/' },
-    { label: 'About', href: '/about' },
-    { label: 'Services', href: '/services' },
-    { label: 'Contact', href: '/contact' }
-  ]}
-  activeHref="/"
-  className="custom-nav"
-  ease="power2.easeOut"
-  baseColor="#000000"
-  pillColor="#ffffff"
-  hoveredPillTextColor="#ffffff"
-  pillTextColor="#000000"
-/>
+export default function App() {
+  return (
+    <div style={{ 
+      width: '100vw', 
+      height: '100vh', 
+      background: '#000000', // Deep dark background
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <PillNav
+        logo="/ReactIcon.svg"
+        logoAlt="Logo"
+        items={[
+          { label: 'Home', href: '#' },
+          { label: 'About', href: '#about' },
+          { label: 'Services', href: '#services' },
+          { label: 'Contact', href: '#contact' },
+        ]}
+        activeHref="#"
+        ease="power3.out"
+        baseColor="#ffffff" 
+        pillColor="#1a1a1a" 
+        pillTextColor="#ffffff" 
+        hoveredPillTextColor="#000000" 
+      />
+    </div>
+  );
+}

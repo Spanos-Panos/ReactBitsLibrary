@@ -1,15 +1,19 @@
 .pill-nav-container {
-    position: absolute;
-    top: 1em;
-    z-index: 99;
-  }
+  position: absolute;
+  top: 1.5em; /* Slightly more room from the top */
+  /* FIX: Centering logic */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99;
+}
   
-  @media (max-width: 768px) {
-    .pill-nav-container {
-      width: 100%;
-      left: 0;
-    }
+@media (max-width: 768px) {
+  .pill-nav-container {
+    width: 100%;
+    left: 0;
+    transform: none;
   }
+}
   
   .pill-nav {
     --nav-h: 42px;

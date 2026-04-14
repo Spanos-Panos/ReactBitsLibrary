@@ -1,595 +1,535 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import "./MetallicPaint.css";
+import { useEffect, useRef, useState, useCallback } from 'react';
 
-type ShaderParams = {
-  patternScale: number;
-  refraction: number;
-  edge: number;
-  patternBlur: number;
-  liquid: number;
-  speed: number;
-};
+const vertexShader = `#version 300 es
+precision highp float;
+in vec2 a_position;
+out vec2 vP;
+void main(){vP=a_position*.5+.5;gl_Position=vec4(a_position,0.,1.);}`;
 
-const defaultParams: ShaderParams = {
-  patternScale: 2,
-  refraction: 0.015,
-  edge: 1,
-  patternBlur: 0.005,
-  liquid: 0.07,
-  speed: 0.3,
-};
+const fragmentShader = `#version 300 es
+precision highp float;
+in vec2 vP;
+out vec4 oC;
+uniform sampler2D u_tex;
+uniform float u_time,u_ratio,u_imgRatio,u_seed,u_scale,u_refract,u_blur,u_liquid;
+uniform float u_bright,u_contrast,u_angle,u_fresnel,u_sharp,u_wave,u_noise,u_chroma;
+uniform float u_distort,u_contour;
+uniform vec3 u_lightColor,u_darkColor,u_tint;
 
-export function parseLogoImage(
-  file: File
-): Promise<{ imageData: ImageData; pngBlob: Blob }> {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+vec3 sC,sM;
 
-  return new Promise((resolve, reject) => {
-    if (!file || !ctx) {
-      reject(new Error("Invalid file or context"));
-      return;
-    }
-
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = function () {
-      if (file.type === "image/svg+xml") {
-        img.width = 1000;
-        img.height = 1000;
-      }
-
-      const MAX_SIZE = 1000;
-      const MIN_SIZE = 500;
-      let width = img.naturalWidth;
-      let height = img.naturalHeight;
-
-      if (width > MAX_SIZE || height > MAX_SIZE || width < MIN_SIZE || height < MIN_SIZE) {
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height = Math.round((height * MAX_SIZE) / width);
-            width = MAX_SIZE;
-          } else if (width < MIN_SIZE) {
-            height = Math.round((height * MIN_SIZE) / width);
-            width = MIN_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width = Math.round((width * MAX_SIZE) / height);
-            height = MAX_SIZE;
-          } else if (height < MIN_SIZE) {
-            width = Math.round((width * MIN_SIZE) / height);
-            height = MIN_SIZE;
-          }
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-
-      const shapeCanvas = document.createElement("canvas");
-      shapeCanvas.width = width;
-      shapeCanvas.height = height;
-      const shapeCtx = shapeCanvas.getContext("2d")!;
-      shapeCtx.drawImage(img, 0, 0, width, height);
-
-      const shapeImageData = shapeCtx.getImageData(0, 0, width, height);
-      const data = shapeImageData.data;
-      const shapeMask = new Array(width * height).fill(false);
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const idx4 = (y * width + x) * 4;
-          const r = data[idx4];
-          const g = data[idx4 + 1];
-          const b = data[idx4 + 2];
-          const a = data[idx4 + 3];
-          shapeMask[y * width + x] = !(
-            (r === 255 && g === 255 && b === 255 && a === 255) ||
-            a === 0
-          );
-        }
-      }
-
-      function inside(x: number, y: number) {
-        if (x < 0 || x >= width || y < 0 || y >= height) return false;
-        return shapeMask[y * width + x];
-      }
-
-      const boundaryMask = new Array(width * height).fill(false);
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const idx = y * width + x;
-          if (!shapeMask[idx]) continue;
-          let isBoundary = false;
-          for (let ny = y - 1; ny <= y + 1 && !isBoundary; ny++) {
-            for (let nx = x - 1; nx <= x + 1 && !isBoundary; nx++) {
-              if (!inside(nx, ny)) {
-                isBoundary = true;
-              }
-            }
-          }
-          if (isBoundary) {
-            boundaryMask[idx] = true;
-          }
-        }
-      }
-
-      const interiorMask = new Array(width * height).fill(false);
-      for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-          const idx = y * width + x;
-          if (
-            shapeMask[idx] &&
-            shapeMask[idx - 1] &&
-            shapeMask[idx + 1] &&
-            shapeMask[idx - width] &&
-            shapeMask[idx + width]
-          ) {
-            interiorMask[idx] = true;
-          }
-        }
-      }
-
-      const u = new Float32Array(width * height).fill(0);
-      const newU = new Float32Array(width * height).fill(0);
-      const C = 0.01;
-      const ITERATIONS = 300;
-
-      function getU(x: number, y: number, arr: Float32Array) {
-        if (x < 0 || x >= width || y < 0 || y >= height) return 0;
-        if (!shapeMask[y * width + x]) return 0;
-        return arr[y * width + x];
-      }
-
-      for (let iter = 0; iter < ITERATIONS; iter++) {
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const idx = y * width + x;
-            if (!shapeMask[idx] || boundaryMask[idx]) {
-              newU[idx] = 0;
-              continue;
-            }
-            const sumN =
-              getU(x + 1, y, u) + getU(x - 1, y, u) + getU(x, y + 1, u) + getU(x, y - 1, u);
-            newU[idx] = (C + sumN) / 4;
-          }
-        }
-        u.set(newU);
-      }
-
-      let maxVal = 0;
-      for (let i = 0; i < width * height; i++) {
-        if (u[i] > maxVal) maxVal = u[i];
-      }
-      const alpha = 2.0;
-      const outImg = ctx.createImageData(width, height);
-
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const idx = y * width + x;
-          const px = idx * 4;
-          if (!shapeMask[idx]) {
-            outImg.data[px] = 255;
-            outImg.data[px + 1] = 255;
-            outImg.data[px + 2] = 255;
-            outImg.data[px + 3] = 255;
-          } else {
-            const raw = u[idx] / maxVal;
-            const remapped = Math.pow(raw, alpha);
-            const gray = 255 * (1 - remapped);
-            outImg.data[px] = gray;
-            outImg.data[px + 1] = gray;
-            outImg.data[px + 2] = gray;
-            outImg.data[px + 3] = 255;
-          }
-        }
-      }
-      ctx.putImageData(outImg, 0, 0);
-
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error("Failed to create PNG blob"));
-          return;
-        }
-        resolve({
-          imageData: outImg,
-          pngBlob: blob,
-        });
-      }, "image/png");
-    };
-
-    img.onerror = () => reject(new Error("Failed to load image"));
-    img.src = URL.createObjectURL(file);
-  });
+vec3 pW(vec3 v){
+  vec3 i=floor(v),f=fract(v),s=sign(fract(v*.5)-.5),h=fract(sM*i+i.yzx),c=f*(f-1.);
+  return s*c*((h*16.-4.)*c-1.);
 }
 
-const vertexShaderSource = `#version 300 es
-precision mediump float;
+vec3 aF(vec3 b,vec3 c){return pW(b+c.zxy-pW(b.zxy+c.yzx)+pW(b.yzx+c.xyz));}
+vec3 lM(vec3 s,vec3 p){return(p+aF(s,p))*.5;}
 
-in vec2 a_position;
-out vec2 vUv;
+vec2 fA(){
+  vec2 c=vP-.5;
+  c.x*=u_ratio>u_imgRatio?u_ratio/u_imgRatio:1.;
+  c.y*=u_ratio>u_imgRatio?1.:u_imgRatio/u_ratio;
+  return vec2(c.x+.5,.5-c.y);
+}
 
-void main() {
-    vUv = .5 * (a_position + 1.);
-    gl_Position = vec4(a_position, 0.0, 1.0);
+vec2 rot(vec2 p,float r){float c=cos(r),s=sin(r);return vec2(p.x*c+p.y*s,p.y*c-p.x*s);}
+
+float bM(vec2 c,float t){
+  vec2 l=smoothstep(vec2(0.),vec2(t),c),u=smoothstep(vec2(0.),vec2(t),1.-c);
+  return l.x*l.y*u.x*u.y;
+}
+
+float mG(float hi,float lo,float t,float sh,float cv){
+  sh*=(2.-u_sharp);
+  float ci=smoothstep(.15,.85,cv),r=lo;
+  float e1=.08/u_scale;
+  r=mix(r,hi,smoothstep(0.,sh*1.5,t));
+  r=mix(r,lo,smoothstep(e1-sh,e1+sh,t));
+  float e2=e1+.05/u_scale*(1.-ci*.35);
+  r=mix(r,hi,smoothstep(e2-sh,e2+sh,t));
+  float e3=e2+.025/u_scale*(1.-ci*.45);
+  r=mix(r,lo,smoothstep(e3-sh,e3+sh,t));
+  float e4=e1+.1/u_scale;
+  r=mix(r,hi,smoothstep(e4-sh,e4+sh,t));
+  float rm=1.-e4,gT=clamp((t-e4)/rm,0.,1.);
+  r=mix(r,mix(hi,lo,smoothstep(0.,1.,gT)),smoothstep(e4-sh*.5,e4+sh*.5,t));
+  return r;
+}
+
+void main(){
+  sC=fract(vec3(.7548,.5698,.4154)*(u_seed+17.31))+.5;
+  sM=fract(sC.zxy-sC.yzx*1.618);
+  vec2 sc=vec2(vP.x*u_ratio,1.-vP.y);
+  float angleRad=u_angle*3.14159/180.;
+  sc=rot(sc-.5,angleRad)+.5;
+  sc=clamp(sc,0.,1.);
+  float sl=sc.x-sc.y,an=u_time*.001;
+  vec2 iC=fA();
+  vec4 texSample=texture(u_tex,iC);
+  float dp=texSample.r;
+  float shapeMask=texSample.a;
+  vec3 hi=u_lightColor*u_bright;
+  vec3 lo=u_darkColor*(2.-u_bright);
+  lo.b+=smoothstep(.6,1.4,sc.x+sc.y)*.08;
+  vec2 fC=sc-.5;
+  float rd=length(fC+vec2(0.,sl*.15));
+  vec2 ag=rot(fC,(.22-sl*.18)*3.14159);
+  float cv=1.-pow(rd*1.65,1.15);
+  cv*=pow(sc.y,.35);
+  float vs=shapeMask;
+  vs*=bM(iC,.01);
+  float fr=pow(1.-cv,u_fresnel)*.3;
+  vs=min(vs+fr*vs,1.);
+  float mT=an*.0625;
+  vec3 wO=vec3(-1.05,1.35,1.55);
+  vec3 wA=aF(vec3(31.,73.,56.),mT+wO)*.22*u_wave;
+  vec3 wB=aF(vec3(24.,64.,42.),mT-wO.yzx)*.22*u_wave;
+  vec2 nC=sc*45.*u_noise;
+  nC+=aF(sC.zxy,an*.17*sC.yzx-sc.yxy*.35).xy*18.*u_wave;
+  vec3 tC=vec3(.00041,.00053,.00076)*mT+wB*nC.x+wA*nC.y;
+  tC=lM(sC,tC);
+  tC=lM(sC+1.618,tC);
+  float tb=sin(tC.x*3.14159)*.5+.5;
+  tb=tb*2.-1.;
+  float noiseVal=pW(vec3(sc*8.+an,an*.5)).x;
+  float edgeFactor=smoothstep(0.,.5,dp)*smoothstep(1.,.5,dp);
+  float lD=dp+(1.-dp)*u_liquid*tb;
+  lD+=noiseVal*u_distort*.15*edgeFactor;
+  float rB=clamp(1.-cv,0.,1.);
+  float fl=ag.x+sl;
+  fl+=noiseVal*sl*u_distort*edgeFactor;
+  fl*=mix(1.,1.-dp*.5,u_contour);
+  fl-=dp*u_contour*.8;
+  float eI=smoothstep(0.,1.,lD)*smoothstep(1.,0.,lD);
+  fl-=tb*sl*1.8*eI;
+  float cA=cv*clamp(pow(sc.y,.12),.25,1.);
+  fl*=.12+(1.05-lD)*cA;
+  fl*=smoothstep(1.,.65,lD);
+  float vA1=smoothstep(.08,.18,sc.y)*smoothstep(.38,.18,sc.y);
+  float vA2=smoothstep(.08,.18,1.-sc.y)*smoothstep(.38,.18,1.-sc.y);
+  fl+=vA1*.16+vA2*.025;
+  fl*=.45+pow(sc.y,2.)*.55;
+  fl*=u_scale;
+  fl-=an;
+  float rO=rB+cv*tb*.025;
+  float vM1=smoothstep(-.12,.18,sc.y)*smoothstep(.48,.08,sc.y);
+  float cM1=smoothstep(.35,.55,cv)*smoothstep(.95,.35,cv);
+  rO+=vM1*cM1*4.5;
+  rO-=sl;
+  float bO=rB*1.25;
+  float vM2=smoothstep(-.02,.35,sc.y)*smoothstep(.75,.08,sc.y);
+  float cM2=smoothstep(.35,.55,cv)*smoothstep(.75,.35,cv);
+  bO+=vM2*cM2*.9;
+  bO-=lD*.18;
+  rO*=u_refract*u_chroma;
+  bO*=u_refract*u_chroma;
+  float sf=u_blur;
+  float rP=fract(fl+rO);
+  float rC=mG(hi.r,lo.r,rP,sf+.018+u_refract*cv*.025,cv);
+  float gP=fract(fl);
+  float gC=mG(hi.g,lo.g,gP,sf+.008/max(.01,1.-sl),cv);
+  float bP=fract(fl-bO);
+  float bC=mG(hi.b,lo.b,bP,sf+.008,cv);
+  vec3 col=vec3(rC,gC,bC);
+  col=(col-.5)*u_contrast+.5;
+  col=clamp(col,0.,1.);
+  col=mix(col,1.-min(vec3(1.),(1.-col)/max(u_tint,vec3(.001))),length(u_tint-1.)*.5);
+  col=clamp(col,0.,1.);
+  oC=vec4(col*vs,vs);
 }`;
 
-const liquidFragSource = `#version 300 es
-precision mediump float;
-
-in vec2 vUv;
-out vec4 fragColor;
-
-uniform sampler2D u_image_texture;
-uniform float u_time;
-uniform float u_ratio;
-uniform float u_img_ratio;
-uniform float u_patternScale;
-uniform float u_refraction;
-uniform float u_edge;
-uniform float u_patternBlur;
-uniform float u_liquid;
-
-#define TWO_PI 6.28318530718
-#define PI 3.14159265358979323846
-
-vec3 mod289(vec3 x) { return x - floor(x * (1. / 289.)) * 289.; }
-vec2 mod289(vec2 x) { return x - floor(x * (1. / 289.)) * 289.; }
-vec3 permute(vec3 x) { return mod289(((x*34.)+1.)*x); }
-float snoise(vec2 v) {
-    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-    vec2 i = floor(v + dot(v, C.yy));
-    vec2 x0 = v - i + dot(i, C.xx);
-    vec2 i1;
-    i1 = (x0.x > x0.y) ? vec2(1., 0.) : vec2(0., 1.);
-    vec4 x12 = x0.xyxy + C.xxzz;
-    x12.xy -= i1;
-    i = mod289(i);
-    vec3 p = permute(permute(i.y + vec3(0., i1.y, 1.)) + i.x + vec3(0., i1.x, 1.));
-    vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.);
-    m = m*m;
-    m = m*m;
-    vec3 x = 2. * fract(p * C.www) - 1.;
-    vec3 h = abs(x) - 0.5;
-    vec3 ox = floor(x + 0.5);
-    vec3 a0 = x - ox;
-    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
-    vec3 g;
-    g.x = a0.x * x0.x + h.x * x0.y;
-    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-    return 130. * dot(m, g);
+interface MetallicPaintProps {
+  imageSrc: string;
+  seed?: number;
+  scale?: number;
+  refraction?: number;
+  blur?: number;
+  liquid?: number;
+  speed?: number;
+  brightness?: number;
+  contrast?: number;
+  angle?: number;
+  fresnel?: number;
+  lightColor?: string;
+  darkColor?: string;
+  patternSharpness?: number;
+  waveAmplitude?: number;
+  noiseScale?: number;
+  chromaticSpread?: number;
+  mouseAnimation?: boolean;
+  distortion?: number;
+  contour?: number;
+  tintColor?: string;
 }
 
-vec2 get_img_uv() {
-    vec2 img_uv = vUv;
-    img_uv -= .5;
-    if (u_ratio > u_img_ratio) {
-        img_uv.x = img_uv.x * u_ratio / u_img_ratio;
-    } else {
-        img_uv.y = img_uv.y * u_img_ratio / u_ratio;
-    }
-    float scale_factor = 1.;
-    img_uv *= scale_factor;
-    img_uv += .5;
-    img_uv.y = 1. - img_uv.y;
-    return img_uv;
-}
-vec2 rotate(vec2 uv, float th) {
-    return mat2(cos(th), sin(th), -sin(th), cos(th)) * uv;
-}
-float get_color_channel(float c1, float c2, float stripe_p, vec3 w, float extra_blur, float b) {
-    float ch = c2;
-    float border = 0.;
-    float blur = u_patternBlur + extra_blur;
-    ch = mix(ch, c1, smoothstep(.0, blur, stripe_p));
-    border = w[0];
-    ch = mix(ch, c2, smoothstep(border - blur, border + blur, stripe_p));
-    b = smoothstep(.2, .8, b);
-    border = w[0] + .4 * (1. - b) * w[1];
-    ch = mix(ch, c1, smoothstep(border - blur, border + blur, stripe_p));
-    border = w[0] + .5 * (1. - b) * w[1];
-    ch = mix(ch, c2, smoothstep(border - blur, border + blur, stripe_p));
-    border = w[0] + w[1];
-    ch = mix(ch, c1, smoothstep(border - blur, border + blur, stripe_p));
-    float gradient_t = (stripe_p - w[0] - w[1]) / w[2];
-    float gradient = mix(c1, c2, smoothstep(0., 1., gradient_t));
-    ch = mix(ch, gradient, smoothstep(border - blur, border + blur, stripe_p));
-    return ch;
-}
-float get_img_frame_alpha(vec2 uv, float img_frame_width) {
-    float img_frame_alpha = smoothstep(0., img_frame_width, uv.x) * smoothstep(1., 1. - img_frame_width, uv.x);
-    img_frame_alpha *= smoothstep(0., img_frame_width, uv.y) * smoothstep(1., 1. - img_frame_width, uv.y);
-    return img_frame_alpha;
-}
-void main() {
-    vec2 uv = vUv;
-    uv.y = 1. - uv.y;
-    uv.x *= u_ratio;
-    float diagonal = uv.x - uv.y;
-    float t = .001 * u_time;
-    vec2 img_uv = get_img_uv();
-    vec4 img = texture(u_image_texture, img_uv);
-    vec3 color = vec3(0.);
-    float opacity = 1.;
-    vec3 color1 = vec3(.98, 0.98, 1.);
-    vec3 color2 = vec3(.1, .1, .1 + .1 * smoothstep(.7, 1.3, uv.x + uv.y));
-    float edge = img.r;
-    vec2 grad_uv = uv;
-    grad_uv -= .5;
-    float dist = length(grad_uv + vec2(0., .2 * diagonal));
-    grad_uv = rotate(grad_uv, (.25 - .2 * diagonal) * PI);
-    float bulge = pow(1.8 * dist, 1.2);
-    bulge = 1. - bulge;
-    bulge *= pow(uv.y, .3);
-    float cycle_width = u_patternScale;
-    float thin_strip_1_ratio = .12 / cycle_width * (1. - .4 * bulge);
-    float thin_strip_2_ratio = .07 / cycle_width * (1. + .4 * bulge);
-    float wide_strip_ratio = (1. - thin_strip_1_ratio - thin_strip_2_ratio);
-    float thin_strip_1_width = cycle_width * thin_strip_1_ratio;
-    float thin_strip_2_width = cycle_width * thin_strip_2_ratio;
-    opacity = 1. - smoothstep(.9 - .5 * u_edge, 1. - .5 * u_edge, edge);
-    opacity *= get_img_frame_alpha(img_uv, 0.01);
-    float noise = snoise(uv - t);
-    edge += (1. - edge) * u_liquid * noise;
-    float refr = 0.;
-    refr += (1. - bulge);
-    refr = clamp(refr, 0., 1.);
-    float dir = grad_uv.x;
-    dir += diagonal;
-    dir -= 2. * noise * diagonal * (smoothstep(0., 1., edge) * smoothstep(1., 0., edge));
-    bulge *= clamp(pow(uv.y, .1), .3, 1.);
-    dir *= (.1 + (1.1 - edge) * bulge);
-    dir *= smoothstep(1., .7, edge);
-    dir += .18 * (smoothstep(.1, .2, uv.y) * smoothstep(.4, .2, uv.y));
-    dir += .03 * (smoothstep(.1, .2, 1. - uv.y) * smoothstep(.4, .2, 1. - uv.y));
-    dir *= (.5 + .5 * pow(uv.y, 2.));
-    dir *= cycle_width;
-    dir -= t;
-    float refr_r = refr;
-    refr_r += .03 * bulge * noise;
-    float refr_b = 1.3 * refr;
-    refr_r += 5. * (smoothstep(-.1, .2, uv.y) * smoothstep(.5, .1, uv.y)) * (smoothstep(.4, .6, bulge) * smoothstep(1., .4, bulge));
-    refr_r -= diagonal;
-    refr_b += (smoothstep(0., .4, uv.y) * smoothstep(.8, .1, uv.y)) * (smoothstep(.4, .6, bulge) * smoothstep(.8, .4, bulge));
-    refr_b -= .2 * edge;
-    refr_r *= u_refraction;
-    refr_b *= u_refraction;
-    vec3 w = vec3(thin_strip_1_width, thin_strip_2_width, wide_strip_ratio);
-    w[1] -= .02 * smoothstep(.0, 1., edge + bulge);
-    float stripe_r = mod(dir + refr_r, 1.);
-    float r = get_color_channel(color1.r, color2.r, stripe_r, w, 0.02 + .03 * u_refraction * bulge, bulge);
-    float stripe_g = mod(dir, 1.);
-    float g = get_color_channel(color1.g, color2.g, stripe_g, w, 0.01 / (1. - diagonal), bulge);
-    float stripe_b = mod(dir - refr_b, 1.);
-    float b = get_color_channel(color1.b, color2.b, stripe_b, w, .01, bulge);
-    color = vec3(r, g, b);
-    color *= opacity;
-    fragColor = vec4(color, opacity);
-}
-`;
+function processImage(img: HTMLImageElement): ImageData {
+  const MAX_SIZE = 1000;
+  const MIN_SIZE = 500;
+  let width = img.naturalWidth || img.width;
+  let height = img.naturalHeight || img.height;
 
-export default function MetallicPaint({
-  imageData,
-  params = defaultParams,
-}: {
-  imageData: ImageData;
-  params: ShaderParams;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [gl, setGl] = useState<WebGL2RenderingContext | null>(null);
-  const [uniforms, setUniforms] = useState<
-    Record<string, WebGLUniformLocation>
-  >({});
-  const totalAnimationTime = useRef(0);
-  const lastRenderTime = useRef(0);
-
-  function updateUniforms() {
-    if (!gl || !uniforms) return;
-    gl.uniform1f(uniforms.u_edge, params.edge);
-    gl.uniform1f(uniforms.u_patternBlur, params.patternBlur);
-    gl.uniform1f(uniforms.u_time, 0);
-    gl.uniform1f(uniforms.u_patternScale, params.patternScale);
-    gl.uniform1f(uniforms.u_refraction, params.refraction);
-    gl.uniform1f(uniforms.u_liquid, params.liquid);
+  if (width > MAX_SIZE || height > MAX_SIZE || width < MIN_SIZE || height < MIN_SIZE) {
+    const scale =
+      width > height
+        ? width > MAX_SIZE
+          ? MAX_SIZE / width
+          : width < MIN_SIZE
+            ? MIN_SIZE / width
+            : 1
+        : height > MAX_SIZE
+          ? MAX_SIZE / height
+          : height < MIN_SIZE
+            ? MIN_SIZE / height
+            : 1;
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
   }
 
-  useEffect(() => {
-    function initShader() {
-      const canvas = canvasRef.current;
-      const gl = canvas?.getContext("webgl2", {
-        antialias: true,
-        alpha: true,
-      });
-      if (!canvas || !gl) {
-        return;
-      }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0, width, height);
 
-      function createShader(
-        gl: WebGL2RenderingContext,
-        sourceCode: string,
-        type: number
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  const size = width * height;
+  const alphaValues = new Float32Array(size);
+  const shapeMask = new Uint8Array(size);
+  const boundaryMask = new Uint8Array(size);
+
+  for (let i = 0; i < size; i++) {
+    const idx = i * 4;
+    const r = data[idx],
+      g = data[idx + 1],
+      b = data[idx + 2],
+      a = data[idx + 3];
+    const isBackground = (r > 250 && g > 250 && b > 250 && a === 255) || a < 5;
+    alphaValues[i] = isBackground ? 0 : a / 255;
+    shapeMask[i] = alphaValues[i] > 0.1 ? 1 : 0;
+  }
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (!shapeMask[idx]) continue;
+      if (
+        x === 0 ||
+        x === width - 1 ||
+        y === 0 ||
+        y === height - 1 ||
+        !shapeMask[idx - 1] ||
+        !shapeMask[idx + 1] ||
+        !shapeMask[idx - width] ||
+        !shapeMask[idx + width]
       ) {
-        const shader = gl.createShader(type);
-        if (!shader) {
-          return null;
-        }
-
-        gl.shaderSource(shader, sourceCode);
-        gl.compileShader(shader);
-
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-          console.error(
-            "An error occurred compiling the shaders: " +
-              gl.getShaderInfoLog(shader)
-          );
-          gl.deleteShader(shader);
-          return null;
-        }
-
-        return shader;
+        boundaryMask[idx] = 1;
       }
+    }
+  }
 
-      const vertexShader = createShader(
-        gl,
-        vertexShaderSource,
-        gl.VERTEX_SHADER
-      );
-      const fragmentShader = createShader(
-        gl,
-        liquidFragSource,
-        gl.FRAGMENT_SHADER
-      );
-      const program = gl.createProgram();
-      if (!program || !vertexShader || !fragmentShader) {
-        return;
+  const u = new Float32Array(size);
+  const ITERATIONS = 200;
+  const C = 0.01;
+  const omega = 1.85;
+
+  for (let iter = 0; iter < ITERATIONS; iter++) {
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = y * width + x;
+        if (!shapeMask[idx] || boundaryMask[idx]) continue;
+        const sum =
+          (shapeMask[idx + 1] ? u[idx + 1] : 0) +
+          (shapeMask[idx - 1] ? u[idx - 1] : 0) +
+          (shapeMask[idx + width] ? u[idx + width] : 0) +
+          (shapeMask[idx - width] ? u[idx - width] : 0);
+        const newVal = (C + sum) / 4;
+        u[idx] = omega * newVal + (1 - omega) * u[idx];
       }
+    }
+  }
 
-      gl.attachShader(program, vertexShader);
-      gl.attachShader(program, fragmentShader);
-      gl.linkProgram(program);
+  let maxVal = 0;
+  for (let i = 0; i < size; i++) if (u[i] > maxVal) maxVal = u[i];
+  if (maxVal === 0) maxVal = 1;
 
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error(
-          "Unable to initialize the shader program: " +
-            gl.getProgramInfoLog(program)
-        );
+  const outData = ctx.createImageData(width, height);
+  for (let i = 0; i < size; i++) {
+    const px = i * 4;
+    const depth = u[i] / maxVal;
+    const gray = Math.round(255 * (1 - depth * depth));
+    outData.data[px] = outData.data[px + 1] = outData.data[px + 2] = gray;
+    outData.data[px + 3] = Math.round(alphaValues[i] * 255);
+  }
+
+  return outData;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? [parseInt(result[1], 16) / 255, parseInt(result[2], 16) / 255, parseInt(result[3], 16) / 255]
+    : [1, 1, 1];
+}
+
+export default function MetallicPaint({
+  imageSrc,
+  seed = 42,
+  scale = 4,
+  refraction = 0.01,
+  blur = 0.015,
+  liquid = 0.75,
+  speed = 0.3,
+  brightness = 2,
+  contrast = 0.5,
+  angle = 0,
+  fresnel = 1,
+  lightColor = '#ffffff',
+  darkColor = '#000000',
+  patternSharpness = 1,
+  waveAmplitude = 1,
+  noiseScale = 0.5,
+  chromaticSpread = 2,
+  mouseAnimation = false,
+  distortion = 1,
+  contour = 0.2,
+  tintColor = '#feb3ff'
+}: MetallicPaintProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<WebGL2RenderingContext | null>(null);
+  const programRef = useRef<WebGLProgram | null>(null);
+  const uniformsRef = useRef<Record<string, WebGLUniformLocation | null>>({});
+  const textureRef = useRef<WebGLTexture | null>(null);
+  const animTimeRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const imgDataRef = useRef<ImageData | null>(null);
+  const speedRef = useRef(speed);
+  const mouseRef = useRef({ x: 0.5, y: 0.5, targetX: 0.5, targetY: 0.5 });
+  const mouseAnimRef = useRef(mouseAnimation);
+
+  const [ready, setReady] = useState(false);
+  const [textureReady, setTextureReady] = useState(false);
+
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
+  useEffect(() => {
+    mouseAnimRef.current = mouseAnimation;
+  }, [mouseAnimation]);
+
+  const initGL = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return false;
+
+    const gl = canvas.getContext('webgl2', { antialias: true, alpha: true });
+    if (!gl) return false;
+
+    const compile = (src: string, type: number): WebGLShader | null => {
+      const s = gl.createShader(type);
+      if (!s) return null;
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
         return null;
       }
+      return s;
+    };
 
-      function getUniforms(program: WebGLProgram, gl: WebGL2RenderingContext) {
-        let uniforms: Record<string, WebGLUniformLocation> = {};
-        let uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-        for (let i = 0; i < uniformCount; i++) {
-          let uniformName = gl.getActiveUniform(program, i)?.name;
-          if (!uniformName) continue;
-          uniforms[uniformName] = gl.getUniformLocation(
-            program,
-            uniformName
-          ) as WebGLUniformLocation;
-        }
-        return uniforms;
-      }
-      const uniforms = getUniforms(program, gl);
-      setUniforms(uniforms);
+    const vs = compile(vertexShader, gl.VERTEX_SHADER);
+    const fs = compile(fragmentShader, gl.FRAGMENT_SHADER);
+    if (!vs || !fs) return false;
 
-      const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-      const vertexBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-      gl.useProgram(program);
-
-      const positionLocation = gl.getAttribLocation(program, "a_position");
-      gl.enableVertexAttribArray(positionLocation);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-      setGl(gl);
+    const prog = gl.createProgram();
+    if (!prog) return false;
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(prog));
+      return false;
     }
 
-    initShader();
-    updateUniforms();
+    const uniforms: Record<string, WebGLUniformLocation | null> = {};
+    const count = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < count; i++) {
+      const info = gl.getActiveUniform(prog, i);
+      if (info) uniforms[info.name] = gl.getUniformLocation(prog, info.name);
+    }
+
+    const verts = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+
+    gl.useProgram(prog);
+    const pos = gl.getAttribLocation(prog, 'a_position');
+    gl.enableVertexAttribArray(pos);
+    gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+
+    glRef.current = gl;
+    programRef.current = prog;
+    uniformsRef.current = uniforms;
+
+    return true;
   }, []);
 
-  useEffect(() => {
-    if (!gl || !uniforms) return;
-    updateUniforms();
-  }, [gl, params, uniforms]);
+  const uploadTexture = useCallback((imgData: ImageData) => {
+    const gl = glRef.current;
+    const uniforms = uniformsRef.current;
+    if (!gl || !imgData) return;
 
-  useEffect(() => {
-    if (!gl || !uniforms) return;
+    if (textureRef.current) gl.deleteTexture(textureRef.current);
 
-    let renderId: number;
-
-    function render(currentTime: number) {
-      const deltaTime = currentTime - lastRenderTime.current;
-      lastRenderTime.current = currentTime;
-
-      totalAnimationTime.current += deltaTime * params.speed;
-      gl!.uniform1f(uniforms.u_time, totalAnimationTime.current);
-      gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4);
-      renderId = requestAnimationFrame(render);
-    }
-
-    lastRenderTime.current = performance.now();
-    renderId = requestAnimationFrame(render);
-
-    return () => {
-      cancelAnimationFrame(renderId);
-    };
-  }, [gl, params.speed]);
-
-  useEffect(() => {
-    const canvasEl = canvasRef.current;
-    if (!canvasEl || !gl || !uniforms) return;
-
-    function resizeCanvas() {
-      if (!canvasEl || !gl || !uniforms || !imageData) return;
-      const imgRatio = imageData.width / imageData.height;
-      gl.uniform1f(uniforms.u_img_ratio, imgRatio);
-
-      const side = 1000;
-      canvasEl.width = side * devicePixelRatio;
-      canvasEl.height = side * devicePixelRatio;
-      gl.viewport(0, 0, canvasEl.height, canvasEl.height);
-      gl.uniform1f(uniforms.u_ratio, 1);
-      gl.uniform1f(uniforms.u_img_ratio, imgRatio);
-    }
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
-    return () => {
-      window.removeEventListener("resize", resizeCanvas);
-    };
-  }, [gl, uniforms, imageData]);
-
-  useEffect(() => {
-    if (!gl || !uniforms) return;
-
-    const existingTexture = gl.getParameter(gl.TEXTURE_BINDING_2D);
-    if (existingTexture) {
-      gl.deleteTexture(existingTexture);
-    }
-
-    const imageTexture = gl.createTexture();
+    const tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, imageTexture);
-
+    gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgData.width, imgData.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgData.data);
+    gl.uniform1i(uniforms.u_tex, 0);
 
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    const ratio = imgData.width / imgData.height;
+    gl.uniform1f(uniforms.u_imgRatio, ratio);
+    gl.uniform1f(uniforms.u_ratio, 1);
 
-    try {
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        imageData?.width,
-        imageData?.height,
-        0,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        imageData?.data
-      );
+    textureRef.current = tex;
+    imgDataRef.current = imgData;
+  }, []);
 
-      gl.uniform1i(uniforms.u_image_texture, 0);
-    } catch (e) {
-      console.error("Error uploading texture:", e);
-    }
+  useEffect(() => {
+    if (!initGL()) return;
+
+    const canvas = canvasRef.current;
+    const gl = glRef.current;
+    if (!canvas || !gl) return;
+
+    const side = 1000 * devicePixelRatio;
+    canvas.width = side;
+    canvas.height = side;
+    gl.viewport(0, 0, side, side);
+
+    setReady(true);
 
     return () => {
-      if (imageTexture) {
-        gl.deleteTexture(imageTexture);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (textureRef.current && glRef.current) {
+        glRef.current.deleteTexture(textureRef.current);
       }
     };
-  }, [gl, uniforms, imageData]);
+  }, [initGL]);
 
-  return <canvas ref={canvasRef} className="paint-container" />;
+  useEffect(() => {
+    if (!ready || !imageSrc) return;
+
+    setTextureReady(false);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const imgData = processImage(img);
+      uploadTexture(imgData);
+      setTextureReady(true);
+    };
+    img.src = imageSrc;
+  }, [ready, imageSrc, uploadTexture]);
+
+  useEffect(() => {
+    const gl = glRef.current;
+    const u = uniformsRef.current;
+    if (!gl || !ready) return;
+
+    gl.uniform1f(u.u_seed, seed);
+    gl.uniform1f(u.u_scale, scale);
+    gl.uniform1f(u.u_refract, refraction);
+    gl.uniform1f(u.u_blur, blur);
+    gl.uniform1f(u.u_liquid, liquid);
+    gl.uniform1f(u.u_bright, brightness);
+    gl.uniform1f(u.u_contrast, contrast);
+    gl.uniform1f(u.u_angle, angle);
+    gl.uniform1f(u.u_fresnel, fresnel);
+
+    const light = hexToRgb(lightColor);
+    const dark = hexToRgb(darkColor);
+    const tint = hexToRgb(tintColor);
+    gl.uniform3f(u.u_lightColor, light[0], light[1], light[2]);
+    gl.uniform3f(u.u_darkColor, dark[0], dark[1], dark[2]);
+    gl.uniform1f(u.u_sharp, patternSharpness);
+    gl.uniform1f(u.u_wave, waveAmplitude);
+    gl.uniform1f(u.u_noise, noiseScale);
+    gl.uniform1f(u.u_chroma, chromaticSpread);
+    gl.uniform1f(u.u_distort, distortion);
+    gl.uniform1f(u.u_contour, contour);
+    gl.uniform3f(u.u_tint, tint[0], tint[1], tint[2]);
+  }, [
+    ready,
+    seed,
+    scale,
+    refraction,
+    blur,
+    liquid,
+    brightness,
+    contrast,
+    angle,
+    fresnel,
+    lightColor,
+    darkColor,
+    patternSharpness,
+    waveAmplitude,
+    noiseScale,
+    chromaticSpread,
+    distortion,
+    contour,
+    tintColor
+  ]);
+
+  useEffect(() => {
+    if (!ready || !textureReady) return;
+
+    const gl = glRef.current;
+    const u = uniformsRef.current;
+    const canvas = canvasRef.current;
+    const mouse = mouseRef.current;
+    if (!gl || !canvas) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.targetX = (e.clientX - rect.left) / rect.width;
+      mouse.targetY = (e.clientY - rect.top) / rect.height;
+    };
+
+    canvas.addEventListener('mousemove', handleMouseMove);
+
+    const render = (time: number) => {
+      const delta = time - lastTimeRef.current;
+      lastTimeRef.current = time;
+
+      if (mouseAnimRef.current) {
+        mouse.x += (mouse.targetX - mouse.x) * 0.08;
+        mouse.y += (mouse.targetY - mouse.y) * 0.08;
+        animTimeRef.current = mouse.x * 3000 + mouse.y * 1500;
+      } else {
+        animTimeRef.current += delta * speedRef.current;
+      }
+
+      gl.uniform1f(u.u_time, animTimeRef.current);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      rafRef.current = requestAnimationFrame(render);
+    };
+
+    lastTimeRef.current = performance.now();
+    rafRef.current = requestAnimationFrame(render);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [ready, textureReady]);
+
+  return <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />;
 }
