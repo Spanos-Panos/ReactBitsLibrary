@@ -179,6 +179,8 @@ function buildColorGuidanceSection(textAnimComponentNames, bgHex) {
 
   // Normalise bgHex - handle names like 'black', 'white', or missing #
   let bg = bgHex || '#000000';
+  if (Array.isArray(bg)) bg = bg[0] || '#000000';
+  if (typeof bg !== 'string') bg = String(bg);
   if (!bg.startsWith('#')) bg = '#000000';
 
   const textColor = getContrastColor(bg);

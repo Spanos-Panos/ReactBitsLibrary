@@ -172,6 +172,11 @@ async function generateViteReact(options) {
       modifiedUsageCode = `${importLines.join('\n')}\n\nexport default function App() {${preReturn}\n  return (\n    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>\n      ${jsxContent.replace(/\n/g, '\n      ')}\n    </div>\n  );\n}\n`;
     }
     await fs.writeFile(appTsxPath, modifiedUsageCode, 'utf-8');
+  } else {
+    // For AI builds, write a temporary loading screen so Vite doesn't crash on missing SVGs while Claude generates code
+    const appTsxPath = path.join(targetDir, 'src', 'App.tsx');
+    const tempAiApp = `export default function App() {\n  return (\n    <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', color: '#fff', fontFamily: 'monospace' }}>\n      <p style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>Claude is building your site. Please wait...</p>\n    </div>\n  );\n}\n`;
+    await fs.writeFile(appTsxPath, tempAiApp, 'utf-8');
   }
 
   notify(`Cleaning up boilerplate styles...`);
@@ -243,7 +248,7 @@ async function generateViteReact(options) {
 
     const claudeMdContent = `# Project Mission: ${enhancedPrompt?.projectMeta?.title || projectName}
 
-You are an expert Frontend Developer. Your mission is to build the UI designed in \`enhancedPrompt.json\`.
+You are an expert Frontend Developer and Senior UI Project Architect. Your mission is to build the UI designed in \`enhancedPrompt.json\`.
 
 ## Project Context
 - **Framework**: Vite + React (TypeScript) + Tailwind CSS (v4)
@@ -251,16 +256,25 @@ You are an expert Frontend Developer. Your mission is to build the UI designed i
 - **Components**: Pre-installed in \`src/components/\`
 
 ## STRICT INSTRUCTIONS - READ CAREFULLY
-To minimize token costs and ensure speed:
 1. Read \`enhancedPrompt.json\`.
 2. Update \`src/App.tsx\` to implement the \`siteArchitecture\`, importing the components from \`src/components/\`.
-3. Style the layout using Tailwind CSS.
-4. **DO NOT** write tests.
-5. **DO NOT** delete the component source files.
-6. **DO NOT** scan the node_modules folder or any unnecessary files.
-7. **STOP EXACTLY HERE AND EXIT**. Do not propose next steps.
+3. Style the layout using Tailwind CSS. Pay extreme attention to harmony, spacing (e.g. py-24, gap-8), typography consistency, and layout constraints (e.g. overflow-hidden for Full Immersion).
+4. You MUST embed the expansive copy from the AI brief. Do not use placeholders. 
+5. **DO NOT** write tests.
+6. **DO NOT** delete the component source files.
+7. **DO NOT** scan the node_modules folder or any unnecessary files.
+8. **STOP EXACTLY HERE AND EXIT**. Do not propose next steps.
 ${colorGuidanceSection}`;
     await fs.writeFile(path.join(targetDir, 'CLAUDE.md'), claudeMdContent, 'utf-8');
+
+    // Inject frontend-design skill rules
+    try {
+      const skillPath = path.join(__dirname, '..', '..', '.agents', 'skills', 'frontend-design', 'SKILL.md');
+      const skillContent = await fs.readFile(skillPath, 'utf-8');
+      await fs.writeFile(path.join(targetDir, 'FRONTEND_DESIGN.md'), skillContent, 'utf-8');
+    } catch (e) {
+      log(`[DemoCLI] Warning: Could not inject frontend-design skill: ${e.message}\n`);
+    }
   }
 
   // 6. Create dev.bat for Windows Execution Policy Bypass
@@ -310,15 +324,18 @@ ${colorGuidanceSection}`;
 
   // 7. Auto-Launch Claude Code in Native Terminal
   if (isAiBuild) {
-    notify(`Launching Claude Code in a Native Terminal...`);
-    const { exec } = require('child_process');
-    // Instructing it explicitly to just output the file saves tokens and keeps it from hallucinating tests
-    const claudeCmd = `claude -p "Read CLAUDE.md. Execute the required file replacements perfectly. STOP when finished. Do not ask for new tasks."`;
-    if (process.platform === 'win32') {
-      exec(`start cmd.exe /c "${claudeCmd} && pause"`, { cwd: targetDir });
-    } else {
-      exec(`open -a Terminal \`pwd\``, { cwd: targetDir }); // Mac fallback
-    }
+    notify(`Claude is currently engineering your site. A new terminal window has opened...`);
+    await new Promise((resolve) => {
+      const { exec } = require('child_process');
+      // Instructing it explicitly to output a thinking layer guarantees higher reasoning
+      const claudeCmd = `npx @anthropic-ai/claude-code -p "Read CLAUDE.md and FRONTEND_DESIGN.md. Adhere strictly to the aesthetic rules in FRONTEND_DESIGN.md! Before writing code, output a <thinking> block to deeply analyze typography, spacing, and layout harmony. Execute the required file replacements perfectly. STOP when finished. Do not ask for new tasks."`;
+      if (process.platform === 'win32') {
+        // start /wait blocks execution until the new terminal window is closed
+        exec(`start /wait cmd.exe /c "${claudeCmd} && echo AI Coding Complete! Closing in 5 seconds... && timeout /t 5"`, { cwd: targetDir }, resolve);
+      } else {
+        exec(`osascript -e 'tell app "Terminal" to do script "cd \\"${targetDir}\\" && ${claudeCmd}"'`, { cwd: targetDir }, resolve);
+      }
+    });
   } else {
     // 8. Final Integrity Check (Strict if Auto-Run is enabled)
     notify(`Verifying project integrity (checking for errors)...`);
