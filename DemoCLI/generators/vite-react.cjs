@@ -65,9 +65,17 @@ async function generateViteReact(options) {
   notify(`Scanning for required dependencies...`);
   const discoveredDeps = new Set(['@tailwindcss/vite', 'tailwindcss', 'clsx', 'tailwind-merge', 'lucide-react', 'framer-motion', 'motion', 'gsap', 'ogl', '@react-three/fiber', '@react-three/drei', 'three', 'maath', 'react-spring', '@react-spring/three', 'react-icons', 'meshline', '@react-three/rapier']);
 
-  // Merge AI dependencies if present
+  // Merge AI dependencies if present.
+  // Filter out subpath imports like "react-icons/vsc" — they aren't packages; npm
+  // misreads the slash as a GitHub shorthand and tries to clone via SSH (exit 128).
+  // Scoped packages (@org/pkg) are fine since they always start with @.
+  const isValidPackageName = (d) => typeof d === 'string' && d.trim() &&
+    (d.startsWith('@') || !d.includes('/'));
+
   if (enhancedPrompt?.technicalRequirements?.dependencies) {
-    enhancedPrompt.technicalRequirements.dependencies.forEach(d => discoveredDeps.add(d));
+    enhancedPrompt.technicalRequirements.dependencies
+      .filter(isValidPackageName)
+      .forEach(d => discoveredDeps.add(d));
   }
 
   // Merge dynamic manual dependencies if passed from ReactBits component Install.json
@@ -239,42 +247,126 @@ async function generateViteReact(options) {
 
     notify(`Configuring Claude Mission Control...`);
 
-    // Build color guidance for any TextAnimation components in this build
+    // ── Build component import path list ──────────────────────────────────────
+    const allComponents = selectedComponents || [];
+    const importLines = allComponents
+      .filter(c => c.name && c.category)
+      .map(c => `import ${c.name} from './components/${c.category}/${c.name}/${c.name}'`)
+      .join('\n');
+
+    // ── Classify components for layout guidance ───────────────────────────────
+    const ambientNames = allComponents
+      .filter(c => c.category === 'Backgrounds')
+      .map(c => c.name);
+    const cursorNames = allComponents
+      .filter(c => c.category === 'Animations' && ['BlobCursor','Crosshair','ImageTrail','PixelTrail','SplashCursor','TargetCursor'].includes(c.name))
+      .map(c => c.name);
+
+    // ── Build TextAnimation color guidance ────────────────────────────────────
     const bgColor = enhancedPrompt?.designTokens?.colors?.background || '#000000';
-    const textAnimComponents = (selectedComponents || [])
+    const textAnimComponents = allComponents
       .filter(c => c.category === 'TextAnimations')
       .map(c => c.name);
     const colorGuidanceSection = buildColorGuidanceSection(textAnimComponents, bgColor);
 
-    const claudeMdContent = `# Project Mission: ${enhancedPrompt?.projectMeta?.title || projectName}
+    // ── Write CLAUDE.md (self-contained mission brief) ────────────────────────
+    const claudeMdContent = `# MISSION
 
-You are an expert Frontend Developer and Senior UI Project Architect. Your mission is to build the UI designed in \`enhancedPrompt.json\`.
+You are a senior React + TypeScript developer and UI designer. Build a complete, production-quality site.
 
-## Project Context
-- **Framework**: Vite + React (TypeScript) + Tailwind CSS (v4)
-- **Design Tokens**: See \`enhancedPrompt.json\` -> \`designTokens\`
-- **Components**: Pre-installed in \`src/components/\`
+- **Editable files**: \`src/App.tsx\`, \`src/index.css\`, \`index.html\` — do not create other source files
+- **Stack**: Vite + React 18 (TypeScript) + Tailwind CSS v4
+- **Stop condition**: when \`npx tsc --noEmit\` passes with zero errors, output the word **DONE** and stop
 
-## STRICT INSTRUCTIONS - READ CAREFULLY
-1. Read \`enhancedPrompt.json\`.
-2. Update \`src/App.tsx\` to implement the \`siteArchitecture\`, importing the components from \`src/components/\`.
-3. Style the layout using Tailwind CSS. Pay extreme attention to harmony, spacing (e.g. py-24, gap-8), typography consistency, and layout constraints (e.g. overflow-hidden for Full Immersion).
-4. You MUST embed the expansive copy from the AI brief. Do not use placeholders. 
-5. **DO NOT** write tests.
-6. **DO NOT** delete the component source files.
-7. **DO NOT** scan the node_modules folder or any unnecessary files.
-8. **STOP EXACTLY HERE AND EXIT**. Do not propose next steps.
-${colorGuidanceSection}`;
+---
+
+# AESTHETIC DIRECTION
+
+You must produce something visually distinctive — not generic AI output. Before writing any code, commit to a clear aesthetic direction based on the project theme and mood in the design brief.
+
+**Typography**
+- Apply the fonts from \`designTokens.typography\` — load them from Google Fonts (add a \`<link>\` in \`index.html\`, apply via \`font-family\` in \`src/index.css\`)
+- NEVER use Inter, Roboto, Arial, or system-ui as the primary typeface — these are generic defaults
+- Pair the heading font on all \`h1\`–\`h3\` elements; apply the body font globally via \`body\` in CSS
+
+**Color**
+- Follow \`designTokens.colors\` exactly — use the primary, secondary, background, text, and accent values
+- Use CSS variables in \`src/index.css\` (e.g. \`--color-primary: #...\`) so colors are consistent throughout
+
+**Content — NO AI SLOP**
+- Write copy that is specific to the project's actual theme and purpose
+- NEVER use phrases like: "Unleash Your Creativity", "Cutting-Edge Solutions", "Transform Your Business", "Elevate Your Experience", "Revolutionary Platform", "Seamlessly Integrated"
+- Write real, contextual content: named features, realistic taglines, specific benefit statements tied to the actual product/topic
+
+**Interactions**
+- Preserve every component's native animations and interaction behavior exactly as designed
+- Do NOT wrap interactive components (Dock, carousels, sliders) in containers that constrain their width/height or block pointer events
+
+---
+
+# COMPONENT IMPORT PATHS
+
+All components are pre-installed in \`src/components/\`. Use these exact import paths:
+
+\`\`\`tsx
+${importLines || '// No components — build a plain HTML/CSS site'}
+\`\`\`
+
+Before using any component, **read its source file** to understand its props interface exactly.
+
+---
+
+# DESIGN BRIEF
+
+\`\`\`json
+${JSON.stringify(enhancedPrompt, null, 2)}
+\`\`\`
+
+---
+
+# LAYOUT RULES
+
+${ambientNames.length > 0 ? `**Ambient / Background components** (${ambientNames.join(', ')}):
+\`\`\`tsx
+<ComponentName style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />
+\`\`\`` : ''}
+
+${cursorNames.length > 0 ? `**Cursor / Overlay components** (${cursorNames.join(', ')}):
+\`\`\`tsx
+<ComponentName style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }} />
+\`\`\`` : ''}
+
+- Do **NOT** wrap full-viewport components in fixed-height containers
+- Use Tailwind classes and/or inline styles for all layout and spacing
+- Do **NOT** scan \`node_modules\` or install new packages unless \`tsc\` reveals a missing \`@types/\` package
+
+---
+
+# TYPESCRIPT RULES
+
+- Read the component's \`.tsx\` source to verify exact prop names before using them
+- Use \`string\` color values (hex literals) for WebGL/canvas components — not CSS variables
+- TextAnimation components must have explicit color props set (WCAG AA contrast ≥ 4.5:1)
+- **Icons**: NEVER import named icons from \`lucide-react\` — the installed version may not export the icon you expect and TypeScript will NOT catch it. Use \`react-icons\` subpaths: \`import { FaGithub } from 'react-icons/fa'\`, \`import { VscHome } from 'react-icons/vsc'\`
+- **Interactive component props**: When a component prop expects a React element (e.g. an icon), pass an actual JSX element — not a string like \`"<VscHome />"\`
+${colorGuidanceSection}
+
+---
+
+# WORKFLOW
+
+1. Read this file fully
+2. Read \`src/components/{Category}/{Name}/{Name}.tsx\` for each component — understand its exact props interface
+3. Commit to an aesthetic direction (typography, color, spatial layout) true to the design brief mood
+4. Add Google Fonts \`<link>\` to \`index.html\` for the fonts in \`designTokens.typography\`
+5. Write CSS variables and global font-family rules in \`src/index.css\`
+6. Write \`src/App.tsx\` — complete file, real content, no placeholders
+7. Run: \`npx tsc --noEmit\`
+8. If errors → fix them and re-run \`tsc\`
+9. When \`tsc\` is clean → output **DONE** and stop
+`;
+
     await fs.writeFile(path.join(targetDir, 'CLAUDE.md'), claudeMdContent, 'utf-8');
-
-    // Inject frontend-design skill rules
-    try {
-      const skillPath = path.join(__dirname, '..', '..', '.agents', 'skills', 'frontend-design', 'SKILL.md');
-      const skillContent = await fs.readFile(skillPath, 'utf-8');
-      await fs.writeFile(path.join(targetDir, 'FRONTEND_DESIGN.md'), skillContent, 'utf-8');
-    } catch (e) {
-      log(`[DemoCLI] Warning: Could not inject frontend-design skill: ${e.message}\n`);
-    }
   }
 
   // 6. Create dev.bat for Windows Execution Policy Bypass
@@ -322,34 +414,28 @@ ${colorGuidanceSection}`;
     await fs.writeFile(path.join(vscodeDirPath, 'settings.json'), JSON.stringify(settingsJson, null, 2), 'utf-8');
   }
 
-  // 7. Auto-Launch Claude Code in Native Terminal
+  // 7. Run Claude Code agent (programmatic — no terminal window)
   if (isAiBuild) {
-    notify(`Claude is currently engineering your site. A new terminal window has opened...`);
-    await new Promise((resolve) => {
-      const { exec } = require('child_process');
-      // Instructing it explicitly to output a thinking layer guarantees higher reasoning
-      const claudeCmd = `npx @anthropic-ai/claude-code -p "Read CLAUDE.md and FRONTEND_DESIGN.md. Adhere strictly to the aesthetic rules in FRONTEND_DESIGN.md! Before writing code, output a <thinking> block to deeply analyze typography, spacing, and layout harmony. Execute the required file replacements perfectly. STOP when finished. Do not ask for new tasks."`;
-      if (process.platform === 'win32') {
-        // start /wait blocks execution until the new terminal window is closed
-        exec(`start /wait cmd.exe /c "${claudeCmd} && echo AI Coding Complete! Closing in 5 seconds... && timeout /t 5"`, { cwd: targetDir }, resolve);
-      } else {
-        exec(`osascript -e 'tell app "Terminal" to do script "cd \\"${targetDir}\\" && ${claudeCmd}"'`, { cwd: targetDir }, resolve);
-      }
+    notify(`Claude Code agent is building your site...`);
+    const { generateCode } = require('../../electron/codeGenerator.cjs');
+    await generateCode({
+      projectPath: targetDir,
+      onProgress: notify,
     });
-  } else {
-    // 8. Final Integrity Check (Strict if Auto-Run is enabled)
-    notify(`Verifying project integrity (checking for errors)...`);
-    try {
-      await runCommand('npx tsc --noEmit', [], targetDir, log);
-      notify(`Verification complete: No project errors found! Ready to run.`);
-    } catch (e) {
-      if (options.runWhenDone) {
-        log(`[FATAL INTEGRITY ERROR] TypeScript check failed. Self-repair or manual fix required before auto-running!\n`);
-        throw new Error(`Project Integrity Check Failed. Auto-launch blocked to prevent browser crash. Check terminal for details.`);
-      } else {
-        log(`[INTEGRITY WARNING] Found some issues during verification. Project created, but might need manual path adjustment.\n`);
-        notify(`Generation finished with warnings. Project available at target directory.`);
-      }
+  }
+
+  // 8. Final Integrity Check (always runs after AI build completes, or for single-component builds)
+  notify(`Verifying project integrity (checking for TypeScript errors)...`);
+  try {
+    await runCommand('npx tsc --noEmit', [], targetDir, log);
+    notify(`Verification complete: No TypeScript errors found! Ready to run.`);
+  } catch (e) {
+    if (options.runWhenDone) {
+      log(`[INTEGRITY WARNING] TypeScript check found issues. Auto-launch may show errors in browser.\n`);
+      notify(`Generation finished with warnings. Check terminal output for details.`);
+    } else {
+      log(`[INTEGRITY WARNING] Found some TypeScript issues. Project created — open it and fix any errors.\n`);
+      notify(`Generation finished with warnings. Project available at target directory.`);
     }
   }
 

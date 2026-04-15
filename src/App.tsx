@@ -8,6 +8,7 @@ import SplitText from "./components/TextAnimations/SplitText/SplitText";
 import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, type DesignRules } from "./components/ProjectBuilderPanel";
 import LayoutConceptPicker from "./components/LayoutConceptPicker";
 import type { LayoutConcept } from "./lib/layoutConceptGenerator";
+import PresetManager, { type SavedPreset } from "./components/PresetManager";
 import "./TaskStyles.css";
 
 interface Task {
@@ -346,6 +347,33 @@ function App() {
     }
   };
 
+  const handleSavePreset = async (name: string) => {
+    const now = new Date();
+    const stamp = `${String(now.getDate()).padStart(2,'0')}${String(now.getMonth()+1).padStart(2,'0')}${now.getFullYear()}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+    const id = `${name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}_${stamp}`;
+    await (window as any).reactBitsApi?.savePreset?.({
+      id, name, savedAt: now.toISOString(),
+      projectPrompt, selectedComponentIds: selectedIds,
+      designRules, layoutConcept, projectName, packageManager,
+    });
+  };
+
+  const handleLoadPreset = (preset: SavedPreset) => {
+    setProjectPrompt(preset.projectPrompt);
+    setSelectedIds(preset.selectedComponentIds);
+    setDesignRules(preset.designRules);
+    setLayoutConcept(preset.layoutConcept);
+    setProjectName(preset.projectName ?? '');
+    setPackageManager((preset.packageManager ?? 'npm') as typeof packageManager);
+    setToastType('success');
+    setGenerateStatus(`Loaded preset "${preset.name}"`);
+    setTimeout(() => setGenerateStatus(''), 3000);
+  };
+
+  const handleDeletePreset = async (id: string) => {
+    await (window as any).reactBitsApi?.deletePreset?.(id);
+  };
+
   const handleBuilderGenerate = async () => {
     if (!projectPrompt.trim()) {
       setToastType("warning");
@@ -592,6 +620,13 @@ function App() {
                       )}
                     </div>
 
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 0 6px 0' }}>
+                      <PresetManager
+                        onSave={handleSavePreset}
+                        onLoad={handleLoadPreset}
+                        onDelete={handleDeletePreset}
+                      />
+                    </div>
                     <ProjectBuilderPanel
                       selectedComponents={selectedComponents}
                       categoryLimits={CATEGORY_LIMITS}

@@ -284,7 +284,7 @@ ipcMain.handle("select-directory", async () => {
 });
 
 const { generatePlayground } = require("../DemoCLI/index.cjs");
-const { savePrompt, getHistory, clearHistory, openHistoryFolder } = require("./storage.cjs");
+const { savePrompt, getHistory, clearHistory, openHistoryFolder, savePreset, listPresets, deletePreset } = require("./storage.cjs");
 
 ipcMain.handle("generate-playground", async (event, ...args) => {
   let result;
@@ -344,6 +344,11 @@ ipcMain.handle("storage-clear-history", async () => {
 ipcMain.handle("storage-open-folder", async () => {
   return openHistoryFolder();
 });
+
+// Preset IPC Handlers
+ipcMain.handle("preset-save",   (_event, preset) => savePreset(preset));
+ipcMain.handle("preset-list",   ()               => listPresets());
+ipcMain.handle("preset-delete", (_event, id)     => deletePreset(id));
 
 ipcMain.handle("enhance-prompt", async (event, payload) => {
   return await enhancePrompt(payload);
