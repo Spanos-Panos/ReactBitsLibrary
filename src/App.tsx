@@ -9,6 +9,7 @@ import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, type DesignRules } from "./c
 import LayoutConceptPicker from "./components/LayoutConceptPicker";
 import type { LayoutConcept } from "./lib/layoutConceptGenerator";
 import PresetManager, { type SavedPreset } from "./components/PresetManager";
+import AddComponentModal from "./components/AddComponentModal";
 import "./TaskStyles.css";
 
 interface Task {
@@ -52,7 +53,8 @@ const PILL_NAV_ITEMS = [
 const IRIDESCENCE_COLOR: [number, number, number] = [0, 0.7, 0.7];
 
 function App() {
-  const [items] = useState<ReactBitsItem[]>(manifest);
+  const [items, setItems] = useState<ReactBitsItem[]>(manifest);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [view, setView] = useState<"gallery" | "detail">("gallery");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | "all">("all");
@@ -107,9 +109,9 @@ function App() {
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
 
   const filtered = useMemo(() => {
-    return items.filter((item) => {
-      return activeCategory === "all" || item.category === activeCategory;
-    });
+    return items
+      .filter((item) => activeCategory === "all" || item.category === activeCategory)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [items, activeCategory]);
 
   const displayedItems = useMemo(() => {
@@ -477,22 +479,46 @@ function App() {
 
                   <div className="split-view-container">
                     <div className="component-list-pane" onMouseLeave={() => setHoveredComponentId(null)}>
-                      <div className="search-bar-wrapper">
-                        <span className="search-bar-icon">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                          </svg>
-                        </span>
-                        <input
-                          type="text"
-                          className="search-bar-input"
-                          placeholder="Search..."
-                          value={searchQuery}
-                          onChange={e => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                          <button className="search-bar-clear" onClick={() => setSearchQuery("")}>×</button>
-                        )}
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <div className="search-bar-wrapper" style={{ flex: 1 }}>
+                          <span className="search-bar-icon">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                            </svg>
+                          </span>
+                          <input
+                            type="text"
+                            className="search-bar-input"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                          />
+                          {searchQuery && (
+                            <button className="search-bar-clear" onClick={() => setSearchQuery("")}>×</button>
+                          )}
+                        </div>
+                        <button
+                          title="Add component"
+                          onClick={() => setShowAddModal(true)}
+                          style={{
+                            flexShrink: 0,
+                            width: "30px",
+                            height: "30px",
+                            borderRadius: "8px",
+                            border: "1px solid rgba(255,255,255,0.15)",
+                            background: "rgba(15, 23, 42, 0.6)",
+                            color: "#94a3b8",
+                            fontSize: "18px",
+                            lineHeight: 1,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "color 0.2s, border-color 0.2s",
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#e2e8f0"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.35)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.15)"; }}
+                        >+</button>
                       </div>
                       <div className="items-scroll-area">
                         {displayedItems.map((item) => (
@@ -804,6 +830,20 @@ function App() {
           onClose={() => setShowLayoutPicker(false)}
         />
       )}
+
+      <AddComponentModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdded={(entry) => {
+          setItems(prev => {
+            const without = prev.filter(i => i.id !== entry.id);
+            return [...without, entry as ReactBitsItem];
+          });
+          setToastType("success");
+          setGenerateStatus(`Component "${entry.name}" added to ${entry.category}!`);
+          setTimeout(() => setGenerateStatus(""), 4000);
+        }}
+      />
     </div>
   );
 }

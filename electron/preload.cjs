@@ -96,6 +96,9 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   },
   deletePreset(id) {
     return ipcRenderer.invoke("preset-delete", id);
+  },
+  addComponent(payload) {
+    return ipcRenderer.invoke("add-component", payload);
   }
 });
 
