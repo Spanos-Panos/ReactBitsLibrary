@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import "../types/api";
 import type { DesignRules } from './ProjectBuilderPanel';
 import type { LayoutConcept } from '../lib/layoutConceptGenerator';
 
@@ -20,7 +21,7 @@ interface PresetManagerProps {
   onDelete: (id: string) => Promise<void>;
 }
 
-const api = () => (window as any).reactBitsApi;
+const api = () => window.reactBitsApi;
 
 export default function PresetManager({ onSave, onLoad, onDelete }: PresetManagerProps) {
   const [open, setOpen] = useState(false);
@@ -31,7 +32,7 @@ export default function PresetManager({ onSave, onLoad, onDelete }: PresetManage
   const containerRef = useRef<HTMLDivElement>(null);
 
   const loadPresets = async () => {
-    const list = await api()?.listPresets?.() ?? [];
+    const list = (await api()?.listPresets?.() ?? []) as SavedPreset[];
     setPresets(list);
   };
 

@@ -1,0 +1,5 @@
+/* ── Design tokens ────────────────────────────────────────────────────────────
+   This file is the single source of truth for CSS custom properties.
+   Add --color-*, --spacing-*, --radius-*, --font-* variables here as the
+   codebase migrates away from hardcoded values.
+   ─────────────────────────────────────────────────────────────────────────── */

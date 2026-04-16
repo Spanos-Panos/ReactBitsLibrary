@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactBitsItem } from "../types/index";
 
 type Category = "Components" | "Animations" | "Backgrounds" | "TextAnimations";
 type Language = "ts-css" | "ts-tailwind" | "js-css" | "js-tailwind";
@@ -17,18 +18,10 @@ function buildInstallMarkdown(cli: InstallCommands, manual: InstallCommands): st
   return lines.join("\n");
 }
 
-interface NewEntry {
-  id: string;
-  name: string;
-  category: string;
-  usageMarkdown: string;
-  relativePath: string;
-}
-
 interface AddComponentModalProps {
   open: boolean;
   onClose: () => void;
-  onAdded: (entry: NewEntry) => void;
+  onAdded: (entry: ReactBitsItem) => void;
 }
 
 const CATEGORIES: Category[] = ["Components", "Animations", "Backgrounds", "TextAnimations"];
@@ -121,10 +114,10 @@ export default function AddComponentModal({ open, onClose, onAdded }: AddCompone
 
     setLoading(true);
     try {
-      const result = await (window as any).reactBitsApi?.addComponent({
+      const result = await window.reactBitsApi?.addComponent({
         name: trimmedName, category, language, code, css, install, usage,
       });
-      if (result?.ok) {
+      if (result?.ok && result.entry) {
         onAdded(result.entry);
         resetForm();
         onClose();
