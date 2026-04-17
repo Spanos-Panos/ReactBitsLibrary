@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@400,500,700&display=swap');
 
 /* ── Performance toggle ──────────────────────────────────────────────────── */
 
@@ -383,4 +384,66 @@ body {
 
 .chat-submit:hover {
   background: #2563eb;
+}
+
+/* ── Loading screen ──────────────────────────────────────────────────────── */
+
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #111418;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  opacity: 1;
+  transition: opacity 700ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.loading-screen--out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-screen__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1rem, 3vw, 1.75rem);
+}
+
+.loading-screen__logo {
+  width: clamp(140px, 30vw, 240px);
+  height: clamp(140px, 30vw, 240px);
+  animation: loading-fade-up 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.loading-screen__title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  font-weight: 600;
+  color: #f1f5f9;
+  letter-spacing: -0.03em;
+  margin: 0;
+  line-height: 1;
+  animation: loading-fade-up 900ms 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes loading-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .loading-screen__logo {
+    width: clamp(100px, 45vw, 160px);
+    height: clamp(100px, 45vw, 160px);
+  }
 }

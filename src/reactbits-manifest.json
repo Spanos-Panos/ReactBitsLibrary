@@ -311,7 +311,7 @@
     "id": "Animations/MagicRings",
     "name": "MagicRings",
     "category": "Animations",
-    "usageMarkdown": "import MagicRings from './MagicRings';\n\n<div style={{ width: '600px', height: '400px', position: 'relative' }}>\n  <MagicRings\n    color=\"#A855F7\"\n    colorTwo=\"#6366F1\"\n    ringCount={6}\n    speed={1}\n    attenuation={10}\n    lineThickness={2}\n    baseRadius={0.35}\n    radiusStep={0.1}\n    scaleRate={0.1}\n    opacity={1}\n    blur={0}\n    noiseAmount={0.1}\n    rotation={0}\n    ringGap={1.5}\n    fadeIn={0.7}\n    fadeOut={0.5}\n    followMouse={false}\n    mouseInfluence={0.2}\n    hoverScale={1.2}\n    parallax={0.05}\n    clickBurst={false}\n  />\n</div>",
+    "usageMarkdown": "import MagicRings from './MagicRings';\r\n\r\n<div style={{ width: '600px', height: '400px', position: 'relative' }}>\r\n  <MagicRings\r\n    color=\"#A855F7\"\r\n    colorTwo=\"#6366F1\"\r\n    ringCount={6}\r\n    speed={1}\r\n    attenuation={10}\r\n    lineThickness={2}\r\n    baseRadius={0.35}\r\n    radiusStep={0.1}\r\n    scaleRate={0.1}\r\n    opacity={1}\r\n    blur={0}\r\n    noiseAmount={0.1}\r\n    rotation={0}\r\n    ringGap={1.5}\r\n    fadeIn={0.7}\r\n    fadeOut={0.5}\r\n    followMouse={false}\r\n    mouseInfluence={0.2}\r\n    hoverScale={1.2}\r\n    parallax={0.05}\r\n    clickBurst={false}\r\n  />\r\n</div>",
     "relativePath": "ReactBitsComponents/Animations/MagicRings/UsageMagicRings.md"
   },
   {
@@ -437,7 +437,7 @@
     "id": "Backgrounds/ColorBends",
     "name": "ColorBends",
     "category": "Backgrounds",
-    "usageMarkdown": "import ColorBends from './ColorBends';\n  \n<ColorBends\n  colors={[\"#ff5c7a\", \"#8a5cff\", \"#00ffd1\"]}\n  rotation={90}\n  speed={0.2}\n  scale={1.5}\n  frequency={1}\n  warpStrength={1}\n  mouseInfluence={0}\n  noise={0.15}\n  parallax={0.5}\n  iterations={1}\n  intensity={1.5}\n  bandWidth={6}\n  transparent\n  autoRotate={0}\n  color=\"#A855F7\"\n/>",
+    "usageMarkdown": "import ColorBends from './ColorBends';\r\n  \r\n<ColorBends\r\n  colors={[\"#ff5c7a\", \"#8a5cff\", \"#00ffd1\"]}\r\n  rotation={90}\r\n  speed={0.2}\r\n  scale={1.5}\r\n  frequency={1}\r\n  warpStrength={1}\r\n  mouseInfluence={0}\r\n  noise={0.15}\r\n  parallax={0.5}\r\n  iterations={1}\r\n  intensity={1.5}\r\n  bandWidth={6}\r\n  transparent\r\n  autoRotate={0}\r\n  color=\"#A855F7\"\r\n/>",
     "relativePath": "ReactBitsComponents/Backgrounds/ColorBends/UsageColorBends.md"
   },
   {
@@ -472,7 +472,7 @@
     "id": "Backgrounds/FloatingLines",
     "name": "FloatingLines",
     "category": "Backgrounds",
-    "usageMarkdown": "import FloatingLines from './FloatingLines';\n\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\n  <FloatingLines \n    enabledWaves={[\"top\",\"middle\",\"bottom\"]}\n    // Array - specify line count per wave; Number - same count for all waves\n    lineCount={8}\n    // Array - specify line distance per wave; Number - same distance for all waves\n    lineDistance={8}\n    bendRadius={8}\n    bendStrength={-2}\n    interactive={false}\n    parallax={true}\n    animationSpeed={0.4}\n    gradientStart=\"#e945f5\"\n    gradientMid=\"#6f6f6f\"\n    gradientEnd=\"#6a6a6a\"\n/>\n</div>",
+    "usageMarkdown": "import FloatingLines from './FloatingLines';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <FloatingLines \r\n    enabledWaves={[\"top\",\"middle\",\"bottom\"]}\r\n    // Array - specify line count per wave; Number - same count for all waves\r\n    lineCount={8}\r\n    // Array - specify line distance per wave; Number - same distance for all waves\r\n    lineDistance={8}\r\n    bendRadius={8}\r\n    bendStrength={-2}\r\n    interactive={false}\r\n    parallax={true}\r\n    animationSpeed={0.4}\r\n    gradientStart=\"#e945f5\"\r\n    gradientMid=\"#6f6f6f\"\r\n    gradientEnd=\"#6a6a6a\"\r\n/>\r\n</div>",
     "relativePath": "ReactBitsComponents/Backgrounds/FloatingLines/UsageFloatingLines.md"
   },
   {

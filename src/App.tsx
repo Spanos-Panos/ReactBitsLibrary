@@ -6,7 +6,6 @@ import { useTaskManager }       from "./hooks/useTaskManager";
 import { useGenerationWizard }  from "./hooks/useGenerationWizard";
 import Iridescence from "./components/Backgrounds/Iridescence/Iridescence";
 import GradientText from "./components/TextAnimations/GradientText/GradientText";
-import FlowingMenu from "./components/Components/FlowingMenu/FlowingMenu";
 import PillNav from "./components/Components/PillNav/PillNav";
 import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, type DesignRules } from "./components/ProjectBuilderPanel";
 import LayoutConceptPicker from "./components/LayoutConceptPicker";
@@ -18,13 +17,7 @@ import ComponentInspector from "./views/ComponentInspector";
 import GenerateWizard from "./views/GenerateWizard";
 import TaskOverlay from "./views/TaskOverlay";
 import TaskBar from "./views/TaskBar";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  Components: "Components",
-  Animations: "Animations",
-  Backgrounds: "Backgrounds",
-  TextAnimations: "Text animations",
-};
+import LoadingScreen from "./views/LoadingScreen";
 
 const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,
@@ -32,7 +25,6 @@ const CATEGORY_LIMITS: Record<string, number> = {
 
 const GRADIENT_COLORS = ["#40ffaa", "#4079ff", "#40ffaa", "#4079ff", "#40ffaa"];
 const PILL_NAV_ITEMS = [
-  { id: 'home',           label: 'Home' },
   { id: 'Components',     label: 'Components' },
   { id: 'Animations',     label: 'Animations' },
   { id: 'TextAnimations', label: 'Text Animations' },
@@ -72,7 +64,7 @@ function App() {
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const [selectedIds,          setSelectedIds]          = useState<string[]>([]);
-  const [activeCategory,       setActiveCategory]       = useState<string | "all">("all");
+  const [activeCategory,       setActiveCategory]       = useState<string>("Components");
   const [hoveredComponentId,   setHoveredComponentId]   = useState<string | null>(null);
   const [searchQuery,          setSearchQuery]          = useState("");
   const [showAddModal,         setShowAddModal]         = useState(false);
@@ -89,6 +81,8 @@ function App() {
   const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<any>(null);
   const [generateStatus,       setGenerateStatus]       = useState("");
   const [toastType,            setToastType]            = useState<"info" | "warning" | "success">("info");
+
+  const [appReady,             setAppReady]             = useState(false);
 
   // ── Derived state ─────────────────────────────────────────────────────────
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
@@ -260,14 +254,16 @@ function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="app-root">
+    <>
+    {!appReady && <LoadingScreen onDone={() => setAppReady(true)} />}
+    <div className="app-root" style={appReady ? undefined : { visibility: 'hidden' }}>
       <div className="background-container">
         <Iridescence color={IRIDESCENCE_COLOR} mouseReact={false} amplitude={0.1} speed={0.3} />
       </div>
 
       <div className="scene-container">
         <section className="scene">
-          <main className={`gallery-container ${activeCategory === "all" ? "no-scroll" : ""}`}>
+          <main className="gallery-container">
             <div className="filter-bar">
               <GradientText colors={GRADIENT_COLORS} animationSpeed={10} showBorder={false} className="modern-title">
                 ReactBits Explorer
@@ -275,20 +271,15 @@ function App() {
             </div>
 
             <div className="comp-showcase-container">
-              {activeCategory === "all" ? (
-                <FlowingMenu
-                  items={Object.keys(CATEGORY_LABELS).map(cat => ({ text: CATEGORY_LABELS[cat], onClick: () => setActiveCategory(cat) }))}
-                />
-              ) : (
-                <div className="sub-menu-container">
-                  <div className="back-nav-container" style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
-                    <PillNav
-                      items={PILL_NAV_ITEMS}
-                      activeId={activeCategory}
-                      onItemClick={(id: string) => id === 'home' ? setActiveCategory('all') : setActiveCategory(id)}
-                      baseColor="#94a3b8" pillColor="rgba(15, 23, 42, 0.6)" hoveredPillTextColor="#ffffff" pillTextColor="#e2e8f0"
-                    />
-                  </div>
+              <div className="sub-menu-container">
+                <div className="back-nav-container" style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
+                  <PillNav
+                    items={PILL_NAV_ITEMS}
+                    activeId={activeCategory}
+                    onItemClick={(id: string) => setActiveCategory(id)}
+                    baseColor="#94a3b8" pillColor="rgba(15, 23, 42, 0.6)" hoveredPillTextColor="#ffffff" pillTextColor="#e2e8f0"
+                  />
+                </div>
 
                   <div className="split-view-container">
                     <ComponentListPane
@@ -345,8 +336,7 @@ function App() {
                       }}
                     />
                   </div>
-                </div>
-              )}
+              </div>
             </div>
           </main>
         </section>
@@ -408,6 +398,7 @@ function App() {
         }}
       />
     </div>
+    </>
   );
 }
 
