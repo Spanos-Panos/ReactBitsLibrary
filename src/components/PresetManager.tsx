@@ -16,6 +16,8 @@ export interface SavedPreset {
 }
 
 interface PresetManagerProps {
+  isOpen: boolean;
+  onToggle: () => void;
   onSave: (name: string) => Promise<void>;
   onLoad: (preset: SavedPreset) => void;
   onDelete: (id: string) => Promise<void>;
@@ -23,8 +25,7 @@ interface PresetManagerProps {
 
 const api = () => window.reactBitsApi;
 
-export default function PresetManager({ onSave, onLoad, onDelete }: PresetManagerProps) {
-  const [open, setOpen] = useState(false);
+export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDelete }: PresetManagerProps) {
   const [presets, setPresets] = useState<SavedPreset[]>([]);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -37,19 +38,19 @@ export default function PresetManager({ onSave, onLoad, onDelete }: PresetManage
   };
 
   useEffect(() => {
-    if (open) loadPresets();
-  }, [open]);
+    if (isOpen) loadPresets();
+  }, [isOpen]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        onToggle();
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [isOpen, onToggle]);
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -66,7 +67,7 @@ export default function PresetManager({ onSave, onLoad, onDelete }: PresetManage
   const handleLoad = (preset: SavedPreset) => {
     onLoad(preset);
     setLoadedId(preset.id);
-    setOpen(false);
+    onToggle();
     setTimeout(() => setLoadedId(null), 2000);
   };
 
@@ -82,63 +83,56 @@ export default function PresetManager({ onSave, onLoad, onDelete }: PresetManage
   };
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      {/* Trigger — styled as a nav-action-btn by the parent */}
       <button
-        onClick={() => setOpen(v => !v)}
+        className={`nav-action-btn${isOpen ? ' nav-action-btn--active' : ''}`}
+        onClick={onToggle}
         title="Save or load generator presets"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px 12px',
-          background: open ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.06)',
-          border: `1px solid ${open ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.1)'}`,
-          borderRadius: '8px',
-          color: open ? '#a5b4fc' : '#94a3b8',
-          fontSize: '12px',
-          fontWeight: 500,
-          cursor: 'pointer',
-          transition: 'all 0.15s',
-          whiteSpace: 'nowrap',
-        }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {/* bookmark icon */}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
         </svg>
-        Presets
-        {presets.length > 0 && !open && (
+        {presets.length > 0 && !isOpen && (
           <span style={{
-            background: 'rgba(99,102,241,0.35)',
-            color: '#a5b4fc',
-            borderRadius: '10px',
-            padding: '1px 6px',
-            fontSize: '10px',
-            fontWeight: 600,
+            position: 'absolute',
+            top: '7px',
+            right: '7px',
+            background: '#6366f1',
+            color: '#fff',
+            borderRadius: '9999px',
+            fontSize: '9px',
+            fontWeight: 700,
+            lineHeight: 1,
+            padding: '2px 4px',
+            pointerEvents: 'none',
           }}>{presets.length}</span>
         )}
       </button>
 
-      {open && (
+      {isOpen && (
         <div style={{
           position: 'absolute',
-          bottom: 'calc(100% + 8px)',
-          right: 0,
+          top: 'calc(100% + 8px)',
+          left: 0,
           width: '300px',
-          background: 'rgba(10, 12, 20, 0.97)',
+          background: 'rgba(9, 12, 20, 0.97)',
           border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.7)',
           overflow: 'hidden',
-          zIndex: 1000,
+          zIndex: 200,
+          backdropFilter: 'blur(24px)',
         }}>
           {/* Header */}
           <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span style={{ color: '#e2e8f0', fontSize: '12px', fontWeight: 600, letterSpacing: '0.03em' }}>
+            <span style={{ color: '#e2e8f0', fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em', fontFamily: 'var(--font-display)' }}>
               PRESETS
             </span>
           </div>
 
-          {/* Save section */}
+          {/* Save */}
           <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <div style={{ display: 'flex', gap: '6px' }}>
               <input
@@ -148,14 +142,12 @@ export default function PresetManager({ onSave, onLoad, onDelete }: PresetManage
                 onKeyDown={e => e.key === 'Enter' && handleSave()}
                 placeholder="Preset name..."
                 style={{
-                  flex: 1,
-                  padding: '6px 10px',
+                  flex: 1, padding: '6px 10px',
                   background: 'rgba(255,255,255,0.05)',
                   border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: '7px',
-                  color: '#e2e8f0',
-                  fontSize: '12px',
-                  outline: 'none',
+                  color: '#e2e8f0', fontSize: '12px', outline: 'none',
+                  fontFamily: 'var(--font-body)',
                 }}
               />
               <button
@@ -167,11 +159,9 @@ export default function PresetManager({ onSave, onLoad, onDelete }: PresetManage
                   border: '1px solid rgba(99,102,241,0.4)',
                   borderRadius: '7px',
                   color: name.trim() ? '#e0e7ff' : '#6366f1',
-                  fontSize: '12px',
-                  fontWeight: 500,
+                  fontSize: '12px', fontWeight: 500,
                   cursor: name.trim() ? 'pointer' : 'default',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s',
+                  whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}
               >
                 {saving ? '...' : 'Save'}
@@ -179,66 +169,39 @@ export default function PresetManager({ onSave, onLoad, onDelete }: PresetManage
             </div>
           </div>
 
-          {/* Presets list */}
+          {/* List */}
           <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
             {presets.length === 0 ? (
               <div style={{ padding: '20px 14px', color: '#475569', fontSize: '12px', textAlign: 'center' }}>
                 No saved presets yet
               </div>
-            ) : (
-              presets.map(preset => (
-                <div
-                  key={preset.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '9px 14px',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)',
-                    background: loadedId === preset.id ? 'rgba(99,102,241,0.1)' : 'transparent',
-                    transition: 'background 0.2s',
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#e2e8f0', fontSize: '12px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {preset.name}
-                    </div>
-                    <div style={{ color: '#475569', fontSize: '10px', marginTop: '2px' }}>
-                      {formatDate(preset.savedAt)} · {preset.selectedComponentIds.length} component{preset.selectedComponentIds.length !== 1 ? 's' : ''}
-                    </div>
+            ) : presets.map(preset => (
+              <div
+                key={preset.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '9px 14px',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  background: loadedId === preset.id ? 'rgba(99,102,241,0.1)' : 'transparent',
+                  transition: 'background 0.2s',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#e2e8f0', fontSize: '12px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {preset.name}
                   </div>
-                  <button
-                    onClick={() => handleLoad(preset)}
-                    style={{
-                      padding: '4px 8px',
-                      background: 'rgba(99,102,241,0.2)',
-                      border: '1px solid rgba(99,102,241,0.3)',
-                      borderRadius: '5px',
-                      color: '#a5b4fc',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    Load
-                  </button>
-                  <button
-                    onClick={e => handleDelete(preset.id, e)}
-                    style={{
-                      padding: '4px 7px',
-                      background: 'rgba(239,68,68,0.1)',
-                      border: '1px solid rgba(239,68,68,0.2)',
-                      borderRadius: '5px',
-                      color: '#f87171',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ×
-                  </button>
+                  <div style={{ color: '#475569', fontSize: '10px', marginTop: '2px' }}>
+                    {formatDate(preset.savedAt)} · {preset.selectedComponentIds.length} component{preset.selectedComponentIds.length !== 1 ? 's' : ''}
+                  </div>
                 </div>
-              ))
-            )}
+                <button onClick={() => handleLoad(preset)} style={{ padding: '4px 8px', background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '5px', color: '#a5b4fc', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Load
+                </button>
+                <button onClick={e => handleDelete(preset.id, e)} style={{ padding: '4px 7px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '5px', color: '#f87171', fontSize: '11px', cursor: 'pointer' }}>
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -4,9 +4,8 @@ import "./types/api";
 import { useComponentLoader }   from "./hooks/useComponentLoader";
 import { useTaskManager }       from "./hooks/useTaskManager";
 import { useGenerationWizard }  from "./hooks/useGenerationWizard";
-import Iridescence from "./components/Backgrounds/Iridescence/Iridescence";
-import GradientText from "./components/TextAnimations/GradientText/GradientText";
-import PillNav from "./components/Components/PillNav/PillNav";
+import PlasmaWave from "./components/Backgrounds/PlasmaWave/PlasmaWave";
+import CardNav from "./components/Components/CardNav/CardNav";
 import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, type DesignRules } from "./components/ProjectBuilderPanel";
 import LayoutConceptPicker from "./components/LayoutConceptPicker";
 import type { LayoutConcept } from "./lib/layoutConceptGenerator";
@@ -14,6 +13,7 @@ import PresetManager, { type SavedPreset } from "./components/PresetManager";
 import AddComponentModal from "./components/AddComponentModal";
 import ComponentListPane from "./views/ComponentListPane";
 import ComponentInspector from "./views/ComponentInspector";
+import GenerationQueue from "./components/GenerationQueue/GenerationQueue";
 import GenerateWizard from "./views/GenerateWizard";
 import TaskOverlay from "./views/TaskOverlay";
 import TaskBar from "./views/TaskBar";
@@ -23,14 +23,18 @@ const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,
 };
 
-const GRADIENT_COLORS = ["#40ffaa", "#4079ff", "#40ffaa", "#4079ff", "#40ffaa"];
 const PILL_NAV_ITEMS = [
   { id: 'Components',     label: 'Components' },
   { id: 'Animations',     label: 'Animations' },
   { id: 'TextAnimations', label: 'Text Animations' },
   { id: 'Backgrounds',    label: 'Backgrounds' },
 ];
-const IRIDESCENCE_COLOR: [number, number, number] = [0, 0.7, 0.7];
+
+const CARD_NAV_ITEMS = [
+  { label: 'Categories', bgColor: 'rgba(255,255,255,0.04)', textColor: '#f1f5f9' },
+  { label: 'Favorites',  bgColor: 'rgba(255,255,255,0.03)', textColor: '#64748b' },
+  { label: 'Recent',     bgColor: 'rgba(255,255,255,0.03)', textColor: '#64748b' },
+];
 
 function App() {
   // ── Hooks ─────────────────────────────────────────────────────────────────
@@ -69,9 +73,6 @@ function App() {
   const [searchQuery,          setSearchQuery]          = useState("");
   const [showAddModal,         setShowAddModal]         = useState(false);
 
-  const [primaryTab,           setPrimaryTab]           = useState<'code' | 'docs' | 'install'>('code');
-  const [activeCodeFileIndex,  setActiveCodeFileIndex]  = useState(0);
-  const [activeDocTab,         setActiveDocTab]         = useState<'usage' | 'install'>('usage');
 
   const [projectPrompt,        setProjectPrompt]        = useState("");
   const [designRules,          setDesignRules]          = useState<DesignRules>(DEFAULT_DESIGN_RULES);
@@ -83,6 +84,7 @@ function App() {
   const [toastType,            setToastType]            = useState<"info" | "warning" | "success">("info");
 
   const [appReady,             setAppReady]             = useState(false);
+  const [presetsOpen,          setPresetsOpen]          = useState(false);
 
   // ── Derived state ─────────────────────────────────────────────────────────
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
@@ -108,9 +110,6 @@ function App() {
   const handleSelectComponent = (id: string) => {
     setSelectedId(id);
     setGenerateStatus("");
-    setPrimaryTab('code');
-    setActiveCodeFileIndex(0);
-    setActiveDocTab('usage');
     setInstallTab('cli');
   };
 
@@ -135,6 +134,7 @@ function App() {
       [taskId]: {
         id: taskId,
         name: isMasterBuild ? (lastEnhancedPrompt.projectMeta?.title || "AI Project") : selected!.name,
+        type: isMasterBuild ? 'web' : 'component',
         projectName, progress: "Initializing project generation...",
         logs: ["Initializing Build Environment...\n"], status: 'running',
       },
@@ -258,87 +258,103 @@ function App() {
     {!appReady && <LoadingScreen onDone={() => setAppReady(true)} />}
     <div className="app-root" style={appReady ? undefined : { visibility: 'hidden' }}>
       <div className="background-container">
-        <Iridescence color={IRIDESCENCE_COLOR} mouseReact={false} amplitude={0.1} speed={0.3} />
+        <PlasmaWave colors={['#6366f1', '#06B6D4']} speed1={0.04} speed2={0.04} bend1={0.8} bend2={0.4} />
       </div>
 
       <div className="scene-container">
-        <section className="scene">
-          <main className="gallery-container">
-            <div className="filter-bar">
-              <GradientText colors={GRADIENT_COLORS} animationSpeed={10} showBorder={false} className="modern-title">
-                ReactBits Explorer
-              </GradientText>
-            </div>
+        <div className="top-bar">
+          <div className="top-bar-actions">
+            {/* Add component */}
+            <button
+              className="nav-action-btn"
+              title="Add component"
+              onClick={() => setShowAddModal(true)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
 
+            {/* Presets */}
+            <PresetManager
+              isOpen={presetsOpen}
+              onToggle={() => setPresetsOpen(v => !v)}
+              onSave={handleSavePreset}
+              onLoad={handleLoadPreset}
+              onDelete={handleDeletePreset}
+            />
+          </div>
+
+          <CardNav
+            logo="/ReactIcon.svg"
+            logoAlt="BitForge"
+            items={CARD_NAV_ITEMS}
+            categories={PILL_NAV_ITEMS}
+            activeCategory={activeCategory}
+            onCategoryChange={setActiveCategory}
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        </div>
+
+        <section className="scene">
+          <aside className="component-sidebar">
+            <ComponentListPane
+              items={items}
+              selectedId={selectedId}
+              selectedIds={selectedIds}
+              hoveredComponentId={hoveredComponentId}
+              searchQuery={searchQuery}
+              activeCategory={activeCategory}
+              onSelect={handleSelectComponent}
+              onToggleSelect={toggleSelection}
+              onHover={setHoveredComponentId}
+            />
+          </aside>
+
+          <aside className="generation-sidebar">
+            <GenerationQueue
+              tasks={tasks}
+              onKill={handleCloseTask}
+              onSelect={setActiveTaskId}
+            />
+          </aside>
+
+          <main className="gallery-container">
             <div className="comp-showcase-container">
               <div className="sub-menu-container">
-                <div className="back-nav-container" style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
-                  <PillNav
-                    items={PILL_NAV_ITEMS}
-                    activeId={activeCategory}
-                    onItemClick={(id: string) => setActiveCategory(id)}
-                    baseColor="#94a3b8" pillColor="rgba(15, 23, 42, 0.6)" hoveredPillTextColor="#ffffff" pillTextColor="#e2e8f0"
+                <div className="split-view-container">
+                  <ComponentInspector
+                    selected={selected}
+                    componentFiles={componentFiles}
+                    parsedInstallData={parsedInstallData}
+                    rawInstallMarkdown={rawInstallMarkdown}
+                    onGenerate={handleGenerate}
                   />
                 </div>
-
-                  <div className="split-view-container">
-                    <ComponentListPane
-                      displayedItems={displayedItems}
-                      selectedId={selectedId}
-                      selectedIds={selectedIds}
-                      hoveredComponentId={hoveredComponentId}
-                      searchQuery={searchQuery}
-                      onSearchChange={setSearchQuery}
-                      onSelect={handleSelectComponent}
-                      onToggleSelect={toggleSelection}
-                      onHover={setHoveredComponentId}
-                      onAddClick={() => setShowAddModal(true)}
-                    />
-
-                    <ComponentInspector
-                      selected={selected}
-                      componentFiles={componentFiles}
-                      primaryTab={primaryTab}
-                      onPrimaryTabChange={setPrimaryTab}
-                      activeCodeFileIndex={activeCodeFileIndex}
-                      onCodeFileChange={setActiveCodeFileIndex}
-                      activeDocTab={activeDocTab}
-                      onDocTabChange={setActiveDocTab}
-                      installTab={installTab}
-                      onInstallTabChange={setInstallTab}
-                      packageManager={packageManager}
-                      onPackageManagerChange={setPackageManager}
-                      parsedInstallData={parsedInstallData}
-                      rawInstallMarkdown={rawInstallMarkdown}
-                      hoveredComponentId={hoveredComponentId}
-                      filteredItems={filtered}
-                      onGenerate={handleGenerate}
-                    />
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 0 6px 0' }}>
-                      <PresetManager onSave={handleSavePreset} onLoad={handleLoadPreset} onDelete={handleDeletePreset} />
-                    </div>
-                    <ProjectBuilderPanel
-                      selectedComponents={selectedComponents}
-                      categoryLimits={CATEGORY_LIMITS}
-                      prompt={projectPrompt}
-                      onPromptChange={setProjectPrompt}
-                      onGenerate={handleBuilderGenerate}
-                      designRules={designRules}
-                      onDesignRulesChange={setDesignRules}
-                      layoutConcept={layoutConcept}
-                      onOpenLayoutPicker={() => setShowLayoutPicker(true)}
-                      onRestoreFromHistory={(p: string, sels: any[]) => {
-                        setProjectPrompt(p);
-                        setSelectedIds(sels.map((s: any) => s.id));
-                        setGenerateStatus("Restored project from history!");
-                        setTimeout(() => setGenerateStatus(""), 3000);
-                      }}
-                    />
-                  </div>
               </div>
             </div>
           </main>
+
+          <div className="bottom-panel">
+            <ProjectBuilderPanel
+              selectedComponents={selectedComponents}
+              categoryLimits={CATEGORY_LIMITS}
+              prompt={projectPrompt}
+              onPromptChange={setProjectPrompt}
+              onGenerate={handleBuilderGenerate}
+              designRules={designRules}
+              onDesignRulesChange={setDesignRules}
+              layoutConcept={layoutConcept}
+              onOpenLayoutPicker={() => setShowLayoutPicker(true)}
+              onRestoreFromHistory={(p: string, sels: any[]) => {
+                setProjectPrompt(p);
+                setSelectedIds(sels.map((s: any) => s.id));
+                setGenerateStatus("Restored project from history!");
+                setTimeout(() => setGenerateStatus(""), 3000);
+              }}
+            />
+          </div>
         </section>
       </div>
 

@@ -1,0 +1,196 @@
+/* ── Container ───────────────────────────────────────────────────────────── */
+
+.al-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Scroll area ─────────────────────────────────────────────────────────── */
+
+.al-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 0.5rem 1rem;
+  scrollbar-width: none;
+}
+
+.al-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Animated item wrapper ───────────────────────────────────────────────── */
+
+.al-item-wrap {
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.al-item-wrap--visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── Section ─────────────────────────────────────────────────────────────── */
+
+.al-section {
+  margin-bottom: 0.125rem;
+}
+
+.al-section + .al-section {
+  margin-top: 0.75rem;
+}
+
+.al-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.6rem 0.35rem 0.85rem;
+  font-family: var(--font-display, 'Clash Display', sans-serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(241, 245, 249, 0.72);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(9, 12, 20, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-left: 2px solid rgba(99, 102, 241, 0.55);
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 0.25rem;
+}
+
+.al-section-count {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.6rem;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: #a5b4fc;
+  letter-spacing: 0;
+}
+
+/* ── Item ────────────────────────────────────────────────────────────────── */
+
+.al-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.6rem 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  margin-bottom: 2px;
+  gap: 0.5rem;
+}
+
+.al-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.al-item--active {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.al-item--active .al-item-name {
+  color: #a5b4fc;
+}
+
+.al-item-name {
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 500;
+  color: rgba(241, 245, 249, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  transition: color 0.15s ease;
+}
+
+.al-item:hover .al-item-name {
+  color: #f1f5f9;
+}
+
+.al-item-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Checkbox ────────────────────────────────────────────────────────────── */
+
+.al-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+.al-checkbox:hover {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.al-checkbox--checked {
+  background: #6366f1;
+  border-color: #6366f1;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.35);
+}
+
+.al-checkbox svg {
+  width: 8px;
+  height: 7px;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.al-empty {
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: var(--text-xs, 0.75rem);
+  color: rgba(241, 245, 249, 0.2);
+  text-align: center;
+  padding: 0.5rem 0;
+  margin: 0;
+}
+
+/* ── Fade gradients ──────────────────────────────────────────────────────── */
+
+.al-gradient {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 48px;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.al-gradient--top {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(9, 12, 20, 0.9), transparent);
+}
+
+.al-gradient--bottom {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(9, 12, 20, 0.9), transparent);
+}

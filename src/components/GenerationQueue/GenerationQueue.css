@@ -1,0 +1,223 @@
+/* ── Container ───────────────────────────────────────────────────────────── */
+
+.gq-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.gq-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.85rem 0.4rem;
+  flex-shrink: 0;
+}
+
+.gq-title {
+  font-family: var(--font-display, 'Clash Display', sans-serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(241, 245, 249, 0.5);
+}
+
+.gq-count {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.6rem;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: #a5b4fc;
+}
+
+/* ── Scroll area ─────────────────────────────────────────────────────────── */
+
+.gq-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 0.5rem 0.75rem;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gq-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.gq-empty {
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: 0.75rem;
+  color: rgba(241, 245, 249, 0.2);
+  text-align: center;
+  padding: 0.75rem 0;
+  margin: 0;
+}
+
+/* ── Task card ───────────────────────────────────────────────────────────── */
+
+.gq-card {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gq-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.gq-card--running {
+  border-color: rgba(234, 179, 8, 0.2);
+  background: rgba(234, 179, 8, 0.04);
+}
+
+.gq-card--success {
+  border-color: rgba(34, 197, 94, 0.2);
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.gq-card--error {
+  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+/* ── Card rows ───────────────────────────────────────────────────────────── */
+
+.gq-card-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gq-card-row--meta {
+  gap: 4px;
+}
+
+/* ── Status dot ──────────────────────────────────────────────────────────── */
+
+.gq-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.gq-dot--running {
+  background: #eab308;
+  box-shadow: 0 0 6px rgba(234, 179, 8, 0.6);
+  animation: gq-pulse 1.4s ease-in-out infinite;
+}
+
+.gq-dot--success {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+
+.gq-dot--error {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+}
+
+@keyframes gq-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Name ────────────────────────────────────────────────────────────────── */
+
+.gq-name {
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(241, 245, 249, 0.85);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Type badge ──────────────────────────────────────────────────────────── */
+
+.gq-badge {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.gq-badge--component {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+}
+
+.gq-badge--web {
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  color: #67e8f9;
+}
+
+/* ── Kill button ─────────────────────────────────────────────────────────── */
+
+.gq-kill {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: rgba(239, 68, 68, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+
+.gq-kill:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #f87171;
+}
+
+/* ── Status label + progress ─────────────────────────────────────────────── */
+
+.gq-status-label {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.58rem;
+  color: rgba(241, 245, 249, 0.3);
+  flex-shrink: 0;
+}
+
+.gq-progress {
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: 0.68rem;
+  color: rgba(241, 245, 249, 0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}

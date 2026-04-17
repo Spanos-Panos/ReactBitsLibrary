@@ -350,6 +350,22 @@ ipcMain.handle("preset-save",   (_event, preset) => savePreset(preset));
 ipcMain.handle("preset-list",   ()               => listPresets());
 ipcMain.handle("preset-delete", (_event, id)     => deletePreset(id));
 
+// Design inspiration image picker
+ipcMain.handle("design-pick-images", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }],
+  });
+  if (canceled || !filePaths.length) return [];
+  const fs = require('fs');
+  return filePaths.map(p => {
+    const data = fs.readFileSync(p);
+    const ext = path.extname(p).slice(1).replace('jpg', 'jpeg');
+    return { name: path.basename(p), path: p, base64: `data:image/${ext};base64,${data.toString('base64')}` };
+  });
+});
+
 ipcMain.handle("enhance-prompt", async (event, payload) => {
   return await enhancePrompt(payload);
 });

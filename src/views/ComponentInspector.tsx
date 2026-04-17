@@ -1,166 +1,221 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ReactBitsItem, ParsedInstallData } from "../types/index";
 
-type PrimaryTab = 'code' | 'docs' | 'install';
-type DocTab = 'usage' | 'install';
-type InstallTab = 'cli' | 'manual';
-type PackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun';
+type Mode    = 'eye' | 'code';
+type SubMode = 'install' | 'usage' | 'code';
 
-interface ComponentInspectorProps {
-  selected: ReactBitsItem | null;
-  componentFiles: { name: string; content: string }[];
-  primaryTab: PrimaryTab;
-  onPrimaryTabChange: (tab: PrimaryTab) => void;
-  activeCodeFileIndex: number;
-  onCodeFileChange: (index: number) => void;
-  activeDocTab: DocTab;
-  onDocTabChange: (tab: DocTab) => void;
-  installTab: InstallTab;
-  onInstallTabChange: (tab: InstallTab) => void;
-  packageManager: PackageManager;
-  onPackageManagerChange: (pm: PackageManager) => void;
-  parsedInstallData: ParsedInstallData;
+interface Props {
+  selected:           ReactBitsItem | null;
+  componentFiles:     { name: string; content: string }[];
+  parsedInstallData:  ParsedInstallData;
   rawInstallMarkdown: string;
-  hoveredComponentId: string | null;
-  filteredItems: ReactBitsItem[];
-  onGenerate: () => void;
+  onGenerate:         () => void;
 }
 
-const PM_LIST: PackageManager[] = ["pnpm", "npm", "yarn", "bun"];
+// ── Inline SVG icons ──────────────────────────────────────────────────────────
+
+const EyeIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const CodeIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="16 18 22 12 16 6"/>
+    <polyline points="8 6 2 12 8 18"/>
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+
+const BookIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+  </svg>
+);
+
+const FileCodeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="16 18 22 12 16 6"/>
+    <polyline points="8 6 2 12 8 18"/>
+  </svg>
+);
+
+const CopyIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+);
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ComponentInspector({
   selected,
   componentFiles,
-  primaryTab,
-  onPrimaryTabChange,
-  activeCodeFileIndex,
-  onCodeFileChange,
-  activeDocTab,
-  onDocTabChange,
-  installTab,
-  onInstallTabChange,
-  packageManager,
-  onPackageManagerChange,
   parsedInstallData,
   rawInstallMarkdown,
-  hoveredComponentId,
-  filteredItems,
   onGenerate,
-}: ComponentInspectorProps) {
-  const [isCopied, setIsCopied] = useState(false);
+}: Props) {
+  const [mode,       setMode]       = useState<Mode>('eye');
+  const [subMode,    setSubMode]    = useState<SubMode>('code');
+  const [activeFile, setActiveFile] = useState(0);
+  const [isCopied,   setIsCopied]   = useState(false);
+  const [subVisible, setSubVisible] = useState(false);
+
+  // reset when selection changes
+  useEffect(() => {
+    setMode('eye');
+    setSubMode('code');
+    setActiveFile(0);
+    setSubVisible(false);
+  }, [selected?.id]);
+
+  // animate sub-bar in after a tick so CSS transition fires
+  useEffect(() => {
+    if (mode === 'code') {
+      const t = setTimeout(() => setSubVisible(true), 16);
+      return () => clearTimeout(t);
+    } else {
+      setSubVisible(false);
+    }
+  }, [mode]);
 
   const handleCopy = () => {
-    let content = "";
-    if (primaryTab === 'code') content = componentFiles[activeCodeFileIndex]?.content || "";
-    else if (primaryTab === 'docs') content = activeDocTab === 'usage' ? (selected?.usageMarkdown || "") : rawInstallMarkdown;
-    else content = installTab === 'manual'
-      ? (parsedInstallData.manual[packageManager] || "")
-      : (parsedInstallData.cli[packageManager] || "");
-    navigator.clipboard.writeText(content);
+    let text = '';
+    if (subMode === 'install') text = rawInstallMarkdown || parsedInstallData.cli['npm'] || '';
+    else if (subMode === 'usage') text = selected?.usageMarkdown || '';
+    else text = componentFiles[activeFile]?.content || '';
+    navigator.clipboard.writeText(text);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const getContent = () => {
+    if (subMode === 'install') return rawInstallMarkdown || `# Install\n\nnpx react-bits add ${selected?.id}`;
+    if (subMode === 'usage')   return selected?.usageMarkdown || 'No usage docs found.';
+    return componentFiles[activeFile]?.content || 'No source code loaded.';
+  };
+
+  // ── Empty state ─────────────────────────────────────────────────────────────
   if (!selected) {
     return (
-      <div className="component-preview-pane">
-        <div className="preview-placeholder">
-          <header className="preview-header">
-            <h3>
-              {hoveredComponentId
-                ? (filteredItems.find(i => i.id === hoveredComponentId)?.name || 'Preview')
-                : 'Select a component'}
-            </h3>
-            <div className="mock-tabs" style={{ opacity: hoveredComponentId ? 1 : 0.3, transition: 'opacity 0.3s' }}>
-              <span className="mock-tab active">React</span>
-              <span className="mock-tab">CSS</span>
-              <span className="mock-tab">Tailwind</span>
-            </div>
-          </header>
-          <div className="preview-box">
-            <span className="preview-text">
-              {hoveredComponentId ? 'Click to view code and information' : 'Hover over a component to view information'}
-            </span>
-          </div>
-        </div>
+      <div className="ci-root ci-root--empty">
+        <img src="/ReactIcon.svg" alt="BitForge" className="ci-empty-logo" />
+        <span className="ci-empty-label">BitForge</span>
+        <span className="ci-empty-hint">Select a component to inspect</span>
       </div>
     );
   }
 
+  // ── Active state ────────────────────────────────────────────────────────────
   return (
-    <div className="component-preview-pane">
-      <div className="preview-content-active">
-        <header className="preview-header">
-          <div className="header-title-column">
-            <h3>{selected.name}</h3>
-            <span className="category-comment">// {selected.category}</span>
-          </div>
-          <div className="inspector-tabs primary-level">
-            <div className={`inspector-tab ${primaryTab === 'code' ? 'active' : ''}`} onClick={() => onPrimaryTabChange('code')}>Code</div>
-            <div className={`inspector-tab ${primaryTab === 'docs' ? 'active' : ''}`} onClick={() => onPrimaryTabChange('docs')}>Docs</div>
-            <div className={`inspector-tab ${primaryTab === 'install' ? 'active' : ''}`} onClick={() => onPrimaryTabChange('install')}>Install</div>
-          </div>
-        </header>
+    <div className="ci-root">
 
-        {primaryTab === 'code' && componentFiles.length > 0 && (
-          <div className="inspector-tabs secondary-level">
+      {/* Preview zone */}
+      <div className="ci-preview-zone">
+        {mode === 'eye' ? (
+          <span className="ci-preview-hint">Preview coming soon</span>
+        ) : null}
+      </div>
+
+      {/* Mode bar — slim horizontal strip with icons roughly in center */}
+      <div className="ci-mode-bar">
+        <span className="ci-comp-name">{selected.name}</span>
+        <span className="ci-comp-category">// {selected.category}</span>
+        <div className="ci-mode-icons">
+          <button
+            className={`ci-mode-btn${mode === 'eye'  ? ' ci-mode-btn--active' : ''}`}
+            onClick={() => setMode('eye')}
+            title="Preview"
+          >
+            <EyeIcon />
+          </button>
+          <button
+            className={`ci-mode-btn${mode === 'code' ? ' ci-mode-btn--active' : ''}`}
+            onClick={() => setMode('code')}
+            title="Code"
+          >
+            <CodeIcon />
+          </button>
+        </div>
+      </div>
+
+      {/* Sub-buttons — fade in when code mode */}
+      <div className={`ci-sub-bar${subVisible ? ' ci-sub-bar--visible' : ''}`}>
+        <button
+          className={`ci-sub-btn${subMode === 'install' ? ' ci-sub-btn--active' : ''}`}
+          onClick={() => setSubMode('install')}
+          title="Install"
+        >
+          <DownloadIcon />
+          <span>Install</span>
+        </button>
+        <button
+          className={`ci-sub-btn${subMode === 'usage' ? ' ci-sub-btn--active' : ''}`}
+          onClick={() => setSubMode('usage')}
+          title="Usage"
+        >
+          <BookIcon />
+          <span>Usage</span>
+        </button>
+        <button
+          className={`ci-sub-btn${subMode === 'code' ? ' ci-sub-btn--active' : ''}`}
+          onClick={() => setSubMode('code')}
+          title="Code"
+        >
+          <FileCodeIcon />
+          <span>Code</span>
+        </button>
+
+        {/* File tabs — only in code sub-mode with multiple files */}
+        {subMode === 'code' && componentFiles.length > 1 && (
+          <div className="ci-file-tabs">
             {componentFiles.map((f, i) => (
-              <div key={i} className={`inspector-tab ${activeCodeFileIndex === i ? "active" : ""}`} onClick={() => onCodeFileChange(i)}>
+              <button
+                key={i}
+                className={`ci-file-tab${activeFile === i ? ' ci-file-tab--active' : ''}`}
+                onClick={() => setActiveFile(i)}
+              >
                 {f.name}
-              </div>
+              </button>
             ))}
           </div>
         )}
 
-        {primaryTab === 'docs' && (
-          <div className="inspector-tabs secondary-level">
-            <div className={`inspector-tab ${activeDocTab === 'usage' ? "active" : ""}`} onClick={() => onDocTabChange('usage')}>usage.md</div>
-            <div className={`inspector-tab ${activeDocTab === 'install' ? "active" : ""}`} onClick={() => onDocTabChange('install')}>install.md</div>
-          </div>
-        )}
+        {/* Copy button — pinned to right */}
+        <button
+          className={`ci-copy-btn${isCopied ? ' ci-copy-btn--done' : ''}`}
+          onClick={handleCopy}
+          title="Copy"
+        >
+          <CopyIcon />
+          <span>{isCopied ? 'Copied!' : 'Copy'}</span>
+        </button>
+      </div>
 
-        {primaryTab === 'install' ? (
-          <div className="installation-panel">
-            <div className="sub-tabs">
-              <button className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`} onClick={() => onInstallTabChange('cli')}>CLI</button>
-              <button className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`} onClick={() => onInstallTabChange('manual')}>Manual</button>
-            </div>
-            <div className="tertiary-tabs">
-              {PM_LIST.map((pm) => (
-                <button key={pm} className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`} onClick={() => onPackageManagerChange(pm)}>{pm}</button>
-              ))}
-            </div>
-            <div className="code-viewer preview-code-box installation-code-box">
-              <pre className="code-view">
-                {installTab === 'manual'
-                  ? (parsedInstallData.manual[packageManager] || `// No manual instructions found for ${packageManager}.`)
-                  : (parsedInstallData.cli[packageManager] || `# No CLI command found for ${packageManager}.\nnpx react-bits add ${selected.id}`)}
-              </pre>
-            </div>
+      {/* Content area */}
+      <div className="ci-content">
+        {mode === 'eye' ? (
+          <div className="ci-eye-content">
+            <button className="ci-generate-btn" onClick={onGenerate}>
+              Generate demo with {selected.name}
+            </button>
           </div>
         ) : (
-          <div className="code-viewer preview-code-box">
-            <pre className="code-view">
-              {primaryTab === 'docs'
-                ? (activeDocTab === 'usage' ? selected.usageMarkdown : rawInstallMarkdown)
-                : (componentFiles[activeCodeFileIndex]?.content || "No source code loaded.")}
-            </pre>
-          </div>
+          <pre className="ci-code">{getContent()}</pre>
         )}
-
-        <div className="action-buttons preview-actions">
-          <button className="primary-btn" onClick={onGenerate}>
-            Generate Project with {selected.name}
-          </button>
-          <button
-            className={`secondary-btn ${isCopied ? 'copied' : ''}`}
-            onClick={handleCopy}
-            style={isCopied ? { backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e', borderColor: '#22c55e' } : {}}
-          >
-            {isCopied ? "Copied!" : "Copy Code"}
-          </button>
-        </div>
       </div>
+
     </div>
   );
 }

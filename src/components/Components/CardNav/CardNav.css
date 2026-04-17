@@ -1,0 +1,281 @@
+/* ── Container (floats above layout) ────────────────────────────────────── */
+
+.card-nav-container {
+  position: relative;
+  width: clamp(480px, 60vw, 860px);
+  box-sizing: border-box;
+  flex-shrink: 1;
+}
+
+/* ── Nav shell ───────────────────────────────────────────────────────────── */
+
+.card-nav {
+  display: block;
+  height: 56px;
+  padding: 0;
+  background-color: rgba(9, 12, 20, 0.55);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+  will-change: height;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-nav.open {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+
+.card-nav-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.75rem;
+  z-index: 2;
+  gap: 0.75rem;
+}
+
+/* ── Hamburger ───────────────────────────────────────────────────────────── */
+
+.hamburger-menu {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  gap: 5px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.hamburger-menu:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.hamburger-line {
+  width: 18px;
+  height: 1.5px;
+  background-color: currentColor;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+  transform-origin: 50% 50%;
+  border-radius: 2px;
+}
+
+.hamburger-menu.open .hamburger-line:first-child {
+  transform: translateY(3.25px) rotate(45deg);
+}
+
+.hamburger-menu.open .hamburger-line:last-child {
+  transform: translateY(-3.25px) rotate(-45deg);
+}
+
+/* ── Logo ────────────────────────────────────────────────────────────────── */
+
+.logo-container {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.logo {
+  height: 26px;
+  width: auto;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
+/* ── Search ──────────────────────────────────────────────────────────────── */
+
+.card-nav-search-wrapper {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 200px;
+}
+
+.card-nav-search-icon {
+  position: absolute;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  color: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.card-nav-search {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem 0.4rem 2rem;
+  color: #f1f5f9;
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: var(--text-sm, 0.875rem);
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  caret-color: #6366f1;
+}
+
+.card-nav-search::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.card-nav-search:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+/* hide browser's native search cancel button */
+.card-nav-search::-webkit-search-cancel-button { display: none; }
+
+/* ── Expanded content area ───────────────────────────────────────────────── */
+
+.card-nav-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56px;
+  bottom: 0;
+  padding: 0.5rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.card-nav.open .card-nav-content {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* ── Nav cards ───────────────────────────────────────────────────────────── */
+
+.nav-card {
+  height: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  gap: 10px;
+  user-select: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.nav-card-label {
+  font-family: var(--font-display, 'Clash Display', sans-serif);
+  font-weight: 500;
+  font-size: var(--text-lg, 1.125rem);
+  letter-spacing: -0.02em;
+  color: #f1f5f9;
+  opacity: 0.9;
+}
+
+.nav-card--placeholder {
+  opacity: 0.5;
+}
+
+/* ── Category buttons (left card) ───────────────────────────────────────── */
+
+.nav-card-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.nav-cat-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  color: rgba(241, 245, 249, 0.65);
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  width: 100%;
+}
+
+.nav-cat-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.nav-cat-btn.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .card-nav-container {
+    width: 92%;
+    top: 1rem;
+  }
+
+  .card-nav-search-wrapper {
+    width: 140px;
+  }
+
+  .card-nav-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0.5rem;
+    bottom: 0;
+    justify-content: flex-start;
+  }
+
+  .nav-card {
+    height: auto;
+    min-height: 56px;
+    flex: 1 1 auto;
+  }
+
+  .logo-container {
+    position: static;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .card-nav-top {
+    justify-content: space-between;
+  }
+}

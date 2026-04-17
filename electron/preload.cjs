@@ -99,6 +99,9 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   },
   addComponent(payload) {
     return ipcRenderer.invoke("add-component", payload);
+  },
+  pickDesignImages() {
+    return ipcRenderer.invoke("design-pick-images");
   }
 });
 

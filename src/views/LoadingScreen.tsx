@@ -5,34 +5,50 @@ interface Props {
   onDone: () => void;
 }
 
+const logoSrc = './ReactIcon.svg';
+
 export default function LoadingScreen({ onDone }: Props) {
-  const [phase, setPhase] = useState<'in' | 'out'>('in');
-  const [assetsReady, setAssetsReady] = useState(false);
-  const logoSrc = './ReactIcon.svg';
+  const [visible, setVisible]  = useState(false);
+  const [exiting, setExiting]  = useState(false);
 
   useEffect(() => {
-    const image = new Image();
-    image.src = logoSrc;
-    image.onload = () => setAssetsReady(true);
-    image.onerror = () => setAssetsReady(true);
-  }, [logoSrc]);
+    let raf1: number, raf2: number;
+
+    const show = () => {
+      // Wait 2 frames so MetallicPaint has rendered at least one frame
+      // before we fade in — ensures logo and title appear at the same time
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setVisible(true));
+      });
+    };
+
+    const img = new Image();
+    img.src = logoSrc;
+    img.onload  = show;
+    img.onerror = show;
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, []);
 
   useEffect(() => {
-    if (!assetsReady) return;
-    const t = setTimeout(() => setPhase('out'), 3500);
+    if (!visible) return;
+    const t = setTimeout(() => setExiting(true), 3200);
     return () => clearTimeout(t);
-  }, [assetsReady]);
+  }, [visible]);
 
   const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget && phase === 'out') onDone();
+    if (e.target === e.currentTarget && exiting) onDone();
   };
 
   return (
     <div
-      className={`loading-screen${phase === 'out' ? ' loading-screen--out' : ''}`}
+      className={`loading-screen${exiting ? ' loading-screen--out' : ''}`}
       onTransitionEnd={handleTransitionEnd}
     >
-      <div className={`loading-screen__content${assetsReady ? ' loading-screen__content--ready' : ''}`}>
+      <div className={`loading-screen__content${visible ? ' loading-screen__content--visible' : ''}`}>
         <div className="loading-screen__logo">
           <MetallicPaint
             imageSrc={logoSrc}
