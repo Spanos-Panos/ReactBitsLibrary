@@ -754,5 +754,12 @@
     "category": "TextAnimations",
     "usageMarkdown": "import { useRef } from 'react';\r\nimport VariableProximity from './VariableProximity';\r\n\r\nconst containerRef = useRef(null);\r\n\r\n<div\r\nref={containerRef}\r\nstyle={{position: 'relative'}}\r\n>\r\n  <VariableProximity\r\n    label={'Hover me! And then star React Bits on GitHub, or else...'}\r\n    className={'variable-proximity-demo'}\r\n    fromFontVariationSettings=\"'wght' 400, 'opsz' 9\"\r\n    toFontVariationSettings=\"'wght' 1000, 'opsz' 40\"\r\n    containerRef={containerRef}\r\n    radius={100}\r\n    falloff='linear'\r\n  />\r\n</div>",
     "relativePath": "ReactBitsComponents/TextAnimations/VariableProximity/UsageVariableProximity.md"
+  },
+  {
+    "id": "Backgrounds/PlasmaWave",
+    "name": "PlasmaWave",
+    "category": "Backgrounds",
+    "usageMarkdown": "import PlasmaWave from './PlasmaWave';\n  \n<PlasmaWave\n  colors={[\"#A855F7\",\"#06B6D4\"]}\n  speed1={0.05}\n  speed2={0.05}\n  focalLength={0.8}\n  bend1={1}\n  bend2={0.5}\n  dir2={1}\n  rotationDeg={0}\n/>",
+    "relativePath": "ReactBitsComponents/Backgrounds/PlasmaWave/UsagePlasmaWave.md"
   }
 ]
