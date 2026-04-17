@@ -88,14 +88,29 @@ async function generateViteReact(options) {
     }
   }
 
-  // 2. Install dependencies
-  const depList = Array.from(discoveredDeps).join(' ');
-  notify(`Installing project dependencies via ${packageManager}...`);
-  await runCommand(`${packageManager} install`, [], targetDir, log);
-  if (depList) {
-    notify(`Installing UI components and tools...`);
-    await runCommand(`${packageManager} ${packageManager === 'npm' ? 'install' : 'add'} ${depList}`, [], targetDir, log);
+  // 2. Merge extra deps into package.json before the single install pass.
+  //    This replaces the old two-step (base install → extra install) with one
+  //    resolution pass, cutting ~3-4 minutes off every generation.
+  notify(`Merging dependencies...`);
+  const pkgJsonPath = path.join(targetDir, 'package.json');
+  try {
+    const pkgJson = JSON.parse(await fs.readFile(pkgJsonPath, 'utf-8'));
+    pkgJson.dependencies = pkgJson.dependencies || {};
+    for (const dep of discoveredDeps) {
+      if (!pkgJson.dependencies[dep] && !pkgJson.devDependencies?.[dep]) {
+        pkgJson.dependencies[dep] = 'latest';
+      }
+    }
+    await fs.writeFile(pkgJsonPath, JSON.stringify(pkgJson, null, 2), 'utf-8');
+  } catch (e) {
+    log(`[DemoCLI] Warning: Could not patch package.json, falling back to separate install: ${e.message}\n`);
+    // Fallback: install extras separately as before
+    const depList = Array.from(discoveredDeps).join(' ');
+    if (depList) await runCommand(`${packageManager} ${packageManager === 'npm' ? 'install' : 'add'} ${depList}`, [], targetDir, log);
   }
+
+  notify(`Installing all dependencies via ${packageManager}...`);
+  await runCommand(`${packageManager} install`, [], targetDir, log);
 
   // 3. Inject Component Files
   notify(`Injecting custom component files...`);

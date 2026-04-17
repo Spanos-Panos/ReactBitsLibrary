@@ -308,6 +308,13 @@
     "relativePath": "ReactBitsComponents/Animations/LogoLoop/UsageLogoLoop.md"
   },
   {
+    "id": "Animations/MagicRings",
+    "name": "MagicRings",
+    "category": "Animations",
+    "usageMarkdown": "import MagicRings from './MagicRings';\n\n<div style={{ width: '600px', height: '400px', position: 'relative' }}>\n  <MagicRings\n    color=\"#A855F7\"\n    colorTwo=\"#6366F1\"\n    ringCount={6}\n    speed={1}\n    attenuation={10}\n    lineThickness={2}\n    baseRadius={0.35}\n    radiusStep={0.1}\n    scaleRate={0.1}\n    opacity={1}\n    blur={0}\n    noiseAmount={0.1}\n    rotation={0}\n    ringGap={1.5}\n    fadeIn={0.7}\n    fadeOut={0.5}\n    followMouse={false}\n    mouseInfluence={0.2}\n    hoverScale={1.2}\n    parallax={0.05}\n    clickBurst={false}\n  />\n</div>",
+    "relativePath": "ReactBitsComponents/Animations/MagicRings/UsageMagicRings.md"
+  },
+  {
     "id": "Animations/Magnet",
     "name": "Magnet",
     "category": "Animations",
