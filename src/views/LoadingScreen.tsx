@@ -7,11 +7,21 @@ interface Props {
 
 export default function LoadingScreen({ onDone }: Props) {
   const [phase, setPhase] = useState<'in' | 'out'>('in');
+  const [assetsReady, setAssetsReady] = useState(false);
+  const logoSrc = './ReactIcon.svg';
 
   useEffect(() => {
+    const image = new Image();
+    image.src = logoSrc;
+    image.onload = () => setAssetsReady(true);
+    image.onerror = () => setAssetsReady(true);
+  }, [logoSrc]);
+
+  useEffect(() => {
+    if (!assetsReady) return;
     const t = setTimeout(() => setPhase('out'), 3500);
     return () => clearTimeout(t);
-  }, []);
+  }, [assetsReady]);
 
   const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && phase === 'out') onDone();
@@ -22,10 +32,10 @@ export default function LoadingScreen({ onDone }: Props) {
       className={`loading-screen${phase === 'out' ? ' loading-screen--out' : ''}`}
       onTransitionEnd={handleTransitionEnd}
     >
-      <div className="loading-screen__content">
+      <div className={`loading-screen__content${assetsReady ? ' loading-screen__content--ready' : ''}`}>
         <div className="loading-screen__logo">
           <MetallicPaint
-            imageSrc="./ReactIcon.svg"
+            imageSrc={logoSrc}
             speed={0.4}
             scale={3.5}
             brightness={2.2}

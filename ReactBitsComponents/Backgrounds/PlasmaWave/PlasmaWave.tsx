@@ -79,13 +79,14 @@ void mainImage(out vec4 C, in vec2 U) {
   vec3 raw = max(cos(d * pi2) - s * sqrtD - vec3(k, 0.0), 0.0);
   raw.gb += 0.1;
   float maxC = max(raw.r, max(raw.g, raw.b));
-  if (maxC < 0.15) discard;
   raw = raw * 0.4 + raw.brg * 0.6 + raw * raw;
   float lum = dot(raw, vec3(0.299, 0.587, 0.114));
   float w1 = max(0.0, 1.0 - k.x * 2.0);
   float w2 = max(0.0, 1.0 - k.y * 2.0);
   float wt = w1 + w2 + 0.001;
   vec3 c = (uColor1 * w1 + uColor2 * w2) / wt * lum * 3.5;
+  vec3 base = vec3(0.0, 0.0, 0.0);
+  c = max(c, base);
   C = vec4(c, 1.0);
 }
 
@@ -137,9 +138,10 @@ export default function PlasmaWave(props: PlasmaWaveProps) {
   useEffect(() => {
     const ctn = containerRef.current;
     if (!ctn) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     const renderer = new Renderer({
-      alpha: true,
+      alpha: false,
       dpr: Math.min(window.devicePixelRatio, 1.5),
       antialias: false,
       depth: false,
@@ -150,7 +152,10 @@ export default function PlasmaWave(props: PlasmaWaveProps) {
     });
 
     const gl = renderer.gl;
-    gl.clearColor(0, 0, 0, 0);
+    gl.clearColor(0, 0, 0, 1);
+    gl.canvas.style.width = '100%';
+    gl.canvas.style.height = '100%';
+    gl.canvas.style.display = 'block';
     ctn.appendChild(gl.canvas);
 
     const camera = new Camera(gl);
@@ -201,6 +206,32 @@ export default function PlasmaWave(props: PlasmaWaveProps) {
 
     const startTime = performance.now();
     let animateId: number;
+    let paused = false;
+    let pauseStartedAt = 0;
+    let pausedDuration = 0;
+
+    const updatePauseState = () => {
+      const shouldPause = document.hidden || media.matches;
+      if (shouldPause === paused) return;
+      paused = shouldPause;
+      if (paused) {
+        pauseStartedAt = performance.now();
+      } else {
+        pausedDuration += performance.now() - pauseStartedAt;
+      }
+    };
+
+    const handleVisibility = () => {
+      updatePauseState();
+    };
+
+    const handleMotionChange = () => {
+      updatePauseState();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    media.addEventListener('change', handleMotionChange);
+    updatePauseState();
 
     const update = (now: number) => {
       const {
@@ -218,7 +249,11 @@ export default function PlasmaWave(props: PlasmaWaveProps) {
 
       uniformOffset[0] = xOff;
       uniformOffset[1] = yOff;
-      program.uniforms.iTime.value = (now - startTime) * 0.001;
+      if (paused) {
+        animateId = requestAnimationFrame(update);
+        return;
+      }
+      program.uniforms.iTime.value = (now - startTime - pausedDuration) * 0.001;
       program.uniforms.uRotation.value = (rot * Math.PI) / 180;
       program.uniforms.uFocalLength.value = fLen;
       program.uniforms.uSpeed1.value = s1;
@@ -237,6 +272,8 @@ export default function PlasmaWave(props: PlasmaWaveProps) {
 
     return () => {
       cancelAnimationFrame(animateId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      media.removeEventListener('change', handleMotionChange);
       ro.disconnect();
       if (ctn && gl.canvas.parentNode === ctn) {
         ctn.removeChild(gl.canvas);
@@ -245,5 +282,15 @@ export default function PlasmaWave(props: PlasmaWaveProps) {
     };
   }, []);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'absolute',
+        inset: 0
+      }}
+    />
+  );
 }
