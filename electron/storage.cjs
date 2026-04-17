@@ -71,4 +71,53 @@ function clearHistory() {
   return { success: true };
 }
 
-module.exports = { savePrompt, getHistory, clearHistory, openHistoryFolder };
+// ── Presets ───────────────────────────────────────────────────────────────────
+
+const PRESETS_DIR = path.join(BASE_FOLDER, 'presets');
+
+function ensurePresetsDir() {
+  if (!fs.existsSync(PRESETS_DIR)) fs.mkdirSync(PRESETS_DIR, { recursive: true });
+}
+
+function savePreset(preset) {
+  try {
+    ensurePresetsDir();
+    const filePath = path.join(PRESETS_DIR, `${preset.id}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(preset, null, 2), 'utf-8');
+    console.log(`[Storage] Saved preset: ${filePath}`);
+    return { success: true, path: filePath };
+  } catch (error) {
+    console.error('[Storage] Failed to save preset:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function listPresets() {
+  try {
+    ensurePresetsDir();
+    return fs.readdirSync(PRESETS_DIR)
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        try { return JSON.parse(fs.readFileSync(path.join(PRESETS_DIR, f), 'utf-8')); }
+        catch { return null; }
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+  } catch (error) {
+    console.error('[Storage] Failed to list presets:', error);
+    return [];
+  }
+}
+
+function deletePreset(id) {
+  try {
+    const filePath = path.join(PRESETS_DIR, `${id}.json`);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return { success: true };
+  } catch (error) {
+    console.error('[Storage] Failed to delete preset:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+module.exports = { savePrompt, getHistory, clearHistory, openHistoryFolder, savePreset, listPresets, deletePreset };

@@ -1,0 +1,237 @@
+/* ── Task bar (bottom) ───────────────────────────────────────────────────── */
+
+.task-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: #111;
+  border-top: 1px solid #333;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  z-index: 2000;
+  color: #fff;
+}
+
+.task-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  max-width: 220px;
+  white-space: nowrap;
+}
+
+.task-bar-item:hover {
+  background: #2a2a2a;
+  border-color: #666;
+}
+
+.task-bar-item.active {
+  background: #333;
+  border-color: #40ffaa;
+  box-shadow: 0 0 10px rgba(64, 255, 170, 0.1);
+}
+
+.task-bar-item .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #aaa;
+}
+
+.task-bar-item.running .status-dot {
+  background: #40ffaa;
+  box-shadow: 0 0 8px #40ffaa;
+  animation: pulse 1.5s infinite;
+}
+
+.task-bar-item.error .status-dot {
+  background: #ff4444;
+}
+
+.task-bar-item .task-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-bar-item .close-task {
+  margin-left: 4px;
+  opacity: 0.5;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.task-bar-item .close-task:hover {
+  opacity: 1;
+  color: #ff4444;
+}
+
+@keyframes pulse {
+  0%   { transform: scale(1);   opacity: 1;   }
+  50%  { transform: scale(1.3); opacity: 0.7; }
+  100% { transform: scale(1);   opacity: 1;   }
+}
+
+/* Ensure task bar doesn't overlap app content */
+.app-container {
+  padding-bottom: 48px;
+}
+
+/* Ensure toast is above the wizard modal */
+.status-toast {
+  z-index: 11000 !important;
+}
+
+/* ── Terminal hide button ─────────────────────────────────────────────────── */
+
+.terminal-header .hide-btn {
+  margin-left: auto;
+  margin-right: 15px;
+  background: transparent;
+  border: 1px solid #444;
+  color: #888;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.terminal-header .hide-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+/* ── Task overlay (full-screen terminal) ─────────────────────────────────── */
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 11000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(30px) saturate(200%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.loading-content {
+  background: rgba(25, 25, 30, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.25rem;
+  padding: 3rem 2.5rem;
+  width: 480px;
+  max-width: 90%;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: modalPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.loading-content h3 {
+  margin: 1.5rem 0 0.5rem 0;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.loading-content p {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 1.5rem 0;
+}
+
+.loading-content.expanded {
+  width: 600px;
+  max-width: 95%;
+}
+
+/* ── Terminal container ──────────────────────────────────────────────────── */
+
+.terminal-container {
+  width: 100%;
+  background: rgba(10, 10, 15, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) inset;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-header {
+  height: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.window-controls.mini {
+  position: absolute;
+  left: 0.75rem;
+  gap: 6px;
+}
+
+.window-controls.mini .dot {
+  width: 10px;
+  height: 10px;
+}
+
+.terminal-title {
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.05em;
+}
+
+.terminal-body {
+  margin: 0;
+  padding: 1rem;
+  height: 200px;
+  overflow-y: auto;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+  color: #a3be8c;
+  text-align: left;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+
+.spinner {
+  width: 54px;
+  height: 54px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

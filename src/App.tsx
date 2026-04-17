@@ -1,226 +1,110 @@
-import { useEffect, useMemo, useState, useRef } from "react";
-import manifest from "./reactbits-manifest.json";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactBitsItem } from "./types/index";
+import "./types/api";
+import { useComponentLoader }   from "./hooks/useComponentLoader";
+import { useTaskManager }       from "./hooks/useTaskManager";
+import { useGenerationWizard }  from "./hooks/useGenerationWizard";
 import Iridescence from "./components/Backgrounds/Iridescence/Iridescence";
 import GradientText from "./components/TextAnimations/GradientText/GradientText";
-import FlowingMenu from "./components/Components/FlowingMenu/FlowingMenu";
 import PillNav from "./components/Components/PillNav/PillNav";
-import SplitText from "./components/TextAnimations/SplitText/SplitText";
-import ProjectBuilderPanel from "./components/ProjectBuilderPanel";
-import "./TaskStyles.css";
+import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, type DesignRules } from "./components/ProjectBuilderPanel";
+import LayoutConceptPicker from "./components/LayoutConceptPicker";
+import type { LayoutConcept } from "./lib/layoutConceptGenerator";
+import PresetManager, { type SavedPreset } from "./components/PresetManager";
+import AddComponentModal from "./components/AddComponentModal";
+import ComponentListPane from "./views/ComponentListPane";
+import ComponentInspector from "./views/ComponentInspector";
+import GenerateWizard from "./views/GenerateWizard";
+import TaskOverlay from "./views/TaskOverlay";
+import TaskBar from "./views/TaskBar";
+import LoadingScreen from "./views/LoadingScreen";
 
-interface Task {
-  id: string;
-  name: string;
-  projectName: string;
-  progress: string;
-  logs: string[];
-  status: 'running' | 'success' | 'error';
-  error?: string;
-  path?: string;
-}
-
-type ReactBitsItem = (typeof manifest)[number];
-
-const CATEGORY_LABELS: Record<string, string> = {
-  Components: "Components",
-  Animations: "Animations",
-  Backgrounds: "Backgrounds",
-  TextAnimations: "Text animations",
+const CATEGORY_LIMITS: Record<string, number> = {
+  Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,
 };
 
-function groupByCategory(items: ReactBitsItem[]): Record<string, ReactBitsItem[]> {
-  return items.reduce<Record<string, ReactBitsItem[]>>((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
-    return acc;
-  }, {});
-}
-
 const GRADIENT_COLORS = ["#40ffaa", "#4079ff", "#40ffaa", "#4079ff", "#40ffaa"];
-
 const PILL_NAV_ITEMS = [
-  { id: 'home', label: 'Home' },
-  { id: 'Components', label: 'Components' },
-  { id: 'Animations', label: 'Animations' },
+  { id: 'Components',     label: 'Components' },
+  { id: 'Animations',     label: 'Animations' },
   { id: 'TextAnimations', label: 'Text Animations' },
-  { id: 'Backgrounds', label: 'Backgrounds' }
+  { id: 'Backgrounds',    label: 'Backgrounds' },
 ];
-
 const IRIDESCENCE_COLOR: [number, number, number] = [0, 0.7, 0.7];
 
 function App() {
-  const [items] = useState<ReactBitsItem[]>(manifest);
-  const [view, setView] = useState<"gallery" | "detail">("gallery");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string | "all">("all");
-  const [componentFiles, setComponentFiles] = useState<{ name: string; content: string }[]>([]);
-  const [primaryTab, setPrimaryTab] = useState<'code' | 'docs' | 'install'>('code');
-  const [activeCodeFileIndex, setActiveCodeFileIndex] = useState(0);
-  const [activeDocTab, setActiveDocTab] = useState<'usage' | 'install'>('usage');
-  const [installTab, setInstallTab] = useState<"cli" | "manual">("cli");
-  const [packageManager, setPackageManager] = useState<"pnpm" | "npm" | "yarn" | "bun">("pnpm");
-  const [generateStatus, setGenerateStatus] = useState<string>("");
-  const [toastType, setToastType] = useState<"info" | "warning" | "success">("info");
-  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
-  const [showGenerateWizard, setShowGenerateWizard] = useState(false);
+  // ── Hooks ─────────────────────────────────────────────────────────────────
+  const {
+    items, setItems,
+    selectedId, setSelectedId,
+    selected,
+    componentFiles,
+    parsedInstallData,
+    rawInstallMarkdown,
+  } = useComponentLoader();
 
-  // Multi-Tasking State
-  const [tasks, setTasks] = useState<Record<string, Task>>({});
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const {
+    tasks, setTasks,
+    activeTaskId, setActiveTaskId,
+    activeTaskIdRef,
+    terminalRef,
+  } = useTaskManager();
 
-  const terminalRef = useRef<HTMLPreElement>(null);
-  const activeTaskIdRef = useRef<string | null>(null);
-  const [projectName, setProjectName] = useState("");
-  const [projectPath, setProjectPath] = useState("");
-  const [openWhenDone, setOpenWhenDone] = useState(true);
-  const [runWhenDone, setRunWhenDone] = useState(false);
-  const [autoKillOnError, setAutoKillOnError] = useState(false);
-  const [parsedInstallData, setParsedInstallData] = useState<{
-    cli: Record<string, string>;
-    manual: Record<string, string>;
-  }>({ cli: {}, manual: {} });
-  const [rawInstallMarkdown, setRawInstallMarkdown] = useState("");
-  const [isCopied, setIsCopied] = useState(false);
+  const {
+    showGenerateWizard, setShowGenerateWizard,
+    projectName,        setProjectName,
+    projectPath,
+    installTab,         setInstallTab,
+    packageManager,     setPackageManager,
+    openWhenDone,       setOpenWhenDone,
+    runWhenDone,        setRunWhenDone,
+    autoKillOnError,    setAutoKillOnError,
+    handleSelectDirectory,
+  } = useGenerationWizard();
 
-  // V0.2.1 Multi-Selection
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [projectPrompt, setProjectPrompt] = useState("");
+  // ── Local UI state ────────────────────────────────────────────────────────
+  const [selectedIds,          setSelectedIds]          = useState<string[]>([]);
+  const [activeCategory,       setActiveCategory]       = useState<string>("Components");
+  const [hoveredComponentId,   setHoveredComponentId]   = useState<string | null>(null);
+  const [searchQuery,          setSearchQuery]          = useState("");
+  const [showAddModal,         setShowAddModal]         = useState(false);
 
-  const CATEGORY_LIMITS: Record<string, number> = {
-    Backgrounds: 1,
-    TextAnimations: 2,
-    Animations: 3,
-    Components: 5
-  };
+  const [primaryTab,           setPrimaryTab]           = useState<'code' | 'docs' | 'install'>('code');
+  const [activeCodeFileIndex,  setActiveCodeFileIndex]  = useState(0);
+  const [activeDocTab,         setActiveDocTab]         = useState<'usage' | 'install'>('usage');
 
-  const [lastEnhancedPrompt, setLastEnhancedPrompt] = useState<any>(null);
+  const [projectPrompt,        setProjectPrompt]        = useState("");
+  const [designRules,          setDesignRules]          = useState<DesignRules>(DEFAULT_DESIGN_RULES);
+  const [layoutConcept,        setLayoutConcept]        = useState<LayoutConcept | null>(null);
+  const [showLayoutPicker,     setShowLayoutPicker]     = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<any>(null);
+  const [generateStatus,       setGenerateStatus]       = useState("");
+  const [toastType,            setToastType]            = useState<"info" | "warning" | "success">("info");
 
-  // Reset search whenever the user switches category
+  const [appReady,             setAppReady]             = useState(false);
+
+  // ── Derived state ─────────────────────────────────────────────────────────
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
 
-  const filtered = useMemo(() => {
-    return items.filter((item) => {
-      return activeCategory === "all" || item.category === activeCategory;
-    });
-  }, [items, activeCategory]);
+  const filtered = useMemo(() =>
+    items
+      .filter(i => activeCategory === "all" || i.category === activeCategory)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [items, activeCategory]
+  );
 
   const displayedItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return filtered;
-    return filtered.filter(item => item.name.toLowerCase().includes(q));
+    return q ? filtered.filter(i => i.name.toLowerCase().includes(q)) : filtered;
   }, [filtered, searchQuery]);
 
-  const selected = items.find((item) => item.id === selectedId) ?? null;
+  const selectedComponents = useMemo(
+    () => selectedIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ReactBitsItem[],
+    [selectedIds, items]
+  );
 
-  const selectedComponents = useMemo(() => {
-    return selectedIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ReactBitsItem[];
-  }, [selectedIds, items]);
-
-  useEffect(() => {
-    if (selected && (window as any).reactBitsApi?.getComponentFiles) {
-      let files = (window as any).reactBitsApi.getComponentFiles(selected.category, selected.name);
-      files = files
-        .filter((f: any) => !f.name.endsWith('.md'))
-        .sort((a: any, b: any) => {
-          const aIsMain = a.name.endsWith('.tsx') || a.name.endsWith('.jsx');
-          const bIsMain = b.name.endsWith('.tsx') || b.name.endsWith('.jsx');
-          const aIsCss = a.name.endsWith('.css');
-          const bIsCss = b.name.endsWith('.css');
-          if (aIsMain && !bIsMain) return -1;
-          if (!aIsMain && bIsMain) return 1;
-          if (aIsCss && !bIsCss) return -1;
-          if (!aIsCss && bIsCss) return 1;
-          return a.name.localeCompare(b.name);
-        });
-      setComponentFiles(files);
-      setActiveCodeFileIndex(0);
-    } else {
-      setComponentFiles([]);
-      setActiveCodeFileIndex(0);
-    }
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (!selected) {
-      setParsedInstallData({ cli: {}, manual: {} });
-      setRawInstallMarkdown("");
-      return;
-    }
-    const installPath = `ReactBitsComponents/${selected.id}/${selected.name}Install.md`;
-    fetch(installPath)
-      .then(res => res.text())
-      .then(text => {
-        setRawInstallMarkdown(text);
-        const data: { cli: Record<string, string>; manual: Record<string, string> } = { cli: {}, manual: {} };
-        let currentBlock: 'cli' | 'manual' | null = null;
-        const lines = text.split(/\r?\n/);
-        lines.forEach(line => {
-          const trimmed = line.trim();
-          if (trimmed.toLowerCase() === 'cli') currentBlock = 'cli';
-          else if (trimmed.toLowerCase() === 'manual') currentBlock = 'manual';
-          else if (trimmed.includes('=') && currentBlock) {
-            const eqIndex = trimmed.indexOf('=');
-            const k = trimmed.substring(0, eqIndex).trim().toLowerCase();
-            const v = trimmed.substring(eqIndex + 1).trim();
-            if (k && v) data[currentBlock][k] = v;
-          }
-        });
-        setParsedInstallData(data);
-      })
-      .catch(() => {
-        setParsedInstallData({ cli: {}, manual: {} });
-        setRawInstallMarkdown("// Failed to load installation instructions.");
-      });
-  }, [selected]);
-
-  // Keep a ref in sync so IPC callbacks can always read the latest activeTaskId
-  // without re-registering listeners (which would cause duplicate events).
-  useEffect(() => { activeTaskIdRef.current = activeTaskId; }, [activeTaskId]);
-
-  useEffect(() => {
-    const cleanupProgress = (window as any).reactBitsApi?.onGenerateProgress?.((msg: string, taskId: string) => {
-      if (msg === "!ERROR_KILL") {
-        // Clean up the process entry in main — the taskkill inside index.cjs may have
-        // already killed it, but we still want activeProcesses to be cleared.
-        (window as any).reactBitsApi?.terminateTask?.(taskId);
-        setTasks(prev => {
-          const next = { ...prev };
-          delete next[taskId];
-          return next;
-        });
-        if (activeTaskIdRef.current === taskId) setActiveTaskId(null);
-        return;
-      }
-      setTasks(prev => {
-        if (!prev[taskId]) return prev;
-        return { ...prev, [taskId]: { ...prev[taskId], progress: msg } };
-      });
-    });
-
-    const cleanupLog = (window as any).reactBitsApi?.onGenerateLog?.((msg: string, taskId: string) => {
-      setTasks(prev => {
-        if (!prev[taskId]) return prev;
-        return {
-          ...prev,
-          [taskId]: { ...prev[taskId], logs: [...prev[taskId].logs.slice(-300), msg] }
-        };
-      });
-    });
-
-    return () => {
-      cleanupProgress?.();
-      cleanupLog?.();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (activeTaskId && terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
-  }, [tasks, activeTaskId]);
-
+  // ── Callbacks ─────────────────────────────────────────────────────────────
   const handleSelectComponent = (id: string) => {
     setSelectedId(id);
     setGenerateStatus("");
@@ -230,93 +114,60 @@ function App() {
     setInstallTab('cli');
   };
 
-  const handleBackToGallery = () => setView("gallery");
-
   const handleGenerate = () => {
     if (selected) setProjectName(`rb-demo-${selected.name.toLowerCase().replace(/\s+/g, '-')}`);
     setShowGenerateWizard(true);
   };
 
-  const handleSelectDirectory = async () => {
-    if (!(window as any).reactBitsApi?.selectDirectory) return;
-    const path = await (window as any).reactBitsApi.selectDirectory();
-    if (path) setProjectPath(path);
-  };
-
   const confirmGenerate = async () => {
-    if (!projectPath || !(window as any).reactBitsApi?.generatePlayground) return;
-
+    if (!projectPath || !window.reactBitsApi?.generatePlayground) return;
     const isMasterBuild = !!lastEnhancedPrompt;
     if (!isMasterBuild && !selected) return;
-
-    const currentTasksCount = Object.keys(tasks).length;
-    if (currentTasksCount >= 5) {
+    if (Object.keys(tasks).length >= 5) {
       setToastType("warning");
       setGenerateStatus("Task limit reached (max 5). Please close completed tasks first!");
       setTimeout(() => setGenerateStatus(""), 4000);
       return;
     }
-
     const taskId = Date.now().toString();
-    const newTask: Task = {
-      id: taskId,
-      name: isMasterBuild ? (lastEnhancedPrompt.projectMeta?.title || "AI Project") : selected!.name,
-      projectName,
-      progress: "Initializing project generation...",
-      logs: ["Initializing Build Environment...\n"],
-      status: 'running'
-    };
-
-    setTasks(prev => ({ ...prev, [taskId]: newTask }));
-    setActiveTaskId(null); // Auto-hide: Don't set active taskId, so it starts in background
+    setTasks(prev => ({
+      ...prev,
+      [taskId]: {
+        id: taskId,
+        name: isMasterBuild ? (lastEnhancedPrompt.projectMeta?.title || "AI Project") : selected!.name,
+        projectName, progress: "Initializing project generation...",
+        logs: ["Initializing Build Environment...\n"], status: 'running',
+      },
+    }));
+    setActiveTaskId(null);
     setShowGenerateWizard(false);
     setGenerateStatus("");
-
     try {
       let result;
       if (isMasterBuild) {
-        // AI MASTER BUILD (Multicomponent)
-        result = await (window as any).reactBitsApi.generatePlayground({
+        result = await window.reactBitsApi.generatePlayground({
           options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
-          selectedComponents: await Promise.all(selectedComponents.map(c => (window as any).reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
-          enhancedPrompt: lastEnhancedPrompt
+          selectedComponents: await Promise.all(selectedComponents.map(c => window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
+          enhancedPrompt: lastEnhancedPrompt,
         }, null, taskId);
       } else {
-        // SINGLE COMPONENT BUILD
-        result = await (window as any).reactBitsApi.generatePlayground(
+        result = await window.reactBitsApi.generatePlayground(
           selected!.category, selected!.name, selected!.usageMarkdown, componentFiles,
           { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
           taskId
         );
       }
-
       if (result.success) {
         const finalStatus = runWhenDone ? 'running' : 'success';
-        const finalProgress = runWhenDone ? "Local Server Running! (Check Browser)" : "Generation Complete!";
-        
-        setTasks(prev => ({
-          ...prev,
-          [taskId]: { 
-            ...prev[taskId], 
-            status: finalStatus, 
-            progress: finalProgress,
-            path: result.path 
-          }
-        }));
+        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: finalStatus, progress: runWhenDone ? "Local Server Running! (Check Browser)" : "Generation Complete!", path: result.path } }));
         setGenerateStatus(result.message || "Success!");
         if (isMasterBuild) setLastEnhancedPrompt(null);
       } else {
-        setTasks(prev => ({
-          ...prev,
-          [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error }
-        }));
+        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error } }));
         setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
       }
     } catch (e: any) {
-      setTasks(prev => ({
-        ...prev,
-        [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: e.message }
-      }));
+      setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: e.message } }));
       setGenerateStatus(`Error: ${e.message}`);
     }
     setTimeout(() => setGenerateStatus(""), 8000);
@@ -341,77 +192,78 @@ function App() {
     }
   };
 
+  const handleSavePreset = async (name: string) => {
+    const now = new Date();
+    const stamp = `${String(now.getDate()).padStart(2,'0')}${String(now.getMonth()+1).padStart(2,'0')}${now.getFullYear()}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+    await window.reactBitsApi?.savePreset?.({ id: `${name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}_${stamp}`, name, savedAt: now.toISOString(), projectPrompt, selectedComponentIds: selectedIds, designRules, layoutConcept, projectName, packageManager });
+  };
+
+  const handleLoadPreset = (preset: SavedPreset) => {
+    setProjectPrompt(preset.projectPrompt);
+    setSelectedIds(preset.selectedComponentIds);
+    setDesignRules(preset.designRules);
+    setLayoutConcept(preset.layoutConcept);
+    setProjectName(preset.projectName ?? '');
+    setPackageManager((preset.packageManager ?? 'npm') as typeof packageManager);
+    setToastType('success');
+    setGenerateStatus(`Loaded preset "${preset.name}"`);
+    setTimeout(() => setGenerateStatus(''), 3000);
+  };
+
+  const handleDeletePreset = async (id: string) => { await window.reactBitsApi?.deletePreset?.(id); };
+
   const handleBuilderGenerate = async () => {
-    if (!projectPrompt.trim()) {
-      setToastType("warning");
-      setGenerateStatus("Please enter a prompt for your project!");
-      setTimeout(() => setGenerateStatus(""), 4000);
-      return;
-    }
-    if (selectedComponents.length === 0) {
-      setToastType("warning");
-      setGenerateStatus("Please select at least one component!");
-      setTimeout(() => setGenerateStatus(""), 4000);
-      return;
-    }
+    if (!projectPrompt.trim()) { setToastType("warning"); setGenerateStatus("Please enter a prompt for your project!"); setTimeout(() => setGenerateStatus(""), 4000); return; }
+    if (selectedComponents.length === 0) { setToastType("warning"); setGenerateStatus("Please select at least one component!"); setTimeout(() => setGenerateStatus(""), 4000); return; }
     setGenerateStatus("Scavenging component source code...");
     try {
-      // 1. GATHER CONTEXT
       const componentsWithContext = await Promise.all(
         selectedComponents.map(async (comp) => {
-          try {
-            return await (window as any).reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id);
-          } catch (e) {
-            console.warn(`Failed to gather context for ${comp.name}`, e);
-            return { id: comp.id, name: comp.name, category: comp.category };
-          }
+          try { return await window.reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id); }
+          catch (e) { console.warn(`Failed to gather context for ${comp.name}`, e); return { id: comp.id, name: comp.name, category: comp.category }; }
         })
       );
-
-      // 2. TRIGGER AI ARCHITECT
       setGenerateStatus("AI Architect is designing your project...");
-      const enhanceResult = await (window as any).reactBitsApi.enhancePrompt({
-        rawPrompt: projectPrompt,
-        selectedComponents: componentsWithContext,
-        systemContext: {
-          framework: "Vite + React (TypeScript)",
-          styling: "Tailwind CSS v4",
-          icons: "Lucide React",
-          animations: ["Framer Motion", "GSAP"],
-          architectureRules: [
-            "Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.",
-            "Maintain a Z-Index strategy where Backgrounds stay at Z:0.",
-            "Use Lucide React for iconography."
-          ]
-        }
+      const enhanceResult = await window.reactBitsApi.enhancePrompt({
+        rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
+        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, layoutMd: layoutConcept?.layoutMd ?? null },
       });
-
-      if (enhanceResult.success) {
-        setGenerateStatus("Project Design Ready!");
-        setToastType("success");
-        setLastEnhancedPrompt(enhanceResult.enhancedPrompt);
-        setProjectName(enhanceResult.enhancedPrompt?.projectMeta?.title || "reactbits-ai-project");
+      const enhanceData = enhanceResult as any;
+      if (enhanceData.success) {
+        setGenerateStatus("Project Design Ready!"); setToastType("success");
+        setLastEnhancedPrompt(enhanceData.enhancedPrompt);
+        setProjectName(enhanceData.enhancedPrompt?.projectMeta?.title || "reactbits-ai-project");
         setShowGenerateWizard(true);
       } else {
-        setToastType("warning");
-        setGenerateStatus(`AI Error: ${enhanceResult.error}`);
+        setToastType("warning"); setGenerateStatus(`AI Error: ${enhanceData.error}`);
       }
-    } catch (err: any) {
-      setToastType("warning");
-      setGenerateStatus(`Error: ${err.message}`);
-    }
+    } catch (err: any) { setToastType("warning"); setGenerateStatus(`Error: ${err.message}`); }
     setTimeout(() => setGenerateStatus(""), 5000);
   };
 
+  const handleCloseTask = async (id: string) => {
+    await window.reactBitsApi?.terminateTask?.(id);
+    setTasks(prev => { const next = { ...prev }; delete next[id]; return next; });
+    if (activeTaskId === id) setActiveTaskId(null);
+  };
+
+  const handleClearAllTasks = async () => {
+    for (const id of Object.keys(tasks)) await window.reactBitsApi?.terminateTask?.(id);
+    setTasks({}); setActiveTaskId(null);
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="app-root">
+    <>
+    {!appReady && <LoadingScreen onDone={() => setAppReady(true)} />}
+    <div className="app-root" style={appReady ? undefined : { visibility: 'hidden' }}>
       <div className="background-container">
         <Iridescence color={IRIDESCENCE_COLOR} mouseReact={false} amplitude={0.1} speed={0.3} />
       </div>
 
       <div className="scene-container">
-        <section className={`scene ${view === "gallery" ? "" : "hidden-left"}`}>
-          <main className={`gallery-container ${activeCategory === "all" ? "no-scroll" : ""}`}>
+        <section className="scene">
+          <main className="gallery-container">
             <div className="filter-bar">
               <GradientText colors={GRADIENT_COLORS} animationSpeed={10} showBorder={false} className="modern-title">
                 ReactBits Explorer
@@ -419,178 +271,63 @@ function App() {
             </div>
 
             <div className="comp-showcase-container">
-              {activeCategory === "all" ? (
-                <FlowingMenu
-                  items={Object.keys(CATEGORY_LABELS).map(cat => ({
-                    text: CATEGORY_LABELS[cat],
-                    onClick: () => setActiveCategory(cat)
-                  }))}
-                />
-              ) : (
-                <div className="sub-menu-container">
-                  <div className="back-nav-container" style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
-                    <PillNav
-                      items={PILL_NAV_ITEMS}
-                      activeId={activeCategory}
-                      onItemClick={(id: string) => {
-                        if (id === 'home') setActiveCategory('all');
-                        else setActiveCategory(id);
-                      }}
-                      baseColor="#94a3b8" pillColor="rgba(15, 23, 42, 0.6)" hoveredPillTextColor="#ffffff" pillTextColor="#e2e8f0"
-                    />
-                  </div>
+              <div className="sub-menu-container">
+                <div className="back-nav-container" style={{ width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
+                  <PillNav
+                    items={PILL_NAV_ITEMS}
+                    activeId={activeCategory}
+                    onItemClick={(id: string) => setActiveCategory(id)}
+                    baseColor="#94a3b8" pillColor="rgba(15, 23, 42, 0.6)" hoveredPillTextColor="#ffffff" pillTextColor="#e2e8f0"
+                  />
+                </div>
 
                   <div className="split-view-container">
-                    <div className="component-list-pane" onMouseLeave={() => setHoveredComponentId(null)}>
-                      <div className="search-bar-wrapper">
-                        <span className="search-bar-icon">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                          </svg>
-                        </span>
-                        <input
-                          type="text"
-                          className="search-bar-input"
-                          placeholder="Search..."
-                          value={searchQuery}
-                          onChange={e => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                          <button className="search-bar-clear" onClick={() => setSearchQuery("")}>×</button>
-                        )}
-                      </div>
-                      <div className="items-scroll-area">
-                        {displayedItems.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`split-list-item ${hoveredComponentId === item.id ? 'hovered' : ''} ${selectedId === item.id ? 'active' : ''}`}
-                            onMouseEnter={() => setHoveredComponentId(item.id)}
-                            onClick={() => handleSelectComponent(item.id)}
-                          >
-                            <div className="split-list-item-content">
-                              <span className="split-list-item-title">{item.name}</span>
-                            </div>
+                    <ComponentListPane
+                      displayedItems={displayedItems}
+                      selectedId={selectedId}
+                      selectedIds={selectedIds}
+                      hoveredComponentId={hoveredComponentId}
+                      searchQuery={searchQuery}
+                      onSearchChange={setSearchQuery}
+                      onSelect={handleSelectComponent}
+                      onToggleSelect={toggleSelection}
+                      onHover={setHoveredComponentId}
+                      onAddClick={() => setShowAddModal(true)}
+                    />
 
-                            <div className="selection-container">
-                              <div
-                                className="checkbox-custom"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleSelection(item.id, e);
-                                }}
-                              >
-                                <input type="checkbox" checked={selectedIds.includes(item.id)} readOnly />
-                                <span className="checkmark"></span>
-                              </div>
-                              <span className="split-list-item-arrow">→</span>
-                            </div>
-                          </div>
-                        ))}
-                        {displayedItems.length === 0 && (
-                          <div className="empty-state">
-                            <p>{searchQuery ? `No results for "${searchQuery}"` : "No components found."}</p>
-                          </div>
-                        )}
-                      </div>
+                    <ComponentInspector
+                      selected={selected}
+                      componentFiles={componentFiles}
+                      primaryTab={primaryTab}
+                      onPrimaryTabChange={setPrimaryTab}
+                      activeCodeFileIndex={activeCodeFileIndex}
+                      onCodeFileChange={setActiveCodeFileIndex}
+                      activeDocTab={activeDocTab}
+                      onDocTabChange={setActiveDocTab}
+                      installTab={installTab}
+                      onInstallTabChange={setInstallTab}
+                      packageManager={packageManager}
+                      onPackageManagerChange={setPackageManager}
+                      parsedInstallData={parsedInstallData}
+                      rawInstallMarkdown={rawInstallMarkdown}
+                      hoveredComponentId={hoveredComponentId}
+                      filteredItems={filtered}
+                      onGenerate={handleGenerate}
+                    />
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 0 6px 0' }}>
+                      <PresetManager onSave={handleSavePreset} onLoad={handleLoadPreset} onDelete={handleDeletePreset} />
                     </div>
-
-                    <div className="component-preview-pane">
-                      {selected ? (
-                        <div className="preview-content-active">
-                          <header className="preview-header">
-                            <div className="header-title-column">
-                              <h3>{selected.name}</h3>
-                              <span className="category-comment">// {selected.category}</span>
-                            </div>
-                            <div className="inspector-tabs primary-level">
-                              <div className={`inspector-tab ${primaryTab === 'code' ? 'active' : ''}`} onClick={() => setPrimaryTab('code')}>Code</div>
-                              <div className={`inspector-tab ${primaryTab === 'docs' ? 'active' : ''}`} onClick={() => setPrimaryTab('docs')}>Docs</div>
-                              <div className={`inspector-tab ${primaryTab === 'install' ? 'active' : ''}`} onClick={() => setPrimaryTab('install')}>Install</div>
-                            </div>
-                          </header>
-
-                          {primaryTab === 'code' && componentFiles.length > 0 && (
-                            <div className="inspector-tabs secondary-level">
-                              {componentFiles.map((f, i) => (
-                                <div key={i} className={`inspector-tab ${activeCodeFileIndex === i ? "active" : ""}`} onClick={() => setActiveCodeFileIndex(i)}>{f.name}</div>
-                              ))}
-                            </div>
-                          )}
-
-                          {primaryTab === 'docs' && (
-                            <div className="inspector-tabs secondary-level">
-                              <div className={`inspector-tab ${activeDocTab === 'usage' ? "active" : ""}`} onClick={() => setActiveDocTab('usage')}>usage.md</div>
-                              <div className={`inspector-tab ${activeDocTab === 'install' ? "active" : ""}`} onClick={() => setActiveDocTab('install')}>install.md</div>
-                            </div>
-                          )}
-
-                          {primaryTab === 'install' ? (
-                            <div className="installation-panel">
-                              <div className="sub-tabs">
-                                <button className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`} onClick={() => setInstallTab('cli')}>CLI</button>
-                                <button className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`} onClick={() => setInstallTab('manual')}>Manual</button>
-                              </div>
-                              <div className="tertiary-tabs">
-                                {["pnpm", "npm", "yarn", "bun"].map((pm) => (
-                                  <button key={pm} className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`} onClick={() => setPackageManager(pm as any)}>{pm}</button>
-                                ))}
-                              </div>
-                              <div className="code-viewer preview-code-box installation-code-box">
-                                <pre className="code-view">
-                                  {installTab === 'manual' ? (parsedInstallData.manual[packageManager] || `// No manual instructions found for ${packageManager}.`) : (parsedInstallData.cli[packageManager] || `# No CLI command found for ${packageManager}.\nnpx react-bits add ${selected.id}`)}
-                                </pre>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="code-viewer preview-code-box">
-                              <pre className="code-view">
-                                {primaryTab === 'docs' ? (activeDocTab === 'usage' ? selected.usageMarkdown : rawInstallMarkdown) : (componentFiles[activeCodeFileIndex]?.content || "No source code loaded.")}
-                              </pre>
-                            </div>
-                          )}
-
-                          <div className="action-buttons preview-actions">
-                            <button className="primary-btn" onClick={handleGenerate}>Generate Project with {selected.name}</button>
-                            <button
-                              className={`secondary-btn ${isCopied ? 'copied' : ''}`}
-                              onClick={() => {
-                                let content = "";
-                                if (primaryTab === 'code') content = componentFiles[activeCodeFileIndex]?.content || "";
-                                else if (primaryTab === 'docs') content = activeDocTab === 'usage' ? selected.usageMarkdown : rawInstallMarkdown;
-                                else content = installTab === 'manual' ? (parsedInstallData.manual[packageManager] || "") : (parsedInstallData.cli[packageManager] || "");
-                                navigator.clipboard.writeText(content);
-                                setIsCopied(true);
-                                setTimeout(() => setIsCopied(false), 2000);
-                              }}
-                              style={isCopied ? { backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e', borderColor: '#22c55e' } : {}}
-                            >
-                              {isCopied ? "Copied!" : "Copy Code"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="preview-placeholder">
-                          <header className="preview-header">
-                            <h3>{hoveredComponentId ? (filtered.find(i => i.id === hoveredComponentId)?.name || 'Preview') : 'Select a component'}</h3>
-                            <div className="mock-tabs" style={{ opacity: hoveredComponentId ? 1 : 0.3, transition: 'opacity 0.3s' }}>
-                              <span className="mock-tab active">React</span>
-                              <span className="mock-tab">CSS</span>
-                              <span className="mock-tab">Tailwind</span>
-                            </div>
-                          </header>
-                          <div className="preview-box">
-                            <span className="preview-text">{hoveredComponentId ? 'Click to view code and information' : 'Hover over a component to view information'}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
                     <ProjectBuilderPanel
                       selectedComponents={selectedComponents}
                       categoryLimits={CATEGORY_LIMITS}
                       prompt={projectPrompt}
                       onPromptChange={setProjectPrompt}
                       onGenerate={handleBuilderGenerate}
+                      designRules={designRules}
+                      onDesignRulesChange={setDesignRules}
+                      layoutConcept={layoutConcept}
+                      onOpenLayoutPicker={() => setShowLayoutPicker(true)}
                       onRestoreFromHistory={(p: string, sels: any[]) => {
                         setProjectPrompt(p);
                         setSelectedIds(sels.map((s: any) => s.id));
@@ -599,154 +336,69 @@ function App() {
                       }}
                     />
                   </div>
-                </div>
-              )}
+              </div>
             </div>
           </main>
         </section>
       </div>
 
-      {showGenerateWizard && (selected || lastEnhancedPrompt) && (
-        <div className="wizard-overlay" onClick={() => setShowGenerateWizard(false)}>
-          <div className="wizard-modal" onClick={e => e.stopPropagation()}>
-            <header className="wizard-header">
-              <div className="window-controls"><span className="dot red"></span><span className="dot yellow"></span><span className="dot green"></span></div>
-               <h2>{lastEnhancedPrompt ? "Generate AI Master Project" : "Generate Demo Project"}</h2>
-              <button className="close-btn" onClick={() => setShowGenerateWizard(false)}>&times;</button>
-            </header>
-            <div className="wizard-body">
-              <p className="wizard-subtitle">Generate a standalone, ready-to-run project for <strong>{lastEnhancedPrompt ? lastEnhancedPrompt.projectMeta?.title || "AI Project" : selected?.name}</strong>.</p>
-              <div className="wizard-section">
-                <label>Project Name</label>
-                <input type="text" className="wizard-input" value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. my-cool-demo" />
-              </div>
-              <div className="wizard-section">
-                <label>Save To</label>
-                <div className="path-selector">
-                  <input type="text" className="wizard-input path-input" value={projectPath} readOnly placeholder="Click Browse to select folder..." />
-                  <button className="secondary-btn browse-btn" onClick={handleSelectDirectory}>Browse</button>
-                </div>
-              </div>
-              <div className="wizard-row">
-                <div className="wizard-section" style={{ flex: 1 }}>
-                  <label>Installation Method</label>
-                  <div className="sub-tabs mini">
-                    <button className={`sub-tab ${installTab === 'cli' ? 'active' : ''}`} onClick={() => setInstallTab('cli')}>CLI</button>
-                    <button className={`sub-tab ${installTab === 'manual' ? 'active' : ''}`} onClick={() => setInstallTab('manual')}>Manual</button>
-                  </div>
-                </div>
-                <div className="wizard-section" style={{ flex: 1.5 }}>
-                  <label>Package Manager</label>
-                  <div className="tertiary-tabs mini">
-                    {["pnpm", "npm", "yarn", "bun"].map((pm) => (
-                      <button key={pm} className={`tertiary-tab ${packageManager === pm ? 'active' : ''}`} onClick={() => setPackageManager(pm as any)}>{pm}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="wizard-section checkbox-section">
-                <label className="checkbox-label"><input type="checkbox" checked={openWhenDone} onChange={(e) => setOpenWhenDone(e.target.checked)} /><span>Open project automatically in VS Code when finished</span></label>
-              </div>
-              <div className="wizard-section checkbox-section" style={{ marginTop: '-0.5rem' }}>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={runWhenDone} onChange={(e) => setRunWhenDone(e.target.checked)} />
-                  <span>Run project automatically (npm run dev)</span>
-                </label>
-              </div>
-              {runWhenDone && (
-                <div className="wizard-section checkbox-section" style={{ marginTop: '-0.5rem', marginLeft: '1.5rem', opacity: 0.8 }}>
-                  <label className="checkbox-label">
-                    <input type="checkbox" checked={autoKillOnError} onChange={(e) => setAutoKillOnError(e.target.checked)} />
-                    <span>Auto-kill/close project if browser errors out</span>
-                  </label>
-                </div>
-              )}
-            </div>
-            <div className="wizard-actions">
-              <button className="secondary-btn" onClick={() => setShowGenerateWizard(false)}>Cancel</button>
-              <button className="primary-btn generate-btn" onClick={confirmGenerate} disabled={!projectName || !projectPath}>Start Generation</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <GenerateWizard
+        open={showGenerateWizard}
+        onClose={() => setShowGenerateWizard(false)}
+        selected={selected}
+        lastEnhancedPrompt={lastEnhancedPrompt}
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        projectPath={projectPath}
+        onBrowse={handleSelectDirectory}
+        installTab={installTab}
+        onInstallTabChange={setInstallTab}
+        packageManager={packageManager}
+        onPackageManagerChange={setPackageManager}
+        openWhenDone={openWhenDone}
+        onOpenWhenDoneChange={setOpenWhenDone}
+        runWhenDone={runWhenDone}
+        onRunWhenDoneChange={setRunWhenDone}
+        autoKillOnError={autoKillOnError}
+        onAutoKillChange={setAutoKillOnError}
+        onConfirm={confirmGenerate}
+      />
 
       {activeTaskId && tasks[activeTaskId] && (
-        <div className="loading-overlay">
-          <div className="loading-content expanded">
-            {tasks[activeTaskId].status === 'running' && <div className="spinner"></div>}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px' }}>
-              <h3 style={{ margin: 0 }}>{tasks[activeTaskId].status === 'running' ? 'Generating Project...' : 'Generation Result'}</h3>
-              {tasks[activeTaskId].status !== 'running' && (
-                <button className="secondary-btn mini" onClick={() => setActiveTaskId(null)}>Close Overlay</button>
-              )}
-            </div>
-            <p className="loading-progress-text">{tasks[activeTaskId].progress}</p>
-            <div className="terminal-container">
-              <div className="terminal-header">
-                <div className="window-controls mini"><span className="dot red"></span><span className="dot yellow"></span><span className="dot green"></span></div>
-                <span className="terminal-title">bash - build ({tasks[activeTaskId].name})</span>
-                <button className="hide-btn" onClick={() => setActiveTaskId(null)}>Hide</button>
-              </div>
-              <pre className="terminal-body" ref={terminalRef}>{tasks[activeTaskId].logs.map((log, i) => <span key={i}>{log}</span>)}</pre>
-            </div>
-          </div>
-        </div>
+        <TaskOverlay task={tasks[activeTaskId]} terminalRef={terminalRef} onHide={() => setActiveTaskId(null)} />
       )}
 
-      {Object.keys(tasks).length > 0 && (
-        <div className="task-bar">
-          <span style={{ fontSize: '12px', opacity: 0.6, marginRight: '8px' }}>Active Tasks:</span>
-          {Object.values(tasks).map(task => (
-            <div
-              key={task.id}
-              className={`task-bar-item ${task.status} ${activeTaskId === task.id ? 'active' : ''}`}
-              onClick={() => setActiveTaskId(task.id)}
-            >
-              <div className="status-dot"></div>
-              <span className="task-name">{task.name} ({task.projectName})</span>
-              {(task.status === 'success' || task.status === 'error' || task.status === 'running') && (
-                <span
-                  className="close-task"
-                  title="Terminate process and clear task"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    // Always try to terminate the associated process if any
-                    if ((window as any).reactBitsApi?.terminateTask) {
-                      await (window as any).reactBitsApi.terminateTask(task.id);
-                    }
-                    setTasks(prev => {
-                      const next = { ...prev };
-                      delete next[task.id];
-                      return next;
-                    });
-                    if (activeTaskId === task.id) setActiveTaskId(null);
-                  }}
-                >
-                  &times;
-                </span>
-              )}
-            </div>
-          ))}
-          <button
-            className="secondary-btn mini"
-            style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px' }}
-            onClick={async () => {
-              if ((window as any).reactBitsApi?.terminateTask) {
-                // Terminate all processes
-                for (const taskId of Object.keys(tasks)) {
-                  await (window as any).reactBitsApi.terminateTask(taskId);
-                }
-              }
-              setTasks({});
-              setActiveTaskId(null);
-            }}
-          >
-            CLEAR ALL
-          </button>
-        </div>
-      )}
+      <TaskBar
+        tasks={tasks}
+        activeTaskId={activeTaskId}
+        onSelect={setActiveTaskId}
+        onClose={handleCloseTask}
+        onClearAll={handleClearAllTasks}
+      />
+
       {generateStatus && <div className={`status-toast ${toastType}`}>{generateStatus}</div>}
+
+      {showLayoutPicker && (
+        <LayoutConceptPicker
+          selectedComponentNames={selectedComponents.map(c => c.name)}
+          currentConcept={layoutConcept}
+          onConfirm={(concept) => { setLayoutConcept(concept); setShowLayoutPicker(false); }}
+          onClose={() => setShowLayoutPicker(false)}
+        />
+      )}
+
+      <AddComponentModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdded={(entry) => {
+          setItems(prev => [...prev.filter(i => i.id !== entry.id), entry as ReactBitsItem]);
+          setToastType("success");
+          setGenerateStatus(`Component "${entry.name}" added to ${entry.category}!`);
+          setTimeout(() => setGenerateStatus(""), 4000);
+        }}
+      />
     </div>
+    </>
   );
 }
 

@@ -308,6 +308,13 @@
     "relativePath": "ReactBitsComponents/Animations/LogoLoop/UsageLogoLoop.md"
   },
   {
+    "id": "Animations/MagicRings",
+    "name": "MagicRings",
+    "category": "Animations",
+    "usageMarkdown": "import MagicRings from './MagicRings';\r\n\r\n<div style={{ width: '600px', height: '400px', position: 'relative' }}>\r\n  <MagicRings\r\n    color=\"#A855F7\"\r\n    colorTwo=\"#6366F1\"\r\n    ringCount={6}\r\n    speed={1}\r\n    attenuation={10}\r\n    lineThickness={2}\r\n    baseRadius={0.35}\r\n    radiusStep={0.1}\r\n    scaleRate={0.1}\r\n    opacity={1}\r\n    blur={0}\r\n    noiseAmount={0.1}\r\n    rotation={0}\r\n    ringGap={1.5}\r\n    fadeIn={0.7}\r\n    fadeOut={0.5}\r\n    followMouse={false}\r\n    mouseInfluence={0.2}\r\n    hoverScale={1.2}\r\n    parallax={0.05}\r\n    clickBurst={false}\r\n  />\r\n</div>",
+    "relativePath": "ReactBitsComponents/Animations/MagicRings/UsageMagicRings.md"
+  },
+  {
     "id": "Animations/Magnet",
     "name": "Magnet",
     "category": "Animations",
@@ -416,7 +423,7 @@
     "id": "Backgrounds/Ballpit",
     "name": "Ballpit",
     "category": "Backgrounds",
-    "usageMarkdown": "//Component inspired by Kevin Levron:\r\n//https://x.com/soju22/status/1858925191671271801\r\n  \r\nimport Ballpit from './Ballpit'\r\n\r\n<div style={{position: 'relative', overflow: 'hidden', width: '100%', height: '100vh'}}>\r\n  <Ballpit\r\n    count={80}\r\n    gravity={0.8}\r\n    friction={0.95}\r\n    wallBounce={0.7}\r\n    followCursor={false}\r\n  />\r\n</div>",
+    "usageMarkdown": "//Component inspired by Kevin Levron:\r\n//https://x.com/soju22/status/1858925191671271801\r\n  \r\nimport Ballpit from './Ballpit'\r\n\r\n<div\r\n      style={{\r\n        width: '100vw',\r\n        height: '100vh',\r\n        position: 'relative',\r\n        overflow: 'hidden',\r\n        background: '#000'\r\n      }}\r\n    >\r\n      <div style={{ position: 'absolute', inset: 0 }}>\r\n        <PlasmaWave\r\n          colors={['#7C3AED', '#22D3EE']}\r\n          speed1={0.018}\r\n          speed2={0.026}\r\n          focalLength={1.05}\r\n          bend1={0.55}\r\n          bend2={0.35}\r\n          dir2={1}\r\n          rotationDeg={-8}\r\n        />\r\n      </div>\r\n      <div\r\n        aria-hidden\r\n        style={{\r\n          position: 'absolute',\r\n          inset: 0,\r\n          pointerEvents: 'none',\r\n          background:\r\n            'radial-gradient(circle at 50% 42%, rgba(16, 24, 42, 0.08) 0%, rgba(2, 6, 23, 0.68) 56%, rgba(1, 2, 7, 0.96) 100%)'\r\n        }}\r\n      />\r\n      <div\r\n        aria-hidden\r\n        style={{\r\n          position: 'absolute',\r\n          inset: 0,\r\n          pointerEvents: 'none',\r\n          opacity: 0\r\n        }}\r\n      />\r\n      <div\r\n        aria-hidden\r\n        style={{\r\n          position: 'absolute',\r\n          inset: 0,\r\n          pointerEvents: 'none',\r\n          opacity: 0.06,\r\n          backgroundImage:\r\n            'radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.7) 0.7px, transparent 0)',\r\n          backgroundSize: '3px 3px'\r\n        }}\r\n      />\r\n      <div\r\n        aria-hidden\r\n        style={{\r\n          position: 'absolute',\r\n          inset: 0,\r\n          pointerEvents: 'none',\r\n          background:\r\n            'linear-gradient(180deg, rgba(2, 6, 23, 0.35) 0%, transparent 30%, transparent 70%, rgba(2, 6, 23, 0.4) 100%)'\r\n        }}\r\n      />\r\n    </div>",
     "relativePath": "ReactBitsComponents/Backgrounds/Ballpit/UsageBallpit.md"
   },
   {
@@ -425,6 +432,13 @@
     "category": "Backgrounds",
     "usageMarkdown": "import Beams from './Beams';\r\n\r\n<Beams\r\n    beamWidth={2}\r\n    beamHeight={15}\r\n    beamNumber={12}\r\n    lightColor=\"#ffffff\"\r\n    speed={2}\r\n    noiseIntensity={1.75}\r\n    scale={0.2}\r\n    rotation={0}\r\n  />\r\n\r\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Beams/UsageBeams.md"
+  },
+  {
+    "id": "Backgrounds/ColorBends",
+    "name": "ColorBends",
+    "category": "Backgrounds",
+    "usageMarkdown": "import ColorBends from './ColorBends';\r\n  \r\n<ColorBends\r\n  colors={[\"#ff5c7a\", \"#8a5cff\", \"#00ffd1\"]}\r\n  rotation={90}\r\n  speed={0.2}\r\n  scale={1.5}\r\n  frequency={1}\r\n  warpStrength={1}\r\n  mouseInfluence={0}\r\n  noise={0.15}\r\n  parallax={0.5}\r\n  iterations={1}\r\n  intensity={1.5}\r\n  bandWidth={6}\r\n  transparent\r\n  autoRotate={0}\r\n  color=\"#A855F7\"\r\n/>",
+    "relativePath": "ReactBitsComponents/Backgrounds/ColorBends/UsageColorBends.md"
   },
   {
     "id": "Backgrounds/DarkVeil",
@@ -453,6 +467,13 @@
     "category": "Backgrounds",
     "usageMarkdown": "import FaultyTerminal from './FaultyTerminal';\r\n\r\n<FaultyTerminal\r\n    scale={1.5}\r\n    gridMul={[2, 1]}\r\n    digitSize={1.2}\r\n    timeScale={1}\r\n    pause={false}\r\n    scanlineIntensity={1}\r\n    glitchAmount={1}\r\n    flickerAmount={1}\r\n    noiseAmp={1}\r\n    chromaticAberration={0}\r\n    dither={0}\r\n    curvature={0}\r\n    tint=\"#ffffff\"\r\n    mouseReact={true}\r\n    mouseStrength={0.5}\r\n    pageLoadAnimation={false}\r\n    brightness={1}\r\n  />\r\n\r\n",
     "relativePath": "ReactBitsComponents/Backgrounds/FaultyTerminal/UsageFaultyTerminal.md"
+  },
+  {
+    "id": "Backgrounds/FloatingLines",
+    "name": "FloatingLines",
+    "category": "Backgrounds",
+    "usageMarkdown": "import FloatingLines from './FloatingLines';\r\n\r\n<div style={{ width: '100%', height: '600px', position: 'relative' }}>\r\n  <FloatingLines \r\n    enabledWaves={[\"top\",\"middle\",\"bottom\"]}\r\n    // Array - specify line count per wave; Number - same count for all waves\r\n    lineCount={8}\r\n    // Array - specify line distance per wave; Number - same distance for all waves\r\n    lineDistance={8}\r\n    bendRadius={8}\r\n    bendStrength={-2}\r\n    interactive={false}\r\n    parallax={true}\r\n    animationSpeed={0.4}\r\n    gradientStart=\"#e945f5\"\r\n    gradientMid=\"#6f6f6f\"\r\n    gradientEnd=\"#6a6a6a\"\r\n/>\r\n</div>",
+    "relativePath": "ReactBitsComponents/Backgrounds/FloatingLines/UsageFloatingLines.md"
   },
   {
     "id": "Backgrounds/Galaxy",
@@ -537,6 +558,13 @@
     "category": "Backgrounds",
     "usageMarkdown": "import Plasma from './components/Backgrounds/Plasma/Plasma';\r\n\r\nexport default function App() {\r\n  return (\r\n    <div style={{ width: '100%', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>\r\n      <Plasma \r\n        color=\"#3498db\"\r\n        speed={1.0}\r\n        scale={1.0}\r\n        // --- NEW CUSTOMIZATION PROPS ---\r\n        twist={10.0}        // Higher = more spiral/winding\r\n        topWidth={0.6}      // Width at the top of the screen\r\n        bottomWidth={0.02}  // Width at the bottom (0.01 is a sharp point)\r\n        flarePow={1.6}      // 1.0 is linear, 2.0+ is a curved \"funnel\" look\r\n        opacity={1}\r\n      />\r\n    </div>\r\n  );\r\n}\r\n",
     "relativePath": "ReactBitsComponents/Backgrounds/Plasma/UsagePlasma.md"
+  },
+  {
+    "id": "Backgrounds/PlasmaWave",
+    "name": "PlasmaWave",
+    "category": "Backgrounds",
+    "usageMarkdown": "import PlasmaWave from './PlasmaWave';\r\n  \r\n<div\r\n      style={{\r\n        width: '100vw',\r\n        height: '100vh',\r\n        position: 'relative',\r\n        overflow: 'hidden',\r\n        background: '#000'\r\n      }}\r\n    >\r\n      <div style={{ position: 'absolute', inset: 0 }}>\r\n        <PlasmaWave\r\n          colors={['#7C3AED', '#22D3EE']}\r\n          speed1={0.018}\r\n          speed2={0.026}\r\n          focalLength={1.05}\r\n          bend1={0.55}\r\n          bend2={0.35}\r\n          dir2={1}\r\n          rotationDeg={-8}\r\n        />\r\n      </div>\r\n      <div\r\n        aria-hidden\r\n        style={{\r\n          position: 'absolute',\r\n          inset: 0,\r\n          pointerEvents: 'none',\r\n          background:\r\n            'radial-gradient(circle at 50% 42%, rgba(16, 24, 42, 0.08) 0%, rgba(2, 6, 23, 0.68) 56%, rgba(1, 2, 7, 0.96) 100%)'\r\n        }}\r\n      />\r\n      <div\r\n        aria-hidden\r\n        style={{\r\n          position: 'absolute',\r\n          inset: 0,\r\n          pointerEvents: 'none',\r\n          opacity: 0\r\n        }}\r\n      />\r\n      <div\r\n        aria-hidden\r\n        style={{\r\n          position: 'absolute',\r\n          inset: 0,\r\n          pointerEvents: 'none',\r\n          opacity: 0.06,\r\n          backgroundImage:\r\n            'radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.7) 0.7px, transparent 0)',\r\n          backgroundSize: '3px 3px'\r\n        }}\r\n      />\r\n      <div\r\n        aria-hidden\r\n        style={{\r\n          position: 'absolute',\r\n          inset: 0,\r\n          pointerEvents: 'none',\r\n          background:\r\n            'linear-gradient(180deg, rgba(2, 6, 23, 0.35) 0%, transparent 30%, transparent 70%, rgba(2, 6, 23, 0.4) 100%)'\r\n        }}\r\n      />\r\n    </div>",
+    "relativePath": "ReactBitsComponents/Backgrounds/PlasmaWave/UsagePlasmaWave.md"
   },
   {
     "id": "Backgrounds/Prism",

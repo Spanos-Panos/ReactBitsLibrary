@@ -1,0 +1,21 @@
+/* ── Design tokens ────────────────────────────────────────────────────────────
+   This file is the single source of truth for CSS custom properties.
+   Add --color-*, --spacing-*, --radius-*, --font-* variables here as the
+   codebase migrates away from hardcoded values.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Fonts ─────────────────────────────────────────────────────────────── */
+  --font-display: 'Clash Display', sans-serif;
+  --font-body:    'Satoshi', sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Type scale ─────────────────────────────────────────────────────────── */
+  --text-xs:   0.75rem;    /* 12px — captions, badges        */
+  --text-sm:   0.875rem;   /* 14px — secondary labels        */
+  --text-base: 1rem;       /* 16px — body, inputs            */
+  --text-lg:   1.125rem;   /* 18px — subheadings             */
+  --text-xl:   1.25rem;    /* 20px — section titles          */
+  --text-2xl:  1.5rem;     /* 24px — page titles             */
+  --text-3xl:  1.875rem;   /* 30px — hero / display          */
+}

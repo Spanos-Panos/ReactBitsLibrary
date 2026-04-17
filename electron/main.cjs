@@ -284,7 +284,7 @@ ipcMain.handle("select-directory", async () => {
 });
 
 const { generatePlayground } = require("../DemoCLI/index.cjs");
-const { savePrompt, getHistory, clearHistory, openHistoryFolder } = require("./storage.cjs");
+const { savePrompt, getHistory, clearHistory, openHistoryFolder, savePreset, listPresets, deletePreset } = require("./storage.cjs");
 
 ipcMain.handle("generate-playground", async (event, ...args) => {
   let result;
@@ -345,7 +345,57 @@ ipcMain.handle("storage-open-folder", async () => {
   return openHistoryFolder();
 });
 
+// Preset IPC Handlers
+ipcMain.handle("preset-save",   (_event, preset) => savePreset(preset));
+ipcMain.handle("preset-list",   ()               => listPresets());
+ipcMain.handle("preset-delete", (_event, id)     => deletePreset(id));
+
 ipcMain.handle("enhance-prompt", async (event, payload) => {
   return await enhancePrompt(payload);
+});
+
+ipcMain.handle("add-component", async (event, { name, category, language, code, css, install, usage }) => {
+  try {
+    // Sanitize: allow only letters and numbers (PascalCase friendly)
+    const safeName = (name || "").replace(/[^a-zA-Z0-9]/g, "");
+    if (!safeName) return { ok: false, error: "Invalid component name. Use letters and numbers only." };
+
+    const validCategories = ["Components", "Animations", "Backgrounds", "TextAnimations"];
+    if (!validCategories.includes(category)) return { ok: false, error: "Invalid category." };
+
+    const ext = (language || "ts-css").startsWith("ts") ? ".tsx" : ".jsx";
+    const isTailwind = (language || "").includes("tailwind");
+
+    const compDir = path.join(__dirname, "..", "ReactBitsComponents", category, safeName);
+    await fs.promises.mkdir(compDir, { recursive: true });
+
+    await fs.promises.writeFile(path.join(compDir, `${safeName}${ext}`), code || "", "utf-8");
+    if (!isTailwind && css && css.trim()) {
+      await fs.promises.writeFile(path.join(compDir, `${safeName}.css`), css, "utf-8");
+    }
+    await fs.promises.writeFile(path.join(compDir, `${safeName}Install.md`), install || "", "utf-8");
+    await fs.promises.writeFile(path.join(compDir, `Usage${safeName}.md`), usage || "", "utf-8");
+
+    // Update the static manifest so the new component survives app restarts
+    const manifestPath = path.join(__dirname, "..", "src", "reactbits-manifest.json");
+    let manifestData = [];
+    try {
+      manifestData = JSON.parse(await fs.promises.readFile(manifestPath, "utf-8"));
+    } catch {}
+    const newEntry = {
+      id: `${category}/${safeName}`,
+      name: safeName,
+      category,
+      usageMarkdown: usage || "",
+      relativePath: `ReactBitsComponents/${category}/${safeName}/Usage${safeName}.md`,
+    };
+    manifestData = manifestData.filter((e) => e.id !== newEntry.id);
+    manifestData.push(newEntry);
+    await fs.promises.writeFile(manifestPath, JSON.stringify(manifestData, null, 2), "utf-8");
+
+    return { ok: true, entry: newEntry };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 });
 

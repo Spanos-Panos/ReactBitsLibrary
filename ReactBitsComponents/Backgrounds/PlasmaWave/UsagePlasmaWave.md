@@ -1,8 +1,5 @@
-//Component inspired by Kevin Levron:
-//https://x.com/soju22/status/1858925191671271801
+import PlasmaWave from './PlasmaWave';
   
-import Ballpit from './Ballpit'
-
 <div
       style={{
         width: '100vw',

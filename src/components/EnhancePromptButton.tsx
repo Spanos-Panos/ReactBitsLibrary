@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "./EnhancePromptButton.css";
+import "../types/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ export const EnhancePromptButton: React.FC<EnhancePromptButtonProps> = ({
       const componentsWithContext = await Promise.all(
         selectedComponents.map(async (comp) => {
           try {
-            return await (window as any).reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id);
+            return await window.reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id);
           } catch (e) {
             console.warn(`Failed to fetch context for ${comp.name}`, e);
             return comp;
@@ -56,10 +57,10 @@ export const EnhancePromptButton: React.FC<EnhancePromptButtonProps> = ({
       );
 
       // 🚀 Step 2: Call the enhancer with the rich data
-      const result = await (window as any).reactBitsApi.enhancePrompt({ 
-        rawPrompt, 
-        selectedComponents: componentsWithContext 
-      });
+      const result = await window.reactBitsApi.enhancePrompt({
+        rawPrompt,
+        selectedComponents: componentsWithContext
+      }) as any;
 
       if (result.success) {
         setSavedPath(result.savedPaths.enhanced);

@@ -87,6 +87,18 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   },
   terminateTask(taskId) {
     return ipcRenderer.invoke("terminate-task", taskId);
+  },
+  savePreset(preset) {
+    return ipcRenderer.invoke("preset-save", preset);
+  },
+  listPresets() {
+    return ipcRenderer.invoke("preset-list");
+  },
+  deletePreset(id) {
+    return ipcRenderer.invoke("preset-delete", id);
+  },
+  addComponent(payload) {
+    return ipcRenderer.invoke("add-component", payload);
   }
 });
 

@@ -77,6 +77,7 @@ Return ONLY a raw JSON object. No preamble, no backticks.
 2. **Atomic Steps**: Break project instructions into a clear list of 5-10 short strings.
 3. **Prop Precision**: Use EXACT prop names from the provided component source code.
 4. **TextAnimation Contrast**: When any TextAnimation component is included, you MUST set its color props explicitly in the \`props\` field so the text has WCAG AA contrast (≥4.5:1) against the section/page background. Use exact prop names from source (e.g. \`color\`, \`textColor\`, \`colors\`). Never leave TextAnimation color props unset — invisible text is a critical bug.
+5. **No JavaScript in JSON**: ALL values in the JSON must be valid JSON types (string, number, boolean, array, object, null). NEVER write JavaScript function syntax like \`() => alert()\`, \`function() {}\`, or JSX like \`<Icon />\`. For callback props (onClick, onChange, etc.), use a string label like "navigate-home" or simply omit them.
 `;
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -84,6 +85,49 @@ Return ONLY a raw JSON object. No preamble, no backticks.
 async function enhancePrompt(options) {
   try {
     const { rawPrompt, selectedComponents, systemContext } = options;
+    const dr = systemContext?.designRules;
+
+    // Build optional design preferences block
+    let designBlock = '';
+    if (dr) {
+      const lines = [];
+
+      if (Array.isArray(dr.fonts) && dr.fonts.some(f => f.value?.trim())) {
+        lines.push('Fonts:');
+        dr.fonts.forEach(f => {
+          if (f.value?.trim()) {
+            const role = f.role ? f.role : 'body (auto)';
+            lines.push(`  - ${f.value.trim()} → role: ${role}`);
+          }
+        });
+      }
+
+      if (Array.isArray(dr.colors) && dr.colors.some(c => c.value?.trim())) {
+        lines.push('Colors:');
+        dr.colors.forEach(c => {
+          if (c.value?.trim()) {
+            const role = c.role ? c.role : 'auto';
+            lines.push(`  - ${c.value.trim()} → role: ${role}`);
+          }
+        });
+      }
+
+      if (dr.sizes) {
+        lines.push('Sizes:');
+        lines.push(`  - Responsive strategy: ${dr.sizes.strategy}`);
+        if (dr.sizes.maxWidth) lines.push(`  - Max container width: ${dr.sizes.maxWidth}`);
+      }
+
+      if (lines.length > 0) {
+        designBlock = `\n\n## USER DESIGN PREFERENCES\nThe user has specified these design constraints. Follow them strictly.\n\n${lines.join('\n')}`;
+      }
+    }
+
+    // Layout blueprint block
+    let layoutBlock = '';
+    if (systemContext?.layoutMd) {
+      layoutBlock = `\n\n${systemContext.layoutMd}`;
+    }
     ensureDirsExist();
 
     const originalPayload = {
@@ -104,9 +148,8 @@ async function enhancePrompt(options) {
 
     // ─── Model Discovery Loop ──────────────────────────────────────────────
     const candidateModels = [
-      "claude-3-5-sonnet-latest",
-      "claude-3-5-haiku-latest",
-      "claude-3-5-haiku-20241022",
+      "claude-haiku-4-5-20251001",
+      "claude-sonnet-4-6",
       "claude-3-haiku-20240307"
     ];
 
@@ -121,7 +164,7 @@ async function enhancePrompt(options) {
           model: modelId,
           max_tokens: 4096,
           temperature: 0, // Lower temperature = more stable JSON
-          system: PROMPT_ENHANCER_SKILL + "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object.",
+          system: PROMPT_ENHANCER_SKILL + designBlock + layoutBlock + "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object.",
           messages: [
             {
               role: "user",
@@ -159,10 +202,14 @@ async function enhancePrompt(options) {
       const endIdx = responseText.lastIndexOf('}');
       if (startIdx === -1 || endIdx === -1) throw new Error("No JSON object found in response");
       
-      const jsonCandidate = responseText.substring(startIdx, endIdx + 1);
-      
-      // We no longer manually replace newlines here because it can corrupt brackets.
-      // We rely on the system prompt to force Claude to escape them correctly.
+      let jsonCandidate = responseText.substring(startIdx, endIdx + 1);
+
+      // Strip lines containing JS function/JSX values that would break JSON.parse.
+      // e.g. `"onClick": () => alert('x')` → removed entirely (trailing comma handled too)
+      jsonCandidate = jsonCandidate
+        .replace(/^\s*"[^"]+"\s*:\s*(?:\([^)]*\)\s*=>|function\s*\()[^\n]*,?\n/gm, '')
+        .replace(/^\s*"[^"]+"\s*:\s*<[A-Z][^>]*\/>\s*,?\n/gm, '');   // strip JSX values
+
       enhancedPrompt = JSON.parse(jsonCandidate);
     } catch (parseErr) {
       console.error("[Claude Enhancer] JSON Parse Failed. Raw text was:", responseText);
