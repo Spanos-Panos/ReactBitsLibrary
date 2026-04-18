@@ -6,7 +6,7 @@ import { useTaskManager }       from "./hooks/useTaskManager";
 import { useGenerationWizard }  from "./hooks/useGenerationWizard";
 import PlasmaWave from "./components/Backgrounds/PlasmaWave/PlasmaWave";
 import CardNav from "./components/Components/CardNav/CardNav";
-import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, type DesignRules } from "./components/ProjectBuilderPanel";
+import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief } from "./components/ProjectBuilderPanel";
 import LayoutConceptPicker from "./components/LayoutConceptPicker";
 import type { LayoutConcept } from "./lib/layoutConceptGenerator";
 import PresetManager, { type SavedPreset } from "./components/PresetManager";
@@ -76,6 +76,8 @@ function App() {
 
   const [projectPrompt,        setProjectPrompt]        = useState("");
   const [designRules,          setDesignRules]          = useState<DesignRules>(DEFAULT_DESIGN_RULES);
+  const [styleDirection,       setStyleDirection]       = useState<StyleDirection>(DEFAULT_STYLE_DIRECTION);
+  const [clientBrief,          setClientBrief]          = useState<ClientBrief>(DEFAULT_CLIENT_BRIEF);
   const [layoutConcept,        setLayoutConcept]        = useState<LayoutConcept | null>(null);
   const [showLayoutPicker,     setShowLayoutPicker]     = useState(false);
 
@@ -226,7 +228,7 @@ function App() {
       setGenerateStatus("AI Architect is designing your project...");
       const enhanceResult = await window.reactBitsApi.enhancePrompt({
         rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
-        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, layoutMd: layoutConcept?.layoutMd ?? null },
+        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, styleDirection, clientBrief, layoutMd: layoutConcept?.layoutMd ?? null },
       });
       const enhanceData = enhanceResult as any;
       if (enhanceData.success) {
@@ -350,6 +352,10 @@ function App() {
               onDesignRulesChange={setDesignRules}
               layoutConcept={layoutConcept}
               onOpenLayoutPicker={() => setShowLayoutPicker(true)}
+              styleDirection={styleDirection}
+              onStyleDirectionChange={setStyleDirection}
+              clientBrief={clientBrief}
+              onClientBriefChange={setClientBrief}
               onRestoreFromHistory={(p: string, sels: any[]) => {
                 setProjectPrompt(p);
                 setSelectedIds(sels.map((s: any) => s.id));

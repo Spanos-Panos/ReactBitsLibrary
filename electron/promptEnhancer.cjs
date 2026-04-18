@@ -78,7 +78,50 @@ Return ONLY a raw JSON object. No preamble, no backticks.
 3. **Prop Precision**: Use EXACT prop names from the provided component source code.
 4. **TextAnimation Contrast**: When any TextAnimation component is included, you MUST set its color props explicitly in the \`props\` field so the text has WCAG AA contrast (≥4.5:1) against the section/page background. Use exact prop names from source (e.g. \`color\`, \`textColor\`, \`colors\`). Never leave TextAnimation color props unset — invisible text is a critical bug.
 5. **No JavaScript in JSON**: ALL values in the JSON must be valid JSON types (string, number, boolean, array, object, null). NEVER write JavaScript function syntax like \`() => alert()\`, \`function() {}\`, or JSX like \`<Icon />\`. For callback props (onClick, onChange, etc.), use a string label like "navigate-home" or simply omit them.
+
+## CREATIVE DIRECTION RULES (ANTI-SLOP)
+
+When a CREATIVE DIRECTION block is present in this prompt, it is your primary design constraint. Use the specified aesthetic, color strategy, and typography intensity to drive every decision.
+
+### Aesthetic → concrete implementation:
+- **Editorial**: hero text ≥ 6rem, letter-spacing: -0.03em, mix font-weight 400 + 900, generous negative space between sections
+- **Brutalist**: stark solid backgrounds (#000 or #fff), heavy 2–4px borders, zero border-radius, all-caps labels
+- **Minimal**: max 2 typefaces, 60%+ of the design is whitespace, no decorative elements, muted 2-color palette
+- **Futuristic**: glow/shadow effects with accent color, monospace or geometric font, dark base (#050510), subtle grid overlay
+- **Organic**: curved section dividers (border-radius on divs), warm earth palette, soft drop shadows, serif accent font
+- **Playful**: bold saturated primary colors, wildly varied type sizes, asymmetric cards, animation on every hover
+- **Luxury**: dark base (#080808), gold or cream accent (#d4af37 or #f5f0e8), thin weight font (300), extreme whitespace
+- **Corporate**: strict 12-col grid, neutral palette (navy/gray/white), clean sans-serif, no experimental elements
+
+### Color strategy → palette:
+- **dark-bold-accent**: base #0a0a0a–#111827, ONE surprising accent (amber, emerald, rose — avoid generic blue unless justified), white body text
+- **light-subtle**: base #fafafa–#f1f5f9, subtle gray/slate accents, near-black text, minimum color usage
+- **high-contrast-bw**: pure #000 + #fff with exactly ONE color used sparingly for emphasis
+- **monochromatic**: pick one hue, vary only lightness/saturation across all elements
+- **colorful**: 3+ deliberate colors in a clear hierarchy (dominant 60% / supporting 30% / accent 10%)
+
+### Typography intensity → sizing:
+- **subtle**: balanced — body 1rem, h2 2rem, h1 2.5–3rem, consistent rhythm
+- **dramatic**: h1 ≥ 6rem (clamp(4rem, 10vw, 9rem)), extreme weight contrast (300 vs 900), oversized section numbers
+- **experimental**: type as visual element — single huge letter as background, rotated text, clipped overflow text
+
+### Visual effects → implementation:
+- **Grain texture**: CSS ::after pseudo with SVG noise filter or semi-transparent noise overlay on hero
+- **Glow/neon**: text-shadow: 0 0 30px {accent}80; box-shadow: 0 0 40px {accent}40 on key elements
+- **Mesh grid**: CSS repeating-linear-gradient grid pattern as background, or use existing GridMotion component
+- **Bold borders**: 2–3px solid accent-color borders on cards, sections, or as decorative lines
+- **Color overlays**: mix-blend-mode color layer over hero images using ::after with accent color + opacity 0.3
+
+### Anti-slop mandates (NON-NEGOTIABLE):
+1. NEVER use a blue-to-purple gradient as the main background unless Futuristic is the active aesthetic
+2. Hero headline must make a STATEMENT — forbid "Welcome to", "Transform Your", "Unleash Your", "Elevate Your"
+3. Commit to the accent color — it appears in 3–5 places purposefully, not scattered everywhere
+4. Stats/numbers: if the design includes metrics, show them at 4–6rem size, not in tiny badge cards
+5. No filler sections — maximum 4–6 sections for a landing page, every section earns its place
+6. Copy must be specific and punchy — write real content that fits the site type and audience, no Lorem ipsum
+7. Section spacing: at minimum 6rem padding between sections, preferably 8–12rem for dramatic/luxury aesthetics
 `;
+
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
@@ -123,10 +166,51 @@ async function enhancePrompt(options) {
       }
     }
 
+    // Client brief block
+    let clientBriefBlock = '';
+    const cb = systemContext?.clientBrief;
+    if (cb) {
+      const lines = [];
+      if (cb.brandName?.trim())      lines.push(`Brand name: ${cb.brandName.trim()}`);
+      if (cb.tagline?.trim())        lines.push(`Tagline: ${cb.tagline.trim()}`);
+      if (cb.industry?.trim())       lines.push(`Industry: ${cb.industry.trim()}`);
+      if (cb.description?.trim())    lines.push(`Description: ${cb.description.trim()}`);
+      if (cb.usp?.trim())            lines.push(`USP: ${cb.usp.trim()}`);
+      if (cb.services?.trim())       lines.push(`Services/Products:\n${cb.services.trim()}`);
+      if (cb.targetAudience?.trim()) lines.push(`Target audience: ${cb.targetAudience.trim()}`);
+      if (cb.callToAction?.trim())   lines.push(`Primary CTA: ${cb.callToAction.trim()}`);
+      if (cb.keyBenefits?.trim())    lines.push(`Key benefits:\n${cb.keyBenefits.trim()}`);
+      if (cb.tone?.trim())           lines.push(`Tone of voice: ${cb.tone.trim()}`);
+      if (cb.personality?.trim())    lines.push(`Brand personality: ${cb.personality.trim()}`);
+      if (cb.contactEmail?.trim())   lines.push(`Contact email: ${cb.contactEmail.trim()}`);
+      if (cb.contactPhone?.trim())   lines.push(`Contact phone: ${cb.contactPhone.trim()}`);
+      if (cb.location?.trim())       lines.push(`Location: ${cb.location.trim()}`);
+      if (cb.socialLinks?.trim())    lines.push(`Social links: ${cb.socialLinks.trim()}`);
+      if (lines.length > 0) {
+        clientBriefBlock = `\n\n## CLIENT BRIEF\nUse this client-provided information to populate REAL content throughout the site. Do NOT use placeholder text — use the actual brand name, services, benefits, and contact details provided here.\n\n${lines.join('\n')}`;
+      }
+    }
+
     // Layout blueprint block
     let layoutBlock = '';
     if (systemContext?.layoutMd) {
       layoutBlock = `\n\n${systemContext.layoutMd}`;
+    }
+
+    // Style direction block
+    let styleBlock = '';
+    const sd = systemContext?.styleDirection;
+    if (sd) {
+      const styleLines = [];
+      if (sd.aesthetics?.length) styleLines.push(`Aesthetic style: ${sd.aesthetics.join(' + ')}`);
+      if (sd.siteType)           styleLines.push(`Site type: ${sd.siteType}`);
+      if (sd.typographyIntensity) styleLines.push(`Typography intensity: ${sd.typographyIntensity}`);
+      if (sd.visualEffects?.length) styleLines.push(`Visual effects: ${sd.visualEffects.join(', ')}`);
+      if (sd.colorStrategy)      styleLines.push(`Color strategy: ${sd.colorStrategy}`);
+      if (sd.audience?.trim())   styleLines.push(`Target audience: ${sd.audience.trim()}`);
+      if (styleLines.length > 0) {
+        styleBlock = `\n\n## CREATIVE DIRECTION\nThe user has specified this artistic intent. Treat it as your primary design brief:\n\n${styleLines.join('\n')}`;
+      }
     }
     ensureDirsExist();
 
@@ -148,8 +232,8 @@ async function enhancePrompt(options) {
 
     // ─── Model Discovery Loop ──────────────────────────────────────────────
     const candidateModels = [
-      "claude-haiku-4-5-20251001",
       "claude-sonnet-4-6",
+      "claude-haiku-4-5-20251001",
       "claude-3-haiku-20240307"
     ];
 
@@ -164,7 +248,7 @@ async function enhancePrompt(options) {
           model: modelId,
           max_tokens: 4096,
           temperature: 0, // Lower temperature = more stable JSON
-          system: PROMPT_ENHANCER_SKILL + designBlock + layoutBlock + "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object.",
+          system: PROMPT_ENHANCER_SKILL + clientBriefBlock + styleBlock + designBlock + layoutBlock + "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object.",
           messages: [
             {
               role: "user",

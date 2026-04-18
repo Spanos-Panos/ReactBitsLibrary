@@ -30,6 +30,62 @@ export const DEFAULT_DESIGN_RULES: DesignRules = {
   images: [],
 };
 
+// ── Style Direction types ──────────────────────────────────────────────────────
+
+export type AestheticPreset =
+  | 'Editorial' | 'Brutalist' | 'Minimal' | 'Futuristic'
+  | 'Organic'   | 'Playful'   | 'Luxury'  | 'Corporate';
+
+export type TypographyIntensity = 'subtle' | 'dramatic' | 'experimental';
+
+export type ColorStrategy =
+  | 'dark-bold-accent' | 'light-subtle' | 'high-contrast-bw'
+  | 'monochromatic'    | 'colorful';
+
+export interface StyleDirection {
+  aesthetics:          AestheticPreset[];
+  siteType:            string;
+  typographyIntensity: TypographyIntensity;
+  visualEffects:       string[];
+  colorStrategy:       ColorStrategy;
+  audience:            string;
+}
+
+export const DEFAULT_STYLE_DIRECTION: StyleDirection = {
+  aesthetics:          [],
+  siteType:            'Landing',
+  typographyIntensity: 'dramatic',
+  visualEffects:       [],
+  colorStrategy:       'dark-bold-accent',
+  audience:            '',
+};
+
+// ── Client Brief types ─────────────────────────────────────────────────────────
+
+export interface ClientBrief {
+  brandName:      string;
+  tagline:        string;
+  industry:       string;
+  description:    string;
+  usp:            string;
+  services:       string;
+  targetAudience: string;
+  callToAction:   string;
+  keyBenefits:    string;
+  tone:           string;
+  personality:    string;
+  contactEmail:   string;
+  contactPhone:   string;
+  location:       string;
+  socialLinks:    string;
+}
+
+export const DEFAULT_CLIENT_BRIEF: ClientBrief = {
+  brandName: '', tagline: '', industry: '', description: '', usp: '',
+  services: '', targetAudience: '', callToAction: '', keyBenefits: '',
+  tone: '', personality: '', contactEmail: '', contactPhone: '', location: '', socialLinks: '',
+};
+
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 const MAX = 5;
@@ -225,10 +281,258 @@ function ImagesTab({
   );
 }
 
+function BriefTab({ brief, onChange }: { brief: ClientBrief; onChange: (b: ClientBrief) => void }) {
+  const INDUSTRIES = [
+    'Tech / Software', 'Agency / Creative', 'E-commerce', 'Healthcare', 'Finance',
+    'Education', 'Real Estate', 'Food & Beverage', 'Fashion', 'Fitness / Wellness',
+    'Entertainment', 'Consulting', 'Non-profit', 'Architecture / Design', 'Photography', 'Other',
+  ];
+  const TONES = ['Formal', 'Casual', 'Technical', 'Friendly', 'Bold', 'Playful'];
+  const set = (key: keyof ClientBrief, val: string) => onChange({ ...brief, [key]: val });
+
+  return (
+    <>
+      {/* Identity */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Identity</span>
+      </div>
+      <div className="pbp-brief-grid">
+        <div className="pbp-brief-field">
+          <label className="pbp-brief-label">Brand / Project Name</label>
+          <input className="pbp-brief-input" placeholder="Acme Corp" value={brief.brandName} onChange={e => set('brandName', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <label className="pbp-brief-label">Industry</label>
+          <select className="pbp-brief-select" value={brief.industry} onChange={e => set('industry', e.target.value)}>
+            <option value="">— Select —</option>
+            {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
+          </select>
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <label className="pbp-brief-label">Tagline / Slogan</label>
+          <input className="pbp-brief-input" placeholder="Build fast, ship now." value={brief.tagline} onChange={e => set('tagline', e.target.value)} />
+        </div>
+      </div>
+
+      {/* About */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">About</span>
+      </div>
+      <div className="pbp-brief-grid">
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <label className="pbp-brief-label">Description — what it is, what it does, the goal</label>
+          <textarea className="pbp-brief-textarea" rows={3} placeholder="A SaaS platform that helps teams ship code 3× faster by automating code reviews and CI/CD…" value={brief.description} onChange={e => set('description', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <label className="pbp-brief-label">USP — what makes you different from competitors</label>
+          <input className="pbp-brief-input" placeholder="The only tool with AI-powered review + one-click deploy" value={brief.usp} onChange={e => set('usp', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <label className="pbp-brief-label">Services / Products — one per line</label>
+          <textarea className="pbp-brief-textarea" rows={2} placeholder={"Code review\nCI/CD pipelines\nTeam analytics"} value={brief.services} onChange={e => set('services', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Audience & Goals */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Audience & Goals</span>
+      </div>
+      <div className="pbp-brief-grid">
+        <div className="pbp-brief-field">
+          <label className="pbp-brief-label">Target Audience</label>
+          <input className="pbp-brief-input" placeholder="Startup CTOs, dev teams" value={brief.targetAudience} onChange={e => set('targetAudience', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <label className="pbp-brief-label">Primary CTA</label>
+          <input className="pbp-brief-input" placeholder="Start Free Trial" value={brief.callToAction} onChange={e => set('callToAction', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <label className="pbp-brief-label">Key Benefits — one per line</label>
+          <textarea className="pbp-brief-textarea" rows={2} placeholder={"Ship 3× faster\nZero config setup\n99.9% uptime SLA"} value={brief.keyBenefits} onChange={e => set('keyBenefits', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Tone & Personality */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Tone & Personality</span>
+      </div>
+      <div className="pbp-brief-grid">
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <label className="pbp-brief-label">Tone of Voice</label>
+          <div className="pbp-preset-grid">
+            {TONES.map(t => (
+              <button
+                key={t}
+                className={`pbp-preset-chip${brief.tone === t ? ' pbp-preset-chip--active' : ''}`}
+                onClick={() => set('tone', brief.tone === t ? '' : t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <label className="pbp-brief-label">Brand Personality Keywords</label>
+          <input className="pbp-brief-input" placeholder="Innovative, trustworthy, human, precise…" value={brief.personality} onChange={e => set('personality', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Contact */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Contact — optional</span>
+      </div>
+      <div className="pbp-brief-grid">
+        <div className="pbp-brief-field">
+          <label className="pbp-brief-label">Email</label>
+          <input className="pbp-brief-input" type="email" placeholder="hello@acme.com" value={brief.contactEmail} onChange={e => set('contactEmail', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <label className="pbp-brief-label">Phone</label>
+          <input className="pbp-brief-input" type="tel" placeholder="+1 555 000 000" value={brief.contactPhone} onChange={e => set('contactPhone', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <label className="pbp-brief-label">Location</label>
+          <input className="pbp-brief-input" placeholder="New York, USA" value={brief.location} onChange={e => set('location', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <label className="pbp-brief-label">Social Links</label>
+          <input className="pbp-brief-input" placeholder="twitter.com/acme, linkedin.com/…" value={brief.socialLinks} onChange={e => set('socialLinks', e.target.value)} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: StyleDirection) => void }) {
+  const AESTHETICS: AestheticPreset[] = ['Editorial', 'Brutalist', 'Minimal', 'Futuristic', 'Organic', 'Playful', 'Luxury', 'Corporate'];
+  const SITE_TYPES = ['Portfolio', 'Landing', 'Agency', 'SaaS', 'E-commerce', 'Blog', 'Event'];
+  const EFFECTS = ['Grain texture', 'Glow/neon', 'Mesh grid', 'Bold borders', 'Color overlays'];
+  const COLOR_STRATEGIES: { value: ColorStrategy; label: string }[] = [
+    { value: 'dark-bold-accent',  label: 'Dark + Accent' },
+    { value: 'light-subtle',      label: 'Light' },
+    { value: 'high-contrast-bw',  label: 'B&W + Pop' },
+    { value: 'monochromatic',     label: 'Mono' },
+    { value: 'colorful',          label: 'Colorful' },
+  ];
+
+  const toggleAesthetic = (a: AestheticPreset) => {
+    const cur = style.aesthetics;
+    if (cur.includes(a)) {
+      onChange({ ...style, aesthetics: cur.filter(x => x !== a) });
+    } else if (cur.length < 2) {
+      onChange({ ...style, aesthetics: [...cur, a] });
+    }
+  };
+
+  const toggleEffect = (e: string) => {
+    const cur = style.visualEffects;
+    onChange({ ...style, visualEffects: cur.includes(e) ? cur.filter(x => x !== e) : [...cur, e] });
+  };
+
+  return (
+    <>
+      {/* Aesthetic presets */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Aesthetic</span>
+        <span className="pbp-rule-hint">Pick up to 2</span>
+      </div>
+      <div className="pbp-preset-grid">
+        {AESTHETICS.map(a => {
+          const active  = style.aesthetics.includes(a);
+          const blocked = !active && style.aesthetics.length >= 2;
+          return (
+            <button
+              key={a}
+              className={`pbp-preset-chip${active ? ' pbp-preset-chip--active' : ''}${blocked ? ' pbp-preset-chip--blocked' : ''}`}
+              onClick={() => toggleAesthetic(a)}
+              disabled={blocked}
+            >
+              {a}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Site type */}
+      <div className="pbp-rule-header" style={{ marginTop: '0.4rem' }}>
+        <span className="pbp-rule-label">Site Type</span>
+      </div>
+      <select
+        className="pbp-site-type-select"
+        value={style.siteType}
+        onChange={e => onChange({ ...style, siteType: e.target.value })}
+      >
+        {SITE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
+
+      {/* Typography intensity */}
+      <div className="pbp-rule-header" style={{ marginTop: '0.4rem' }}>
+        <span className="pbp-rule-label">Typography</span>
+      </div>
+      <div className="pbp-type-row">
+        {(['subtle', 'dramatic', 'experimental'] as TypographyIntensity[]).map(t => (
+          <button
+            key={t}
+            className={`pbp-type-btn${style.typographyIntensity === t ? ' pbp-type-btn--active' : ''}`}
+            onClick={() => onChange({ ...style, typographyIntensity: t })}
+          >
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Visual effects */}
+      <div className="pbp-rule-header" style={{ marginTop: '0.4rem' }}>
+        <span className="pbp-rule-label">Visual Effects</span>
+      </div>
+      <div className="pbp-preset-grid">
+        {EFFECTS.map(e => (
+          <button
+            key={e}
+            className={`pbp-preset-chip${style.visualEffects.includes(e) ? ' pbp-preset-chip--active' : ''}`}
+            onClick={() => toggleEffect(e)}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+
+      {/* Color strategy */}
+      <div className="pbp-rule-header" style={{ marginTop: '0.4rem' }}>
+        <span className="pbp-rule-label">Color Strategy</span>
+      </div>
+      <div className="pbp-color-strategy-row">
+        {COLOR_STRATEGIES.map(({ value, label }) => (
+          <button
+            key={value}
+            className={`pbp-type-btn${style.colorStrategy === value ? ' pbp-type-btn--active' : ''}`}
+            onClick={() => onChange({ ...style, colorStrategy: value })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Audience */}
+      <div className="pbp-rule-header" style={{ marginTop: '0.4rem' }}>
+        <span className="pbp-rule-label">Target Audience</span>
+      </div>
+      <input
+        type="text"
+        className="pbp-audience-input"
+        placeholder="e.g. Creative professionals, startups…"
+        value={style.audience}
+        onChange={e => onChange({ ...style, audience: e.target.value })}
+        maxLength={80}
+      />
+    </>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
-type Tab = 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images';
-const TABS: Tab[] = ['Fonts', 'Colors', 'Layout', 'Sizes', 'Images'];
+type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images';
+const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Layout', 'Sizes', 'Images'];
 
 const CHIP_CATEGORY_CLASS: Record<string, string> = {
   Components: 'pbp-chip--components',
@@ -250,6 +554,10 @@ interface ProjectBuilderPanelProps {
   onDesignRulesChange: (rules: DesignRules) => void;
   layoutConcept: LayoutConcept | null;
   onOpenLayoutPicker: () => void;
+  styleDirection: StyleDirection;
+  onStyleDirectionChange: (s: StyleDirection) => void;
+  clientBrief: ClientBrief;
+  onClientBriefChange: (b: ClientBrief) => void;
 }
 
 export default function ProjectBuilderPanel({
@@ -261,8 +569,12 @@ export default function ProjectBuilderPanel({
   onDesignRulesChange,
   layoutConcept,
   onOpenLayoutPicker,
+  styleDirection,
+  onStyleDirectionChange,
+  clientBrief,
+  onClientBriefChange,
 }: ProjectBuilderPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('Fonts');
+  const [activeTab, setActiveTab] = useState<Tab>('Brief');
 
   const handlePickImages = async () => {
     const picked = await window.reactBitsApi.pickDesignImages?.() ?? [];
@@ -330,10 +642,12 @@ export default function ProjectBuilderPanel({
         </div>
 
         <div className="pbp-tab-body">
-          {activeTab === 'Fonts' && <FontsTab rules={designRules} onChange={onDesignRulesChange} />}
+          {activeTab === 'Brief'  && <BriefTab brief={clientBrief} onChange={onClientBriefChange} />}
+          {activeTab === 'Style'  && <StyleTab style={styleDirection} onChange={onStyleDirectionChange} />}
+          {activeTab === 'Fonts'  && <FontsTab rules={designRules} onChange={onDesignRulesChange} />}
           {activeTab === 'Colors' && <ColorsTab rules={designRules} onChange={onDesignRulesChange} />}
           {activeTab === 'Layout' && <LayoutTab concept={layoutConcept} onOpen={onOpenLayoutPicker} disabled={selectedComponents.length < 2} />}
-          {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
+          {activeTab === 'Sizes'  && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
           {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} />}
         </div>
       </div>
