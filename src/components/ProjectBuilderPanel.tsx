@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import './ProjectBuilderPanel.css';
 import type { LayoutConcept } from '../lib/layoutConceptGenerator';
@@ -27,7 +28,12 @@ export interface ImageEntry {
 export interface DesignRules {
   fonts: FontEntry[];
   colors: ColorEntry[];
-  sizes: { strategy: 'mobile-first' | 'desktop-first' | 'both'; maxWidth: string };
+  sizes: { 
+    strategy: 'mobile-first' | 'desktop-first' | 'both' | ''; 
+    maxWidth: string;
+    spacingScale: 'compact' | 'comfortable' | 'spacious' | '';
+    borderRadius: 'none' | 'small' | 'medium' | 'large' | 'pill' | '';
+  };
   images: ImageEntry[];
 }
 
@@ -35,11 +41,11 @@ export type AestheticPreset =
   | 'Editorial' | 'Brutalist' | 'Minimal' | 'Futuristic'
   | 'Organic' | 'Playful' | 'Luxury' | 'Corporate';
 
-export type TypographyIntensity = 'subtle' | 'dramatic' | 'experimental';
+export type TypographyIntensity = 'subtle' | 'dramatic' | 'experimental' | '';
 
 export type ColorStrategy =
   | 'dark-bold-accent' | 'light-subtle' | 'high-contrast-bw'
-  | 'monochromatic' | 'colorful';
+  | 'monochromatic' | 'colorful' | '';
 
 export interface StyleDirection {
   aesthetics: AestheticPreset[];
@@ -52,6 +58,7 @@ export interface StyleDirection {
 
 export interface ProjectBuilderPanelProps {
   selectedComponents: ComponentItem[];
+  categoryLimits?: Record<string, number>;
   prompt: string;
   onPromptChange: (val: string) => void;
   onGenerate: () => void;
@@ -63,6 +70,7 @@ export interface ProjectBuilderPanelProps {
   onStyleDirectionChange: (s: StyleDirection) => void;
   clientBrief: ClientBrief;
   onClientBriefChange: (b: ClientBrief) => void;
+  onRestoreFromHistory?: (prompt: string, selectedComponents: ComponentItem[]) => void;
 }
 
 export interface ClientBrief {
@@ -88,7 +96,12 @@ export interface ClientBrief {
 export const DEFAULT_DESIGN_RULES: DesignRules = {
   fonts: [],
   colors: [],
-  sizes: { strategy: 'mobile-first', maxWidth: '1280px' },
+  sizes: { 
+    strategy: 'mobile-first', 
+    maxWidth: '1280px',
+    spacingScale: 'comfortable',
+    borderRadius: 'medium'
+  },
   images: [],
 };
 
@@ -122,126 +135,586 @@ const MotionDiv = motion.div;
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-const MAX = 5;
+function AnimatedSelect({
+  value,
+  options,
+  onChange,
+  className = '',
+  variant = 'default',
+  placeholder = 'Select...',
+}: {
+  value: string;
+  options: { label: string; value: string }[];
+  onChange: (val: string) => void;
+  className?: string;
+  variant?: 'default' | 'role';
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current && !containerRef.current.contains(e.target as Node) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    // Close on scroll to prevent floating away
+    const handleScroll = (e: Event) => {
+      if (isOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [isOpen]);
+
+  const toggle = () => {
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+
+      const width = variant === 'role' ? Math.max(130, rect.width) : rect.width;
+      let left = rect.left;
+
+      if (variant === 'role') {
+        left = rect.right - width;
+      }
+
+      const spaceBelow = windowHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      if (spaceBelow < 220 && spaceAbove > spaceBelow) {
+        // Open upwards
+        setDropdownStyle({
+          bottom: windowHeight - rect.top + 6,
+          left,
+          width
+        });
+      } else {
+        // Open downwards
+        setDropdownStyle({
+          top: rect.bottom + 6,
+          left,
+          width
+        });
+      }
+    }
+    setIsOpen(!isOpen);
+  };
+
+  const selectedOption = options.find(o => o.value === value);
+
+  const dropdownContent = (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          ref={dropdownRef}
+          className="pbp-animated-select-dropdown"
+          style={{ position: 'fixed', zIndex: 999999, ...dropdownStyle }}
+          initial={{ opacity: 0, scale: 0.98, y: dropdownStyle.bottom !== undefined ? 4 : -4 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.98, y: dropdownStyle.bottom !== undefined ? 4 : -4 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+        >
+          <div className="pbp-animated-select-scroll">
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`pbp-animated-select-option ${value === opt.value ? 'selected' : ''}`}
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+              >
+                <span style={{ flex: 1 }}>{opt.label}</span>
+                {value === opt.value && (
+                  <svg className="pbp-check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  return (
+    <div className={`pbp-animated-select-root pbp-animated-select-root--${variant} ${className}`} ref={containerRef}>
+      <button
+        type="button"
+        className={`pbp-animated-select-trigger ${isOpen ? 'open' : ''}`}
+        onClick={toggle}
+      >
+        <span className="pbp-animated-select-value">
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <svg
+          className={`pbp-animated-select-icon ${isOpen ? 'open' : ''}`}
+          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={variant === 'role' ? { position: 'absolute', right: '0.2rem' } : {}}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {createPortal(dropdownContent, document.body)}
+    </div>
+  );
+}
+
+// ── Font & Color preset data ───────────────────────────────────────────────────
+
+const FONT_PAIRINGS: { id: string; name: string; desc: string; fonts: FontEntry[] }[] = [
+  { id: 'editorial',  name: 'Editorial',  desc: 'Luxury print feel',    fonts: [{ value: 'Playfair Display',   role: 'heading' }, { value: 'Inter',         role: 'body'   }, { value: 'DM Mono',         role: 'accent' }] },
+  { id: 'modern',     name: 'Modern',     desc: 'SaaS & tech product',  fonts: [{ value: 'Plus Jakarta Sans',  role: 'heading' }, { value: 'Inter',         role: 'body'   }, { value: 'Fira Code',       role: 'accent' }] },
+  { id: 'geometric',  name: 'Geometric',  desc: 'Bold & structured',    fonts: [{ value: 'Space Grotesk',     role: 'heading' }, { value: 'DM Sans',       role: 'body'   }, { value: 'DM Mono',         role: 'accent' }] },
+  { id: 'brutalist',  name: 'Brutalist',  desc: 'Raw & expressive',     fonts: [{ value: 'Archivo Black',     role: 'heading' }, { value: 'IBM Plex Mono', role: 'body'   }, { value: 'Space Mono',      role: 'accent' }] },
+  { id: 'luxury',     name: 'Luxury',     desc: 'Refined & elegant',    fonts: [{ value: 'Cormorant Garamond',role: 'heading' }, { value: 'Jost',          role: 'body'   }, { value: 'EB Garamond',     role: 'accent' }] },
+  { id: 'technical',  name: 'Technical',  desc: 'Dev tools & systems',  fonts: [{ value: 'JetBrains Mono',   role: 'heading' }, { value: 'Inter',         role: 'body'   }, { value: 'Roboto Mono',     role: 'accent' }] },
+  { id: 'minimalist', name: 'Minimalist', desc: 'Clean & invisible',    fonts: [{ value: 'Inter',             role: 'heading' }, { value: 'Inter',         role: 'body'   }, { value: 'Fira Code',       role: 'accent' }] },
+  { id: 'elegant',    name: 'Elegant',    desc: 'Soft & classical',     fonts: [{ value: 'Lora',              role: 'heading' }, { value: 'Nunito',        role: 'body'   }, { value: 'Space Mono',      role: 'accent' }] },
+  { id: 'quaint',     name: 'Quaint',     desc: 'Friendly & warm',      fonts: [{ value: 'Merriweather',      role: 'heading' }, { value: 'Lato',          role: 'body'   }, { value: 'Roboto Mono',     role: 'accent' }] },
+  { id: 'pop',        name: 'Pop',        desc: 'Vibrant & loud',       fonts: [{ value: 'Clash Display',     role: 'heading' }, { value: 'DM Sans',       role: 'body'   }, { value: 'JetBrains Mono',  role: 'accent' }] },
+  { id: 'neon',       name: 'Neon',       desc: 'High energy',          fonts: [{ value: 'Bebas Neue',        role: 'heading' }, { value: 'Outfit',        role: 'body'   }, { value: 'Fira Code',       role: 'accent' }] },
+  { id: 'writer',     name: 'Writer',     desc: 'Typewriter feel',      fonts: [{ value: 'EB Garamond',       role: 'heading' }, { value: 'IBM Plex Mono', role: 'body'   }, { value: 'JetBrains Mono',  role: 'accent' }] },
+  { id: 'impact',     name: 'Impact',     desc: 'Heavy & striking',     fonts: [{ value: 'Anton',             role: 'heading' }, { value: 'Inter',         role: 'body'   }, { value: 'JetBrains Mono',  role: 'accent' }] },
+  { id: 'classic',    name: 'Classic',    desc: 'Traditional beauty',   fonts: [{ value: 'Playfair Display',  role: 'heading' }, { value: 'Lora',          role: 'body'   }, { value: 'EB Garamond',     role: 'accent' }] },
+  { id: 'industrial', name: 'Industrial', desc: 'Engineered structure', fonts: [{ value: 'Big Shoulders Display',role:'heading'}, { value: 'DM Sans',       role: 'body'   }, { value: 'Fira Code',       role: 'accent' }] },
+  { id: 'clean',      name: 'Clean Air',  desc: 'Airy & open',          fonts: [{ value: 'Raleway',           role: 'heading' }, { value: 'Lato',          role: 'body'   }, { value: 'Roboto Mono',     role: 'accent' }] },
+  { id: 'editorial2', name: 'Magazine',   desc: 'Editorial modern',     fonts: [{ value: 'DM Serif Display',  role: 'heading' }, { value: 'Figtree',       role: 'body'   }, { value: 'Space Mono',      role: 'accent' }] },
+  { id: 'startup',    name: 'Startup',    desc: 'Bold & fast',          fonts: [{ value: 'Bebas Neue',        role: 'heading' }, { value: 'Outfit',        role: 'body'   }, { value: 'DM Mono',         role: 'accent' }] },
+  { id: 'developer',  name: 'Developer',  desc: 'Code aesthetic',       fonts: [{ value: 'Space Grotesk',     role: 'heading' }, { value: 'Plus Jakarta Sans',role:'body' }, { value: 'JetBrains Mono',  role: 'accent' }] },
+  { id: 'headline',   name: 'Headline',   desc: 'Chunky text',          fonts: [{ value: 'Archivo Black',     role: 'heading' }, { value: 'Inter',         role: 'body'   }, { value: 'IBM Plex Mono',   role: 'accent' }] },
+  { id: 'academic',   name: 'Academic',   desc: 'Scholarly papers',     fonts: [{ value: 'Cormorant Garamond',role: 'heading' }, { value: 'Merriweather',  role: 'body'   }, { value: 'EB Garamond',     role: 'accent' }] },
+  { id: 'edgy',       name: 'Edgy',       desc: 'Sharp & modern',       fonts: [{ value: 'Clash Display',     role: 'heading' }, { value: 'Figtree',       role: 'body'   }, { value: 'Roboto Mono',     role: 'accent' }] },
+  { id: 'friendly',   name: 'Friendly',   desc: 'Playful interface',    fonts: [{ value: 'Plus Jakarta Sans', role: 'heading' }, { value: 'Nunito',        role: 'body'   }, { value: 'Fira Code',       role: 'accent' }] },
+  { id: 'scandi',     name: 'Scandi',     desc: 'Nordic minimal',       fonts: [{ value: 'Jost',              role: 'heading' }, { value: 'Lato',          role: 'body'   }, { value: 'DM Mono',         role: 'accent' }] },
+];
+
+const FONT_BROWSE_CATEGORIES: { name: string; role: FontRole; fonts: string[] }[] = [
+  { name: 'Display',  role: 'heading', fonts: ['Clash Display', 'Archivo Black', 'Bebas Neue', 'Big Shoulders Display', 'Anton', 'Raleway'] },
+  { name: 'Serif',    role: 'heading', fonts: ['Playfair Display', 'Cormorant Garamond', 'Lora', 'Merriweather', 'EB Garamond', 'DM Serif Display'] },
+  { name: 'Sans',     role: 'body',    fonts: ['Inter', 'DM Sans', 'Space Grotesk', 'Plus Jakarta Sans', 'Nunito', 'Lato', 'Jost', 'Outfit', 'Figtree'] },
+  { name: 'Mono',     role: 'accent',  fonts: ['JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'DM Mono', 'Space Mono', 'Roboto Mono'] },
+];
+
+const COLOR_PALETTES: { id: string; name: string; desc: string; colors: ColorEntry[] }[] = [
+  { id: 'midnight',  name: 'Midnight',   desc: 'Dark + indigo',  colors: [{ value: '#0a0a12', role: 'background' }, { value: '#f1f5f9', role: 'text' }, { value: '#6366f1', role: 'accent' }] },
+  { id: 'obsidian',  name: 'Obsidian',   desc: 'Dark + amber',   colors: [{ value: '#0a0a0a', role: 'background' }, { value: '#f5f0e8', role: 'text' }, { value: '#f59e0b', role: 'accent' }] },
+  { id: 'ocean',     name: 'Ocean',      desc: 'Dark + cyan',    colors: [{ value: '#061220', role: 'background' }, { value: '#e0f2fe', role: 'text' }, { value: '#0ea5e9', role: 'accent' }] },
+  { id: 'forest',    name: 'Forest',     desc: 'Dark + emerald', colors: [{ value: '#071a0f', role: 'background' }, { value: '#f0fdf4', role: 'text' }, { value: '#10b981', role: 'accent' }] },
+  { id: 'rose',      name: 'Rose',       desc: 'Dark + rose',    colors: [{ value: '#0d0508', role: 'background' }, { value: '#fff1f2', role: 'text' }, { value: '#f43f5e', role: 'accent' }] },
+  { id: 'cream',     name: 'Cream Gold', desc: 'Luxury warmth',  colors: [{ value: '#080604', role: 'background' }, { value: '#f5f0e8', role: 'text' }, { value: '#d4af37', role: 'accent' }] },
+  { id: 'ivory',     name: 'Ivory',      desc: 'Light & minimal', colors: [{ value: '#fafaf9', role: 'background' }, { value: '#0f172a', role: 'text' }, { value: '#6366f1', role: 'accent' }] },
+  { id: 'contrast',  name: 'B&W Pop',    desc: 'High contrast',  colors: [{ value: '#000000', role: 'background' }, { value: '#ffffff', role: 'text' }, { value: '#ff3b00', role: 'accent' }] },
+  { id: 'cyberpunk', name: 'Cyberpunk',  desc: 'Neon grid',      colors: [{ value: '#0f0f1b', role: 'background' }, { value: '#ff007f', role: 'text' }, { value: '#00f0ff', role: 'accent' }] },
+  { id: 'sunset',    name: 'Sunset',     desc: 'Warm evenings',  colors: [{ value: '#2a0a18', role: 'background' }, { value: '#ff8c42', role: 'text' }, { value: '#ffdd4a', role: 'accent' }] },
+  { id: 'matcha',    name: 'Matcha',     desc: 'Earthy green',   colors: [{ value: '#f4fadd', role: 'background' }, { value: '#2d3a1f', role: 'text' }, { value: '#8b9a46', role: 'accent' }] },
+  { id: 'lavender',  name: 'Lavender',   desc: 'Soft dream',     colors: [{ value: '#f3e8fa', role: 'background' }, { value: '#4a2574', role: 'text' }, { value: '#8a4fff', role: 'accent' }] },
+  { id: 'crimson',   name: 'Crimson',    desc: 'Deep power',     colors: [{ value: '#1a1a1a', role: 'background' }, { value: '#f0f0f0', role: 'text' }, { value: '#dc143c', role: 'accent' }] },
+  { id: 'aqua',      name: 'Aqua',       desc: 'Cool water',     colors: [{ value: '#0a192f', role: 'background' }, { value: '#8892b0', role: 'text' }, { value: '#64ffda', role: 'accent' }] },
+  { id: 'mono',      name: 'Monochrome', desc: 'Wireframe',      colors: [{ value: '#ffffff', role: 'background' }, { value: '#000000', role: 'text' }, { value: '#666666', role: 'accent' }] },
+  { id: 'synth',     name: 'Synthwave',  desc: '80s retro',      colors: [{ value: '#120b29', role: 'background' }, { value: '#f773ff', role: 'text' }, { value: '#00ebff', role: 'accent' }] },
+  { id: 'autumn',    name: 'Autumn',     desc: 'Fallen leaves',  colors: [{ value: '#2d1810', role: 'background' }, { value: '#f4d3c4', role: 'text' }, { value: '#e06d06', role: 'accent' }] },
+  { id: 'glacier',   name: 'Glacier',    desc: 'Ice & frost',    colors: [{ value: '#e2f1f8', role: 'background' }, { value: '#0f172a', role: 'text' }, { value: '#0284c7', role: 'accent' }] },
+  { id: 'mint',      name: 'Neon Mint',  desc: 'Glowing green',  colors: [{ value: '#0d1a15', role: 'background' }, { value: '#eafff5', role: 'text' }, { value: '#2dd4bf', role: 'accent' }] },
+  { id: 'velvet',    name: 'Velvet',     desc: 'Rich purple',    colors: [{ value: '#1e0a29', role: 'background' }, { value: '#f1e6f9', role: 'text' }, { value: '#a855f7', role: 'accent' }] },
+  { id: 'retrotech', name: 'Retro Tech', desc: 'Old hardware',   colors: [{ value: '#252525', role: 'background' }, { value: '#e8e8e8', role: 'text' }, { value: '#ff7f50', role: 'accent' }] },
+  { id: 'deepsea',   name: 'Deep Sea',   desc: 'Ocean trench',   colors: [{ value: '#08121f', role: 'background' }, { value: '#cddcf5', role: 'text' }, { value: '#3b82f6', role: 'accent' }] },
+  { id: 'terracotta',name: 'Terracotta', desc: 'Clay & earth',   colors: [{ value: '#fffbf7', role: 'background' }, { value: '#2c1a14', role: 'text' }, { value: '#c2410c', role: 'accent' }] },
+  { id: 'hacker',    name: 'Terminal',   desc: 'Command line',   colors: [{ value: '#000000', role: 'background' }, { value: '#00ff00', role: 'text' }, { value: '#39ff14', role: 'accent' }] },
+];
+
+// ── Tab components ─────────────────────────────────────────────────────────────
+
+const MAX_FONTS = 5;
+const MAX_COLORS = 6;
 
 function FontsTab({ rules, onChange }: { rules: DesignRules; onChange: (r: DesignRules) => void }) {
-  const add = () => {
-    if (rules.fonts.length >= MAX) return;
-    onChange({ ...rules, fonts: [...rules.fonts, { value: '', role: '' }] });
+  const [browseCategory, setBrowseCategory] = useState(0);
+  const [page, setPage] = useState(0);
+  const maxPage = Math.ceil(FONT_PAIRINGS.length / 6) - 1;
+
+  useEffect(() => {
+    const GOOGLE_FONTS = [
+      'Playfair+Display:wght@400;700', 'Inter:wght@400;700', 'Plus+Jakarta+Sans:wght@400;700',
+      'Space+Grotesk:wght@400;700', 'DM+Sans:wght@400;700', 'Archivo+Black',
+      'IBM+Plex+Mono:wght@400;700', 'Cormorant+Garamond:wght@400;700', 'Jost:wght@400;700',
+      'JetBrains+Mono:wght@400;700', 'Bebas+Neue', 'Big+Shoulders+Display:wght@400;700',
+      'Anton', 'Raleway:wght@400;700', 'Lora:wght@400;700', 'Merriweather:wght@400;700',
+      'EB+Garamond:wght@400;700', 'DM+Serif+Display', 'Nunito:wght@400;700', 'Lato:wght@400;700',
+      'Outfit:wght@400;700', 'Figtree:wght@400;700', 'Fira+Code:wght@400;700',
+      'DM+Mono:wght@400;700', 'Space+Mono:wght@400;700', 'Roboto+Mono:wght@400;700',
+      'Clash+Display:wght@400;700'
+    ];
+    const linkId = 'pbp-google-fonts';
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement('link');
+      link.id = linkId;
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?${GOOGLE_FONTS.map(f => `family=${f}`).join('&')}&display=swap`;
+      document.head.appendChild(link);
+    }
+  }, []);
+
+  const togglePairing = (p: typeof FONT_PAIRINGS[0]) => {
+    if (activePairingId === p.id) {
+      onChange({ ...rules, fonts: [] });
+    } else {
+      onChange({ ...rules, fonts: p.fonts.map(f => ({ ...f })) });
+    }
   };
-  const remove = (i: number) => onChange({ ...rules, fonts: rules.fonts.filter((_, idx) => idx !== i) });
-  const update = (i: number, patch: Partial<FontEntry>) =>
+
+  const activePairingId = FONT_PAIRINGS.find(p =>
+    p.fonts.length === rules.fonts.length &&
+    p.fonts.every((pf, i) => rules.fonts[i]?.value === pf.value && rules.fonts[i]?.role === pf.role)
+  )?.id ?? null;
+
+  const addBrowseFont = (fontName: string, role: FontRole) => {
+    if (rules.fonts.length >= MAX_FONTS) return;
+    if (rules.fonts.some(f => f.value === fontName)) return;
+    onChange({ ...rules, fonts: [...rules.fonts, { value: fontName, role }] });
+  };
+
+  const removeFont = (i: number) => onChange({ ...rules, fonts: rules.fonts.filter((_, idx) => idx !== i) });
+
+  const updateFont = (i: number, patch: Partial<FontEntry>) =>
     onChange({ ...rules, fonts: rules.fonts.map((f, idx) => idx === i ? { ...f, ...patch } : f) });
+
+  const cat = FONT_BROWSE_CATEGORIES[browseCategory];
+
+  const ROLE_OPTS = [
+    { label: 'Auto', value: '' },
+    { label: 'Heading', value: 'heading' },
+    { label: 'Body', value: 'body' },
+    { label: 'Accent', value: 'accent' },
+  ];
 
   return (
     <>
       <div className="pbp-rule-header">
-        <span className="pbp-rule-label">Fonts</span>
-        {rules.fonts.length < MAX && <button className="pbp-add-btn" onClick={add}>+ Add</button>}
-      </div>
-      {rules.fonts.length === 0 && <p className="pbp-empty-hint">No fonts set — AI will choose.</p>}
-      {rules.fonts.map((font, i) => (
-        <div key={i} className="pbp-input-row">
-          <input
-            className="pbp-text-input"
-            placeholder="Font name, URL…"
-            value={font.value}
-            onChange={e => update(i, { value: e.target.value })}
-          />
-          <select
-            className="pbp-role-select"
-            value={font.role}
-            onChange={e => update(i, { role: e.target.value as FontRole })}
-          >
-            <option value="">Auto</option>
-            <option value="heading">Heading</option>
-            <option value="body">Body</option>
-            <option value="accent">Accent</option>
-          </select>
-          <button className="pbp-remove-btn" onClick={() => remove(i)}>×</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="pbp-rule-label">Pairings</span>
+          <button className="pbp-refresh-btn" onClick={() => setPage(p => p >= maxPage ? 0 : p + 1)}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </button>
         </div>
-      ))}
+        <span className="pbp-rule-hint">click to apply</span>
+      </div>
+      <div className="pbp-font-pairings-grid">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {FONT_PAIRINGS.slice(page * 6, (page + 1) * 6).map(p => (
+            <motion.button
+              key={p.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+              className={`pbp-font-pairing-card${activePairingId === p.id ? ' pbp-font-pairing-card--active' : ''}`}
+              onClick={() => togglePairing(p)}
+            >
+            <span className="pbp-fpc-name">{p.name}</span>
+            <span className="pbp-fpc-desc">{p.desc}</span>
+            <div className="pbp-fpc-fonts">
+              {p.fonts.map((f, i) => (
+                <span key={i} className="pbp-fpc-font-pill">
+                  <span className="pbp-fpc-role">{(f.role || 'A')[0].toUpperCase()}</span>
+                  <span className="pbp-fpc-fontname" style={{ fontFamily: `'${f.value}', serif` }}>{f.value}</span>
+                </span>
+              ))}
+            </div>
+          </motion.button>
+        ))}
+        </AnimatePresence>
+      </div>
+
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Browse</span>
+        <div className="pbp-font-cat-tabs">
+          {FONT_BROWSE_CATEGORIES.map((c, i) => (
+            <button
+              key={c.name}
+              className={`pbp-font-cat-tab${browseCategory === i ? ' pbp-font-cat-tab--active' : ''}`}
+              onClick={() => setBrowseCategory(i)}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="pbp-font-browse-grid">
+        {cat.fonts.map(fontName => {
+          const already = rules.fonts.some(f => f.value === fontName);
+          const full = rules.fonts.length >= MAX_FONTS;
+          return (
+            <button
+              key={fontName}
+              className={`pbp-font-browse-chip${already ? ' pbp-font-browse-chip--added' : ''}${full && !already ? ' pbp-font-browse-chip--disabled' : ''}`}
+              onClick={() => addBrowseFont(fontName, cat.role)}
+              disabled={full && !already}
+              style={{ fontFamily: `'${fontName}', sans-serif` }}
+            >
+              {already && <span className="pbp-fbc-check" style={{ fontFamily: 'var(--font-body, Satoshi, sans-serif)' }}>✓</span>}
+              {fontName}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Your Selection</span>
+        {rules.fonts.length < MAX_FONTS && (
+          <button className="pbp-add-btn" onClick={() => onChange({ ...rules, fonts: [...rules.fonts, { value: '', role: '' }] })}>+ Custom</button>
+        )}
+      </div>
+      {rules.fonts.length === 0 && <p className="pbp-empty-hint">No fonts set — AI will choose. Use pairings or browse above.</p>}
+      <AnimatePresence initial={false}>
+        {rules.fonts.map((font, i) => (
+          <motion.div
+            key={`${i}-${font.value}`}
+            initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+            animate={{ opacity: 1, height: 'auto', overflow: 'visible' }}
+            exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          >
+            <motion.div
+              initial={{ y: -10, scale: 0.95 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="pbp-font-entry"
+            >
+              <div className="pbp-font-entry-role">
+                <AnimatedSelect variant="role" value={font.role} onChange={v => updateFont(i, { role: v as FontRole })} options={ROLE_OPTS} />
+              </div>
+              <input
+                className="pbp-text-input"
+                placeholder="Font name…"
+                value={font.value}
+                onChange={e => updateFont(i, { value: e.target.value })}
+              />
+              <button className="pbp-remove-btn" onClick={() => removeFont(i)}>×</button>
+            </motion.div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </>
   );
 }
 
+function hexLuminance(hex: string): number {
+  const clean = hex.replace('#', '').padEnd(6, '0');
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  const lin = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+function contrastColor(hex: string): string {
+  return hexLuminance(hex) > 0.22 ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.9)';
+}
+
 function ColorsTab({ rules, onChange }: { rules: DesignRules; onChange: (r: DesignRules) => void }) {
-  const add = () => {
-    if (rules.colors.length >= MAX) return;
-    onChange({ ...rules, colors: [...rules.colors, { value: '#0f172a', role: '' }] });
+  const [page, setPage] = useState(0);
+  const maxPage = Math.ceil(COLOR_PALETTES.length / 8) - 1;
+
+  const applyPalette = (p: typeof COLOR_PALETTES[0]) =>
+    onChange({ ...rules, colors: p.colors.map(c => ({ ...c })) });
+
+  const activePaletteId = COLOR_PALETTES.find(p =>
+    p.colors.length === rules.colors.length &&
+    p.colors.every((pc, i) => rules.colors[i]?.value === pc.value && rules.colors[i]?.role === pc.role)
+  )?.id ?? null;
+
+  const addColor = () => {
+    if (rules.colors.length >= MAX_COLORS) return;
+    onChange({ ...rules, colors: [...rules.colors, { value: '#6366f1', role: '' }] });
   };
-  const remove = (i: number) => onChange({ ...rules, colors: rules.colors.filter((_, idx) => idx !== i) });
-  const update = (i: number, patch: Partial<ColorEntry>) =>
+
+  const removeColor = (i: number) => onChange({ ...rules, colors: rules.colors.filter((_, idx) => idx !== i) });
+
+  const updateColor = (i: number, patch: Partial<ColorEntry>) =>
     onChange({ ...rules, colors: rules.colors.map((c, idx) => idx === i ? { ...c, ...patch } : c) });
+
+  const ROLE_OPTS = [
+    { label: 'Auto', value: '' },
+    { label: 'Background', value: 'background' },
+    { label: 'Text', value: 'text' },
+    { label: 'Components', value: 'components' },
+    { label: 'Accent', value: 'accent' },
+  ];
 
   return (
     <>
       <div className="pbp-rule-header">
-        <span className="pbp-rule-label">Colors</span>
-        {rules.colors.length < MAX && <button className="pbp-add-btn" onClick={add}>+ Add</button>}
-      </div>
-      {rules.colors.length === 0 && <p className="pbp-empty-hint">No colors set — AI will choose.</p>}
-      {rules.colors.map((color, i) => (
-        <div key={i} className="pbp-input-row">
-          <div className="pbp-color-row">
-            <input
-              type="color"
-              className="pbp-color-picker"
-              value={color.value}
-              onChange={e => update(i, { value: e.target.value })}
-            />
-            <input
-              type="text"
-              className="pbp-text-input pbp-hex-input"
-              value={color.value}
-              onChange={e => {
-                const v = e.target.value;
-                if (/^#[0-9a-fA-F]{0,6}$/.test(v)) update(i, { value: v });
-              }}
-              maxLength={7}
-            />
-          </div>
-          <select
-            className="pbp-role-select"
-            value={color.role}
-            onChange={e => update(i, { role: e.target.value as ColorRole })}
-          >
-            <option value="">Auto</option>
-            <option value="background">Background</option>
-            <option value="text">Text</option>
-            <option value="components">Components</option>
-            <option value="accent">Accent</option>
-          </select>
-          <button className="pbp-remove-btn" onClick={() => remove(i)}>×</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="pbp-rule-label">Palettes</span>
+          <button className="pbp-refresh-btn" onClick={() => setPage(p => p >= maxPage ? 0 : p + 1)}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </button>
         </div>
-      ))}
+        <span className="pbp-rule-hint">click to apply</span>
+      </div>
+      <div className="pbp-palette-grid">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {COLOR_PALETTES.slice(page * 8, (page + 1) * 8).map(p => {
+            const [bg, secondary, accent] = p.colors;
+          return (
+            <motion.button
+              key={p.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+              className={`pbp-palette-card${activePaletteId === p.id ? ' pbp-palette-card--active' : ''}`}
+              onClick={() => applyPalette(p)}
+            >
+              <div 
+                className="pbp-palette-preview"
+                style={{ background: `linear-gradient(135deg, ${bg?.value} 0%, ${bg?.value} 55%, ${secondary?.value} 55%, ${secondary?.value} 85%, ${accent?.value} 85%, ${accent?.value} 100%)` }}
+              >
+                <div className="pbp-palette-label-overlay">
+                  <span className="pbp-palette-label-name">{p.name}</span>
+                </div>
+              </div>
+            </motion.button>
+          );
+        })}
+        </AnimatePresence>
+      </div>
+
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Your Colors</span>
+        {rules.colors.length < MAX_COLORS && <button className="pbp-add-btn" onClick={addColor}>+ Add</button>}
+      </div>
+      {rules.colors.length === 0 && <p className="pbp-empty-hint">No colors set — AI will choose. Select a palette above.</p>}
+      <AnimatePresence initial={false}>
+        {rules.colors.map((color, i) => (
+          <motion.div
+            key={`${i}-${color.value}`}
+            initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+            animate={{ opacity: 1, height: 'auto', overflow: 'visible' }}
+            exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          >
+            <motion.div
+              initial={{ y: -10, scale: 0.95 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="pbp-color-entry"
+            >
+              <div className="pbp-color-swatch-btn" style={{ background: color.value }}>
+                <input
+                  type="color"
+                  className="pbp-color-picker-hidden"
+                  value={color.value}
+                  onChange={e => updateColor(i, { value: e.target.value })}
+                />
+              </div>
+              <input
+                type="text"
+                className="pbp-text-input pbp-hex-input"
+                value={color.value}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateColor(i, { value: v });
+                }}
+                maxLength={7}
+                spellCheck={false}
+              />
+              <AnimatedSelect variant="role" value={color.role} onChange={v => updateColor(i, { role: v as ColorRole })} options={ROLE_OPTS} />
+              <button className="pbp-remove-btn" onClick={() => removeColor(i)}>×</button>
+            </motion.div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </>
   );
 }
 
 function LayoutTab({ concept, onOpen, disabled }: { concept: LayoutConcept | null; onOpen: () => void; disabled: boolean }) {
+  const getHeight = (hint: string) => {
+    if (hint === 'full-viewport') return '50px';
+    if (hint === 'large') return '36px';
+    if (hint === 'medium') return '24px';
+    if (hint === 'small') return '14px';
+    if (hint === 'strip') return '8px';
+    return '20px';
+  };
+  const getWidth = (hint: string) => {
+    if (hint === 'full') return '100%';
+    if (hint === 'contained') return '80%';
+    if (hint === 'inline') return '40%';
+    return '100%';
+  };
+
   return (
-    <>
-      <div className="pbp-rule-header">
-        <span className="pbp-rule-label">Layout Concept</span>
+    <div className="pbp-layout-tab">
+      <div className="pbp-rule-header" style={{ marginBottom: '12px' }}>
+        <span className="pbp-rule-label">Layout Blueprint</span>
       </div>
+      
       {concept ? (
-        <div className="pbp-layout-card">
-          <div className="pbp-layout-info">
+        <button className="pbp-layout-card-interactive" onClick={!disabled ? onOpen : undefined} disabled={disabled}>
+          <div className="pbp-layout-preview-window">
+            <div className="pbp-layout-preview-content">
+              {concept.zones.filter(z => z.heightHint !== 'overlay').map((z, i) => (
+                <div 
+                  key={i} 
+                  className="pbp-wireframe-block" 
+                  style={{ 
+                    height: getHeight(z.heightHint), 
+                    width: getWidth(z.widthHint),
+                    opacity: Math.max(0.2, 1 - (i * 0.15))
+                  }} 
+                />
+              ))}
+            </div>
+            {concept.zones.some(z => z.heightHint === 'overlay') && (
+              <div className="pbp-wireframe-overlay-indicator" title="Includes fixed overlays">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10"></circle></svg>
+              </div>
+            )}
+            <div className="pbp-layout-change-hover">
+              <span>Change Blueprint</span>
+            </div>
+          </div>
+          <div className="pbp-layout-details">
             <div className="pbp-layout-name">{concept.name}</div>
             <div className="pbp-layout-desc">{concept.description}</div>
+            <div className="pbp-layout-zone-chips">
+               <span className="pbp-zone-chip">{concept.zones.length} Total Zones</span>
+               {concept.zones.some(z => z.heightHint === 'overlay') && <span className="pbp-zone-chip pbp-zone-chip--accent">Includes Overlays</span>}
+            </div>
           </div>
-          <span className="pbp-layout-zones">
-            {concept.zones.filter(z => z.heightHint !== 'overlay').length} zones
-          </span>
-        </div>
+        </button>
       ) : (
-        <p className="pbp-empty-hint">No layout set — select 2+ components to enable.</p>
+        <button className="pbp-layout-empty" onClick={!disabled ? onOpen : undefined} disabled={disabled}>
+          <div className="pbp-layout-empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
+          </div>
+          <div className="pbp-layout-empty-text">No Blueprint Configured</div>
+          <span className="pbp-layout-empty-sub">Add components to generate blueprints.</span>
+        </button>
       )}
-      <button className="pbp-layout-btn" onClick={onOpen} disabled={disabled}>
-        {concept ? 'Change Layout' : '+ Set Layout'}
-      </button>
-    </>
+    </div>
   );
 }
 
@@ -250,35 +723,78 @@ function SizesTab({ rules, onChange }: { rules: DesignRules; onChange: (r: Desig
     onChange({ ...rules, sizes: { ...rules.sizes, [key]: val } });
 
   return (
-    <>
+    <div className="pbp-sizes-tab">
+      
+      {/* Container Constraints */}
       <div className="pbp-rule-header">
-        <span className="pbp-rule-label">Responsive Strategy</span>
+        <span className="pbp-rule-label">Container & Strategy</span>
       </div>
-      <div className="pbp-strategy-group">
-        {(['mobile-first', 'desktop-first', 'both'] as const).map(s => (
+      <div className="pbp-sizes-grid">
+        <div className="pbp-sizes-field">
+          <span className="pbp-sizes-label">Max Width</span>
+          <div className="pbp-sizes-input-wrapper">
+            <input
+              type="text"
+              className="pbp-sizes-input"
+              value={rules.sizes.maxWidth}
+              onChange={e => set('maxWidth', e.target.value)}
+              placeholder="1280px"
+            />
+          </div>
+        </div>
+        <div className="pbp-sizes-field">
+          <span className="pbp-sizes-label">CSS Media Query</span>
+          <div className="pbp-sizes-select-wrapper">
+            <select
+              className="pbp-sizes-select"
+              value={rules.sizes.strategy}
+              onChange={e => set('strategy', e.target.value)}
+            >
+              <option value="mobile-first">Mobile-first</option>
+              <option value="desktop-first">Desktop-first</option>
+              <option value="both">Adaptive (Both)</option>
+            </select>
+            <div className="pbp-sizes-select-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Spacing Scale */}
+      <div className="pbp-rule-header" style={{ marginTop: '16px' }}>
+        <span className="pbp-rule-label">Spacing Scale</span>
+      </div>
+      <div className="pbp-sizes-chip-grid">
+        {(['compact', 'comfortable', 'spacious'] as const).map(s => (
           <button
             key={s}
-            className={`pbp-strategy-btn${rules.sizes.strategy === s ? ' pbp-strategy-btn--active' : ''}`}
-            onClick={() => set('strategy', s)}
+            className={`pbp-sizes-chip ${rules.sizes.spacingScale === s ? 'pbp-sizes-chip--active' : ''}`}
+            onClick={() => set('spacingScale', rules.sizes.spacingScale === s ? '' : s)}
           >
-            {s === 'mobile-first' ? 'Mobile' : s === 'desktop-first' ? 'Desktop' : 'Both'}
+            {s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
       </div>
-      <div className="pbp-rule-header" style={{ marginTop: '0.5rem' }}>
-        <span className="pbp-rule-label">Max Width</span>
+
+      {/* Border Radius */}
+      <div className="pbp-rule-header" style={{ marginTop: '16px' }}>
+        <span className="pbp-rule-label">Corner Radius</span>
       </div>
-      <div className="pbp-input-row">
-        <span className="pbp-input-label">Max width</span>
-        <input
-          type="text"
-          className="pbp-text-input"
-          value={rules.sizes.maxWidth}
-          onChange={e => set('maxWidth', e.target.value)}
-          placeholder="1280px"
-        />
+      <div className="pbp-radius-grid">
+        {(['none', 'small', 'medium', 'large', 'pill'] as const).map(s => (
+          <button
+            key={s}
+            className={`pbp-radius-btn ${rules.sizes.borderRadius === s ? 'pbp-radius-btn--active' : ''}`}
+            onClick={() => set('borderRadius', rules.sizes.borderRadius === s ? '' : s)}
+          >
+            <div className="pbp-radius-preview" data-radius={s} />
+            <span className="pbp-radius-label">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
+          </button>
+        ))}
       </div>
-    </>
+
+    </div>
   );
 }
 
@@ -292,26 +808,50 @@ function ImagesTab({
   onRemove: (i: number) => void;
 }) {
   return (
-    <>
-      <div className="pbp-rule-header">
+    <div className="pbp-images-tab">
+      <div className="pbp-rule-header" style={{ marginBottom: '8px' }}>
         <span className="pbp-rule-label">Inspiration Images</span>
-        {images.length > 0 && <span className="pbp-img-count">{images.length} / 6</span>}
+        <span className="pbp-rule-hint">{images.length}/8 uploads</span>
       </div>
-      {images.length === 0 && <p className="pbp-empty-hint">Add images as visual references for the AI.</p>}
-      {images.length > 0 && (
-        <div className="pbp-img-grid">
+
+      <div className="pbp-img-grid">
+        <AnimatePresence mode="popLayout" initial={false}>
           {images.map((img, i) => (
-            <div key={i} className="pbp-img-wrap">
-              <img src={img.base64} alt={img.name} className="pbp-img-thumb" />
-              <button className="pbp-img-remove" onClick={() => onRemove(i)} title="Remove">×</button>
-            </div>
+            <motion.div
+              layout
+              key={`${img.name}-${i}`}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 25 }}
+              className="pbp-img-card"
+            >
+              <img src={img.base64} alt={img.name} className="pbp-img-element" />
+              <div className="pbp-img-overlay">
+                <button className="pbp-img-delete" onClick={() => onRemove(i)} title="Remove Image">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+            </motion.div>
           ))}
-        </div>
-      )}
-      {images.length < 6 && (
-        <button className="pbp-add-img" onClick={onPick}>+ Add images</button>
-      )}
-    </>
+
+          {images.length < 8 && (
+            <motion.button
+              layout
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 25 }}
+              className="pbp-img-add-card"
+              onClick={onPick}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+              <span className="pbp-img-add-text">Upload Image</span>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 
@@ -326,43 +866,77 @@ function BriefTab({ brief, onChange }: { brief: ClientBrief; onChange: (b: Clien
 
   return (
     <>
+      {/* Identity */}
       <div className="pbp-rule-header">
         <span className="pbp-rule-label">Identity</span>
       </div>
       <div className="pbp-brief-grid">
         <div className="pbp-brief-field">
-          <label className="pbp-brief-label">Brand / Project Name</label>
+          <span className="pbp-brief-label">Brand / Project Name</span>
           <input className="pbp-brief-input" placeholder="Acme Corp" value={brief.brandName} onChange={e => set('brandName', e.target.value)} />
         </div>
         <div className="pbp-brief-field">
-          <label className="pbp-brief-label">Industry</label>
-          <select className="pbp-brief-select" value={brief.industry} onChange={e => set('industry', e.target.value)}>
-            <option value="">— Select —</option>
-            {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
-          </select>
+          <span className="pbp-brief-label">Industry</span>
+          <AnimatedSelect
+            value={brief.industry}
+            onChange={v => set('industry', v)}
+            options={[
+              { label: '— select —', value: '' },
+              ...INDUSTRIES.map(ind => ({ label: ind, value: ind }))
+            ]}
+          />
         </div>
         <div className="pbp-brief-field pbp-brief-field--full">
-          <label className="pbp-brief-label">Tagline / Slogan</label>
+          <span className="pbp-brief-label">Tagline / Slogan</span>
           <input className="pbp-brief-input" placeholder="Build fast, ship now." value={brief.tagline} onChange={e => set('tagline', e.target.value)} />
         </div>
       </div>
 
+      {/* About */}
       <div className="pbp-rule-header">
         <span className="pbp-rule-label">About</span>
       </div>
       <div className="pbp-brief-grid">
         <div className="pbp-brief-field pbp-brief-field--full">
-          <label className="pbp-brief-label">Description</label>
-          <textarea className="pbp-brief-textarea" rows={3} placeholder="Describe your goal…" value={brief.description} onChange={e => set('description', e.target.value)} />
+          <span className="pbp-brief-label">Description — what it does, what the goal is</span>
+          <textarea className="pbp-brief-textarea" rows={3} placeholder="A SaaS platform that helps teams ship code 3× faster by automating code reviews and CI/CD…" value={brief.description} onChange={e => set('description', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <span className="pbp-brief-label">USP — what makes you different from competitors</span>
+          <input className="pbp-brief-input" placeholder="The only tool with AI-powered review + one-click deploy" value={brief.usp} onChange={e => set('usp', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <span className="pbp-brief-label">Services / Products — one per line</span>
+          <textarea className="pbp-brief-textarea" rows={2} placeholder={"Code review\nCI/CD pipelines\nTeam analytics"} value={brief.services} onChange={e => set('services', e.target.value)} />
         </div>
       </div>
 
+      {/* Audience & Goals */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Audience & Goals</span>
+      </div>
+      <div className="pbp-brief-grid">
+        <div className="pbp-brief-field">
+          <span className="pbp-brief-label">Target Audience</span>
+          <input className="pbp-brief-input" placeholder="Startup CTOs, dev teams" value={brief.targetAudience} onChange={e => set('targetAudience', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <span className="pbp-brief-label">Primary CTA</span>
+          <input className="pbp-brief-input" placeholder="Start Free Trial" value={brief.callToAction} onChange={e => set('callToAction', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <span className="pbp-brief-label">Key Benefits — one per line</span>
+          <textarea className="pbp-brief-textarea" rows={2} placeholder={"Ship 3× faster\nZero config setup\n99.9% uptime SLA"} value={brief.keyBenefits} onChange={e => set('keyBenefits', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Tone & Personality */}
       <div className="pbp-rule-header">
         <span className="pbp-rule-label">Tone & Personality</span>
       </div>
       <div className="pbp-brief-grid">
         <div className="pbp-brief-field pbp-brief-field--full">
-          <label className="pbp-brief-label">Tone of Voice</label>
+          <span className="pbp-brief-label">Tone of Voice</span>
           <div className="pbp-preset-grid">
             {TONES.map(t => (
               <button
@@ -374,6 +948,33 @@ function BriefTab({ brief, onChange }: { brief: ClientBrief; onChange: (b: Clien
               </button>
             ))}
           </div>
+        </div>
+        <div className="pbp-brief-field pbp-brief-field--full">
+          <span className="pbp-brief-label">Brand Personality Keywords</span>
+          <input className="pbp-brief-input" placeholder="Innovative, trustworthy, human, precise…" value={brief.personality} onChange={e => set('personality', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Contact */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Contact — optional</span>
+      </div>
+      <div className="pbp-brief-grid">
+        <div className="pbp-brief-field">
+          <span className="pbp-brief-label">Email</span>
+          <input className="pbp-brief-input" type="email" placeholder="hello@acme.com" value={brief.contactEmail} onChange={e => set('contactEmail', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <span className="pbp-brief-label">Phone</span>
+          <input className="pbp-brief-input" type="tel" placeholder="+1 555 000 000" value={brief.contactPhone} onChange={e => set('contactPhone', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <span className="pbp-brief-label">Location</span>
+          <input className="pbp-brief-input" placeholder="New York, USA" value={brief.location} onChange={e => set('location', e.target.value)} />
+        </div>
+        <div className="pbp-brief-field">
+          <span className="pbp-brief-label">Social Links</span>
+          <input className="pbp-brief-input" placeholder="twitter.com/acme, linkedin.com/…" value={brief.socialLinks} onChange={e => set('socialLinks', e.target.value)} />
         </div>
       </div>
     </>
@@ -390,6 +991,12 @@ function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: St
     { value: 'monochromatic', label: 'Mono' },
     { value: 'colorful', label: 'Colorful' },
   ];
+  const TYPOGRAPHY_OPTS: { value: TypographyIntensity; label: string }[] = [
+    { value: 'subtle', label: 'Subtle' },
+    { value: 'dramatic', label: 'Dramatic' },
+    { value: 'experimental', label: 'Experimental' },
+  ];
+  const EFFECTS = ['Grain texture', 'Glow / neon', 'Mesh grid', 'Bold borders', 'Color overlays'];
 
   const toggleAesthetic = (a: AestheticPreset) => {
     const cur = style.aesthetics;
@@ -398,6 +1005,11 @@ function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: St
     } else if (cur.length < 2) {
       onChange({ ...style, aesthetics: [...cur, a] });
     }
+  };
+
+  const toggleEffect = (e: string) => {
+    const cur = style.visualEffects;
+    onChange({ ...style, visualEffects: cur.includes(e) ? cur.filter(x => x !== e) : [...cur, e] });
   };
 
   return (
@@ -422,18 +1034,16 @@ function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: St
         })}
       </div>
 
-      <div className="pbp-rule-header" style={{ marginTop: '0.4rem' }}>
+      <div className="pbp-rule-header">
         <span className="pbp-rule-label">Site Type</span>
       </div>
-      <select
-        className="pbp-site-type-select"
+      <AnimatedSelect
         value={style.siteType}
-        onChange={e => onChange({ ...style, siteType: e.target.value })}
-      >
-        {SITE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-      </select>
+        onChange={v => onChange({ ...style, siteType: v })}
+        options={SITE_TYPES.map(t => ({ label: t, value: t }))}
+      />
 
-      <div className="pbp-rule-header" style={{ marginTop: '0.4rem' }}>
+      <div className="pbp-rule-header">
         <span className="pbp-rule-label">Color Strategy</span>
       </div>
       <div className="pbp-color-strategy-row">
@@ -441,12 +1051,52 @@ function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: St
           <button
             key={value}
             className={`pbp-type-btn${style.colorStrategy === value ? ' pbp-type-btn--active' : ''}`}
-            onClick={() => onChange({ ...style, colorStrategy: value })}
+            onClick={() => onChange({ ...style, colorStrategy: style.colorStrategy === value ? '' : value })}
           >
             {label}
           </button>
         ))}
       </div>
+
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Typography Intensity</span>
+      </div>
+      <div className="pbp-color-strategy-row">
+        {TYPOGRAPHY_OPTS.map(({ value, label }) => (
+          <button
+            key={value}
+            className={`pbp-type-btn${style.typographyIntensity === value ? ' pbp-type-btn--active' : ''}`}
+            onClick={() => onChange({ ...style, typographyIntensity: style.typographyIntensity === value ? '' : value })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Visual Effects</span>
+      </div>
+      <div className="pbp-preset-grid">
+        {EFFECTS.map(e => (
+          <button
+            key={e}
+            className={`pbp-preset-chip${style.visualEffects.includes(e) ? ' pbp-preset-chip--active' : ''}`}
+            onClick={() => toggleEffect(e)}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Target Audience — optional</span>
+      </div>
+      <input
+        className="pbp-brief-input"
+        placeholder="e.g. Startup founders, indie designers…"
+        value={style.audience}
+        onChange={e => onChange({ ...style, audience: e.target.value })}
+      />
     </>
   );
 }
@@ -498,7 +1148,7 @@ export default function ProjectBuilderPanel({
     if (!picked.length) return;
     onDesignRulesChange({
       ...designRules,
-      images: [...(designRules.images ?? []), ...picked].slice(0, 6),
+      images: [...(designRules.images ?? []), ...picked].slice(0, 8),
     });
   };
 
@@ -541,9 +1191,9 @@ export default function ProjectBuilderPanel({
 
       <div className="pbp-columns-area">
         <div className="pbp-nav-sidebar">
-          <div 
-            className="pbp-nav-scroll" 
-            onScroll={handleScroll} 
+          <div
+            className="pbp-nav-scroll"
+            onScroll={handleScroll}
             ref={scrollRef}
             tabIndex={0}
             onMouseEnter={handleMouseEnter}
@@ -576,7 +1226,7 @@ export default function ProjectBuilderPanel({
         </div>
 
         <div className="pbp-config-workspace">
-          <div 
+          <div
             className="pbp-tab-content-root"
             tabIndex={0}
             onMouseEnter={handleMouseEnter}
@@ -603,7 +1253,7 @@ export default function ProjectBuilderPanel({
         </div>
 
         <div className="pbp-action-center">
-          <div 
+          <div
             className="pbp-action-scroll"
             tabIndex={0}
             onMouseEnter={handleMouseEnter}

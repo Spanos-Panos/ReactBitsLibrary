@@ -16,7 +16,6 @@ import ComponentInspector from "./views/ComponentInspector";
 import GenerationQueue from "./components/GenerationQueue/GenerationQueue";
 import GenerateWizard from "./views/GenerateWizard";
 import TaskOverlay from "./views/TaskOverlay";
-import TaskBar from "./views/TaskBar";
 import LoadingScreen from "./views/LoadingScreen";
 
 const CATEGORY_LIMITS: Record<string, number> = {
@@ -249,11 +248,6 @@ function App() {
     if (activeTaskId === id) setActiveTaskId(null);
   };
 
-  const handleClearAllTasks = async () => {
-    for (const id of Object.keys(tasks)) await window.reactBitsApi?.terminateTask?.(id);
-    setTasks({}); setActiveTaskId(null);
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
@@ -393,15 +387,7 @@ function App() {
         <TaskOverlay task={tasks[activeTaskId]} terminalRef={terminalRef} onHide={() => setActiveTaskId(null)} />
       )}
 
-      <TaskBar
-        tasks={tasks}
-        activeTaskId={activeTaskId}
-        onSelect={setActiveTaskId}
-        onClose={handleCloseTask}
-        onClearAll={handleClearAllTasks}
-      />
-
-      {generateStatus && <div className={`status-toast ${toastType}`}>{generateStatus}</div>}
+{generateStatus && <div className={`status-toast ${toastType}`}>{generateStatus}</div>}
 
       {showLayoutPicker && (
         <LayoutConceptPicker

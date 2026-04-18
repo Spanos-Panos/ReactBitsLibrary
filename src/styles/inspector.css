@@ -109,6 +109,7 @@
   to   { transform: translateX(-50%) scaleX(1); opacity: 1; }
 }
 
+
 /* Panel body */
 .ci-panel-body {
   flex: 1;

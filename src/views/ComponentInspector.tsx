@@ -89,6 +89,12 @@ const SUB_ICONS: Record<SubMode, ReactElement> = {
   code:    <FileCodeIcon />,
 };
 
+const BuildIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="5 3 19 12 5 21 5 3"/>
+  </svg>
+);
+
 export default function ComponentInspector({
   selected,
   selectedIds,
@@ -96,6 +102,7 @@ export default function ComponentInspector({
   componentFiles,
   parsedInstallData,
   rawInstallMarkdown,
+  onGenerate,
 }: Props) {
   const [mode, setMode]           = useState<Mode>('eye');
   const [subMode, setSubMode]     = useState<SubMode>('install');
@@ -175,6 +182,15 @@ export default function ComponentInspector({
             <EyeIcon />
             {mode === 'eye' && <span className="ci-underline" />}
           </button>
+          {onGenerate && (
+            <button
+              className="ci-icon-btn"
+              onClick={onGenerate}
+              title="Generate Demo Project"
+            >
+              <BuildIcon />
+            </button>
+          )}
           <button
             className={`ci-icon-btn${mode === 'code' ? ' ci-icon-btn--active' : ''}`}
             onClick={() => setMode('code')}
