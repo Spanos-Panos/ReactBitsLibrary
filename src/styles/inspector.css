@@ -1,9 +1,8 @@
 /* ── ComponentInspector (ci-*) ───────────────────────────────────────────── */
 
 .ci-root {
-  height: calc(50vh - 4rem);
-  display: flex;
-  flex-direction: column;
+  height: 100%;
+  position: relative;
   border-radius: 14px;
   background: rgba(9, 12, 20, 0.6);
   backdrop-filter: blur(24px) saturate(160%);
@@ -13,13 +12,29 @@
   min-width: 0;
 }
 
-/* Empty state */
-.ci-root--empty {
+/* Shared layer */
+.ci-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.22s ease;
+}
+
+/* Idle layer */
+.ci-layer--idle {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
 }
 
+/* Active layer */
+.ci-layer--active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Empty state elements */
 .ci-empty-logo {
   width: clamp(40px, 6vw, 60px);
   height: auto;
@@ -42,95 +57,104 @@
   color: rgba(241, 245, 249, 0.12);
 }
 
-/* Preview zone — top 32% of panel */
-.ci-preview-zone {
-  flex: 0 0 32%;
-  background: rgba(0, 0, 0, 0.18);
+/* Icon bar — centered at top of active layer */
+.ci-icon-bar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 0.28rem 0 0.24rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ci-icon-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.ci-preview-hint {
-  font-family: var(--font-body, 'Satoshi', sans-serif);
-  font-size: 0.7rem;
-  color: rgba(241, 245, 249, 0.12);
-  letter-spacing: 0.04em;
-}
-
-/* Mode bar — slim strip acting as center divider */
-.ci-mode-bar {
-  flex-shrink: 0;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.ci-comp-name {
-  font-family: var(--font-display, 'Clash Display', sans-serif);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: rgba(241, 245, 249, 0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  flex-shrink: 1;
-}
-
-.ci-comp-category {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.65rem;
-  color: rgba(241, 245, 249, 0.25);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.ci-mode-icons {
-  display: flex;
-  gap: 3px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.ci-mode-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid transparent;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   color: rgba(255, 255, 255, 0.28);
   cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.ci-icon-btn:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ci-icon-btn--active {
+  color: #e4e8fe;
+}
+
+/* Animated underline */
+.ci-underline {
+  position: absolute;
+  bottom: -0.24rem;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, transparent, #6366f1, transparent);
+  border-radius: 1px;
+  transform: translateX(-50%) scaleX(0);
+  animation: ci-underline-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes ci-underline-in {
+  from { transform: translateX(-50%) scaleX(0); opacity: 0; }
+  to   { transform: translateX(-50%) scaleX(1); opacity: 1; }
+}
+
+/* Panel body */
+.ci-panel-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  padding: 0;
+  flex-direction: column;
+  overflow: hidden;
+  transition: opacity 0.14s ease;
 }
 
-.ci-mode-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.65);
-  border-color: rgba(255, 255, 255, 0.08);
+/* Eye mode — blank canvas */
+.ci-blank-preview {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.08);
 }
 
-.ci-mode-btn--active {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: rgba(99, 102, 241, 0.35);
-  color: #a5b4fc;
+
+/* Split view — two panes side by side */
+.ci-split-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
 }
 
-/* Sub-buttons bar — smooth reveal */
+.ci-split-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.ci-split-pane + .ci-split-pane {
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Sub-icon bar — icon only, centered, matches icon bar height */
 .ci-sub-bar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 0.75rem;
+  justify-content: center;
+  gap: 0.35rem;
   height: 0;
   opacity: 0;
   overflow: hidden;
@@ -142,7 +166,8 @@
 }
 
 .ci-sub-bar--visible {
-  height: 42px;
+  /* match icon bar: padding-top 0.28rem + 15px icon + padding-bottom 0.24rem + 1px border */
+  height: calc(0.28rem + 15px + 0.24rem + 1px);
   opacity: 1;
   border-bottom-width: 1px;
   transition:
@@ -151,93 +176,226 @@
     border-bottom-width 0s linear 0s;
 }
 
-.ci-sub-btn {
+.ci-sub-icon-btn {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 0.3rem 0.6rem;
-  border-radius: 7px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
-  color: rgba(241, 245, 249, 0.38);
-  font-family: var(--font-body, 'Satoshi', sans-serif);
-  font-size: 0.72rem;
-  font-weight: 500;
+  color: rgba(241, 245, 249, 0.28);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
+  transition: color 0.15s ease;
 }
 
-.ci-sub-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(241, 245, 249, 0.75);
-}
-
-.ci-sub-btn--active {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.25);
-  color: #a5b4fc;
-}
-
-/* File tabs (appear inside sub-bar when code + multiple files) */
-.ci-file-tabs {
-  display: flex;
-  gap: 3px;
-  margin-left: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.ci-file-tabs::-webkit-scrollbar { display: none; }
-
-.ci-file-tab {
-  padding: 0.2rem 0.55rem;
-  border-radius: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(241, 245, 249, 0.35);
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.62rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.ci-file-tab--active {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.25);
-  color: #a5b4fc;
-}
-
-/* Copy button pinned to right */
-.ci-copy-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  padding: 0.28rem 0.6rem;
-  border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(241, 245, 249, 0.35);
-  font-family: var(--font-body, 'Satoshi', sans-serif);
-  font-size: 0.7rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.ci-copy-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
+.ci-sub-icon-btn:hover {
   color: rgba(241, 245, 249, 0.7);
 }
 
-.ci-copy-btn--done {
+.ci-sub-icon-btn--active {
+  color: #e4e8fe;
+}
+
+.ci-sub-icon-btn--active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 60%;
+  height: 1.5px;
+  background: linear-gradient(to right, transparent, #6366f1, transparent);
+  border-radius: 1px;
+  transform: translateX(-50%) scaleX(0);
+  animation: ci-underline-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Pane header — filename centered */
+.ci-pane-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.9rem;
+  background: rgba(0, 0, 0, 0.18);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.ci-pane-filename {
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: rgba(241, 245, 249, 0.42);
+  pointer-events: none;
+  animation: ci-filename-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ci-pane-ext {
+  color: #818cf8;
+  opacity: 0.85;
+}
+
+@keyframes ci-filename-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Usage wrapper — fills panel body, FAB anchors to this */
+.ci-usage-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Floating copy button (icon only) — anchored to pane, not scroll container */
+.ci-copy-fab {
+  position: absolute;
+  bottom: 0.6rem;
+  right: 0.6rem;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(9, 12, 20, 0.7);
+  backdrop-filter: blur(8px);
+  color: rgba(241, 245, 249, 0.35);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  z-index: 5;
+}
+
+.ci-copy-fab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(241, 245, 249, 0.75);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.ci-copy-fab--done {
   background: rgba(34, 197, 94, 0.12);
   border-color: rgba(34, 197, 94, 0.3);
   color: #4ade80;
+}
+
+/* Install — side-by-side split */
+.ci-install-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.ci-install-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Install blocks fill available height so no blank space and no scroll */
+.ci-install-half .ci-content {
+  overflow: hidden;
+}
+
+.ci-install-half .ci-install-block {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ci-install-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.ci-section-label {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem 0.3rem;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(165, 180, 252, 0.45);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Clickable install block */
+.ci-install-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s ease;
+  border-radius: 0;
+}
+
+.ci-install-block:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ci-install-block--flash {
+  animation: ci-block-flash 1.6s ease forwards;
+}
+
+@keyframes ci-block-flash {
+  0%   { background: rgba(99, 102, 241, 0.18); }
+  40%  { background: rgba(99, 102, 241, 0.10); }
+  100% { background: transparent; }
+}
+
+.ci-install-block--manual .ci-code--block {
+  border-left-color: rgba(16, 185, 129, 0.3);
+}
+
+.ci-install-pm {
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 0.56rem;
+  color: rgba(241, 245, 249, 0.25);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ci-install-step {
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  color: rgba(241, 245, 249, 0.25);
+}
+
+.ci-empty-section {
+  padding: 0.75rem;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.7rem;
+  color: rgba(241, 245, 249, 0.15);
+}
+
+/* Code block inside install row */
+.ci-code--block {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 2px solid rgba(99, 102, 241, 0.28);
+  border-radius: 5px;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 0.71rem;
+  color: rgba(241, 245, 249, 0.72);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  width: 100%;
+  pointer-events: none;
 }
 
 /* Content area */
@@ -245,19 +403,39 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+}
+
+.ci-content::-webkit-scrollbar { width: 3px; }
+.ci-content::-webkit-scrollbar-track { background: transparent; }
+.ci-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 4px; }
+
+/* No-scrollbar variant (code & usage) */
+.ci-content--noscroll {
+  scrollbar-width: none;
+}
+.ci-content--noscroll::-webkit-scrollbar { display: none; }
+
+/* Relative positioning for FAB */
+.ci-content--rel {
+  position: relative;
 }
 
 .ci-code {
+  flex: 1;
   margin: 0;
-  padding: 1rem;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.75rem;
-  color: rgba(241, 245, 249, 0.82);
+  padding: 0.85rem 1rem;
+  font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: rgba(226, 232, 240, 0.78);
   white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.65;
+  word-break: break-all;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
 }
 
 /* Eye mode content — generate button */

@@ -110,35 +110,28 @@
 /* ── Gallery view ────────────────────────────────────────────────────────── */
 
 .gallery-container {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 5.5rem 3rem 2rem calc(264px + 1.5rem);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
-}
-
-.gallery-container.no-scroll {
+  position: absolute;
+  left: calc(220px + 0.9rem);
+  right: calc(220px + 0.9rem);
+  top: 4.7rem;
+  height: 52vh;
   overflow: hidden;
+  padding: 0;
 }
-
 
 .comp-showcase-container {
   width: 100%;
-  margin: 0 auto;
-  flex: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 
 /* ── Sub-menu & back navigation ──────────────────────────────────────────── */
 
 .sub-menu-container {
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
+  height: 100%;
+  padding: 0;
 }
 
 
@@ -175,7 +168,7 @@
 
 .top-bar {
   position: absolute;
-  top: 0.75rem;
+  top: 0.4rem;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -188,6 +181,13 @@
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+
+/* Mirror spacer — keeps CardNav truly centered between the action buttons */
+.top-bar-spacer {
+  width: calc(2 * 56px + 6px);
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .nav-action-btn {
@@ -232,10 +232,10 @@
 
 .component-sidebar {
   position: absolute;
-  left: 0.75rem;
-  top: 0.75rem;
-  height: 50vh;
-  width: 264px;
+  left: 0.4rem;
+  top: 4.7rem;
+  height: 52vh;
+  width: 220px;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -253,10 +253,10 @@
 
 .generation-sidebar {
   position: absolute;
-  right: 0.75rem;
-  top: 0.75rem;
-  height: 50vh;
-  width: 264px;
+  right: 0.4rem;
+  top: 4.7rem;
+  height: 52vh;
+  width: 220px;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -272,10 +272,10 @@
 
 .bottom-panel {
   position: absolute;
-  top: calc(0.75rem + 50vh + 0.5rem);
-  bottom: 0.75rem;
-  left: 0.75rem;
-  right: 0.75rem;
+  top: calc(4.7rem + 52vh + 0.4rem);
+  bottom: 0.4rem;
+  left: 0.4rem;
+  right: 0.4rem;
   background: rgba(9, 12, 20, 0.7);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
@@ -289,6 +289,5 @@
 
 .split-view-container {
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
+  height: 100%;
 }

@@ -258,7 +258,7 @@ function App() {
     {!appReady && <LoadingScreen onDone={() => setAppReady(true)} />}
     <div className="app-root" style={appReady ? undefined : { visibility: 'hidden' }}>
       <div className="background-container">
-        <PlasmaWave colors={['#6366f1', '#06B6D4']} speed1={0.04} speed2={0.04} bend1={0.8} bend2={0.4} />
+        {appReady && <PlasmaWave colors={['#6366f1', '#06B6D4']} speed1={0.04} speed2={0.04} bend1={0.8} bend2={0.4} />}
       </div>
 
       <div className="scene-container">
@@ -295,6 +295,7 @@ function App() {
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
           />
+          <div className="top-bar-spacer" />
         </div>
 
         <section className="scene">
