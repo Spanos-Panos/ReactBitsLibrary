@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, UIEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import "./AnimatedList.css";
 
 export type ListSectionItem = {
@@ -59,6 +60,8 @@ export default function AnimatedList({
   onItemCheck,
   className = "",
 }: AnimatedListProps) {
+  const [btnHoverId, setBtnHoverId] = useState<string | null>(null);
+  const [recentCheckedId, setRecentCheckedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [topOpacity, setTopOpacity] = useState(0);
@@ -91,34 +94,72 @@ export default function AnimatedList({
               className="al-section-header"
             >
               {section.label}
-              <span className="al-section-count">{section.items.length}</span>
             </div>
 
             {section.items.map(item => {
               globalIndex++;
               const isActive = selectedId === item.id;
-              const isChecked = selectedIds.includes(item.id);
+              const isSelected = selectedIds.includes(item.id);
               return (
                 <AnimatedItem key={item.id}>
                   <div
-                    className={`al-item ${isActive ? "al-item--active" : ""}`}
+                    className={`al-item ${isActive ? "al-item--active" : ""} ${isSelected ? "al-item--selected" : ""}`}
                     onClick={() => onItemClick?.(item.id)}
                     onMouseEnter={() => onItemHover?.(item.id)}
                   >
-                    <span className="al-item-name">{item.name}</span>
-                    <div className="al-item-right">
-                      <div
-                        className={`al-checkbox ${isChecked ? "al-checkbox--checked" : ""}`}
-                        onClick={e => { e.stopPropagation(); onItemCheck?.(item.id, e); }}
-                        title={isChecked ? "Deselect" : "Select for build"}
-                      >
-                        {isChecked && (
-                          <svg viewBox="0 0 10 8" fill="none" aria-hidden="true">
-                            <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                    <button
+                      className={`al-select-btn ${isSelected ? "al-select-btn--selected" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // If we are selecting (not deselecting), set a temporary success state
+                        if (!isSelected) {
+                          setRecentCheckedId(item.id);
+                          setTimeout(() => setRecentCheckedId(null), 1200);
+                        }
+                        onItemCheck?.(item.id, e);
+                      }}
+                      onMouseEnter={() => setBtnHoverId(item.id)}
+                      onMouseLeave={() => setBtnHoverId(null)}
+                      title={isSelected ? "Remove from project" : "Add to project"}
+                    >
+                      <AnimatePresence mode="wait">
+                        {!isSelected ? (
+                          <motion.svg
+                            key="plus"
+                            initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                            animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                            exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                            transition={{ duration: 0.2 }}
+                            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
+                          >
+                            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                          </motion.svg>
+                        ) : btnHoverId === item.id && recentCheckedId !== item.id ? (
+                          <motion.svg
+                            key="remove"
+                            initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                            animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                            exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                            transition={{ duration: 0.2 }}
+                            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
+                          >
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                          </motion.svg>
+                        ) : (
+                          <motion.svg
+                            key="check"
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.5, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12"/>
+                          </motion.svg>
                         )}
-                      </div>
-                    </div>
+                      </AnimatePresence>
+                    </button>
+                    <span className="al-item-name">{item.name}</span>
                   </div>
                 </AnimatedItem>
               );

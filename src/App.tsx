@@ -327,6 +327,8 @@ function App() {
                 <div className="split-view-container">
                   <ComponentInspector
                     selected={selected}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelection}
                     componentFiles={componentFiles}
                     parsedInstallData={parsedInstallData}
                     rawInstallMarkdown={rawInstallMarkdown}

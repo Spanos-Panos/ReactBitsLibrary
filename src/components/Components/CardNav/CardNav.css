@@ -151,7 +151,9 @@
 }
 
 /* hide browser's native search cancel button */
-.card-nav-search::-webkit-search-cancel-button { display: none; }
+.card-nav-search::-webkit-search-cancel-button {
+  display: none;
+}
 
 /* ── Expanded content area ───────────────────────────────────────────────── */
 
@@ -200,6 +202,7 @@
   letter-spacing: -0.02em;
   color: #f1f5f9;
   opacity: 0.9;
+  text-align: center;
 }
 
 .nav-card--placeholder {
@@ -209,37 +212,45 @@
 /* ── Category buttons (left card) ───────────────────────────────────────── */
 
 .nav-card-categories {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 30px 8px;
+  margin-top: 12px;
 }
 
 .nav-cat-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 6px;
-  color: rgba(241, 245, 249, 0.65);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: rgba(241, 245, 249, 0.45);
   font-family: var(--font-body, 'Satoshi', sans-serif);
-  font-size: var(--text-sm, 0.875rem);
+  font-size: 0.8rem;
   font-weight: 500;
-  padding: 0.35rem 0.75rem;
-  text-align: left;
+  padding: 0.6rem 0.75rem;
+  text-align: center;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .nav-cat-btn:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: #f1f5f9;
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(241, 245, 249, 0.95);
+}
+
+.nav-cat-btn:active {
+  transform: scale(0.96);
 }
 
 .nav-cat-btn.active {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.12);
   color: #a5b4fc;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.05);
 }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */

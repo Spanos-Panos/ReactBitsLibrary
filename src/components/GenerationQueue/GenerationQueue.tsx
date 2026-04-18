@@ -20,7 +20,6 @@ export default function GenerationQueue({ tasks, onKill, onSelect }: Props) {
     <div className="gq-container">
       <div className="gq-header">
         <span className="gq-title">Generations</span>
-        {taskList.length > 0 && <span className="gq-count">{taskList.length}</span>}
       </div>
 
       <div className="gq-scroll">

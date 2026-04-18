@@ -43,40 +43,27 @@
 }
 
 .al-section + .al-section {
-  margin-top: 0.75rem;
+  margin-top: 0.65rem;
 }
 
 .al-section-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.35rem 0.6rem 0.35rem 0.85rem;
+  padding: 0.4rem 0.85rem 0.4rem 2rem;
   font-family: var(--font-display, 'Clash Display', sans-serif);
   font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(241, 245, 249, 0.72);
+  color: #a5b4fc;
   position: sticky;
   top: 0;
-  z-index: 2;
-  background: rgba(9, 12, 20, 0.9);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-left: 2px solid rgba(99, 102, 241, 0.55);
-  border-radius: 0 4px 4px 0;
+  z-index: 5;
+  background: rgba(9, 12, 20, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   margin-bottom: 0.25rem;
-}
-
-.al-section-count {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.6rem;
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 4px;
-  padding: 1px 5px;
-  color: #a5b4fc;
-  letter-spacing: 0;
 }
 
 /* ── Item ────────────────────────────────────────────────────────────────── */
@@ -84,51 +71,132 @@
 .al-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.45rem 0.6rem 0.45rem 0.75rem;
+  justify-content: flex-start;
+  padding: 0.35rem 0.6rem 0.35rem 0rem;
   border-radius: 8px;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-  margin-bottom: 2px;
-  gap: 0.5rem;
+  transition: all 0.2s ease;
+  margin: 0 0.5rem 0px 0rem;
+  gap: 0rem;
+  position: relative;
 }
 
-.al-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.07);
+.al-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 0.65rem;
+  width: 2rem;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  z-index: 2;
 }
 
-.al-item--active {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.25);
+.al-item:hover .al-select-btn {
+  color: rgba(255, 255, 255, 0.45);
 }
 
-.al-item--active .al-item-name {
-  color: #a5b4fc;
+.al-select-btn:hover {
+  color: #a5b4fc !important;
+  transform: scale(1.2);
+}
+
+.al-select-btn--selected {
+  color: #6366f1 !important;
 }
 
 .al-item-name {
+  position: relative;
   font-family: var(--font-body, 'Satoshi', sans-serif);
   font-size: var(--text-sm, 0.875rem);
   font-weight: 500;
-  color: rgba(241, 245, 249, 0.75);
+  color: rgba(241, 245, 249, 0.6);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-  transition: color 0.15s ease;
+  transition: all 0.25s ease;
+  text-align: left;
+  padding-bottom: 2px;
+}
+
+/* ── Underline State Management ────────────────────────────────────────── */
+
+.al-item-name::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #6366f1;
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+              background 0.3s ease, 
+              opacity 0.3s ease;
+  opacity: 0;
+}
+
+/* [1] Hover - Unselected: Faint expansion */
+.al-item:not(.al-item--selected):hover .al-item-name::after {
+  transform: scaleX(0.6);
+  opacity: 0.4;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* [2] Selected: Full Indigo */
+.al-item--selected .al-item-name::after {
+  transform: scaleX(1);
+  opacity: 1;
+  background: #6366f1;
+}
+
+/* [3] Selected + Hover: Shift to Bright White (harmonious alert) */
+.al-item--selected:hover .al-item-name::after {
+  background: #fff;
+  opacity: 1;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}
+
+/* [4] Active (Preview): Bright accent */
+.al-item--active .al-item-name {
+  color: #fff;
+}
+
+.al-item--active:not(.al-item--selected) .al-item-name::after {
+  transform: scaleX(0.4);
+  opacity: 0.8;
+  background: #a5b4fc;
+}
+
+/* Combine Active + Selected */
+.al-item--active.al-item--selected .al-item-name::after {
+  height: 2px;
+  background: #6366f1;
+}
+
+.al-item:hover .al-item-name {
+  color: #fff;
+}
+
+/* Selected Text Color */
+.al-item--selected .al-item-name {
+  color: #c7d2fe;
+}
+
+.al-item--selected:hover .al-item-name {
+  color: #ffffff;
 }
 
 .al-item:hover .al-item-name {
   color: #f1f5f9;
-}
-
-.al-item-right {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
 }
 
 /* ── Checkbox ────────────────────────────────────────────────────────────── */

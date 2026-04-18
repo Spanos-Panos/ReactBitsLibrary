@@ -3,8 +3,35 @@
 .component-list-pane {
   display: flex;
   flex-direction: column;
-  height: 65vh;
-  min-height: 480px;
+  height: 100%;
+}
+
+.clp-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.85rem 0.4rem;
+  flex-shrink: 0;
+}
+
+.clp-title {
+  font-family: var(--font-display, 'Clash Display', sans-serif);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(241, 245, 249, 0.4);
+}
+
+.clp-count {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.6rem;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: #a5b4fc;
+  opacity: 0.8;
 }
 
 /* ── Search bar ──────────────────────────────────────────────────────────── */

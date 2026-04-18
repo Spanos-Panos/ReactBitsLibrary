@@ -7,7 +7,7 @@ import type { LayoutConcept } from '../lib/layoutConceptGenerator';
 export type FontRole = 'heading' | 'body' | 'accent' | '';
 export type ColorRole = 'background' | 'text' | 'components' | 'accent' | '';
 
-export interface FontEntry  { value: string; role: FontRole }
+export interface FontEntry { value: string; role: FontRole }
 export interface ColorEntry { value: string; role: ColorRole }
 
 export interface ImageEntry {
@@ -231,10 +231,10 @@ type Tab = 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images';
 const TABS: Tab[] = ['Fonts', 'Colors', 'Layout', 'Sizes', 'Images'];
 
 const CHIP_CATEGORY_CLASS: Record<string, string> = {
-  Components:     'pbp-chip--components',
-  Backgrounds:    'pbp-chip--backgrounds',
+  Components: 'pbp-chip--components',
+  Backgrounds: 'pbp-chip--backgrounds',
   TextAnimations: 'pbp-chip--textanimations',
-  Animations:     'pbp-chip--animations',
+  Animations: 'pbp-chip--animations',
 };
 
 interface ComponentItem { id: string; name: string; category: string; usageMarkdown: string }
@@ -289,13 +289,13 @@ export default function ProjectBuilderPanel({
           {selectedComponents.length === 0
             ? <p className="pbp-chips-empty">No components selected</p>
             : selectedComponents.map(c => (
-                <span
-                  key={c.id}
-                  className={`pbp-chip ${CHIP_CATEGORY_CLASS[c.category] ?? ''}`}
-                >
-                  {c.name}
-                </span>
-              ))
+              <span
+                key={c.id}
+                className={`pbp-chip ${CHIP_CATEGORY_CLASS[c.category] ?? ''}`}
+              >
+                {c.name}
+              </span>
+            ))
           }
         </div>
 
@@ -330,10 +330,10 @@ export default function ProjectBuilderPanel({
         </div>
 
         <div className="pbp-tab-body">
-          {activeTab === 'Fonts'  && <FontsTab  rules={designRules} onChange={onDesignRulesChange} />}
+          {activeTab === 'Fonts' && <FontsTab rules={designRules} onChange={onDesignRulesChange} />}
           {activeTab === 'Colors' && <ColorsTab rules={designRules} onChange={onDesignRulesChange} />}
           {activeTab === 'Layout' && <LayoutTab concept={layoutConcept} onOpen={onOpenLayoutPicker} disabled={selectedComponents.length < 2} />}
-          {activeTab === 'Sizes'  && <SizesTab  rules={designRules} onChange={onDesignRulesChange} />}
+          {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
           {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} />}
         </div>
       </div>

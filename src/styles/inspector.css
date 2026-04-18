@@ -63,8 +63,8 @@
   display: flex;
   justify-content: center;
   gap: 2rem;
-  padding: 0.28rem 0 0.24rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.28rem 0 0.4rem;
+  border-bottom: none;
 }
 
 .ci-icon-btn {

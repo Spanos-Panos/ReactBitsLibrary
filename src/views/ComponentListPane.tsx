@@ -45,15 +45,21 @@ export default function ComponentListPane({
   );
 
   return (
-    <AnimatedList
-      sections={sections}
-      selectedId={selectedId}
-      selectedIds={selectedIds}
-      activeCategory={activeCategory}
-      onItemClick={onSelect}
-      onItemHover={onHover}
-      onItemCheck={onToggleSelect}
-      showGradients
-    />
+    <div className="component-list-pane">
+      <div className="clp-header">
+        <span className="clp-title">Components</span>
+      </div>
+
+      <AnimatedList
+        sections={sections}
+        selectedId={selectedId}
+        selectedIds={selectedIds}
+        activeCategory={activeCategory}
+        onItemClick={onSelect}
+        onItemHover={onHover}
+        onItemCheck={onToggleSelect}
+        showGradients
+      />
+    </div>
   );
 }
