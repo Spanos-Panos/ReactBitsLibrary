@@ -193,9 +193,39 @@ async function enhancePrompt(options) {
       }
     }
 
-    // Layout blueprint block
+    // Layout blueprint block — built from structured layoutConfig if present, fallback to legacy layoutMd
+    const zNum = { background: 0, content: 1, overlay: 9999 };
+    const hHint = { fullscreen: '100vh', large: '85vh', medium: '50vh', strip: '20vh' };
+
+    function buildLayoutBlockFromConfig(lc) {
+      if (!lc || lc.length === 0) return '';
+      const fixed  = lc.filter(i => i.position === 'fixed');
+      const inFlow = lc.filter(i => i.position === 'in-flow');
+      const lines  = ['\n\n## USER-CONFIGURED LAYOUT BLUEPRINT', ''];
+      if (fixed.length) {
+        lines.push('### Fixed / Ambient Layers (rendered outside page flow):');
+        for (const item of fixed)
+          lines.push(`- **${item.componentName}**: position:fixed, inset:0, z-index:${zNum[item.zLayer]}, pointerEvents:none`);
+        lines.push('');
+      }
+      if (inFlow.length) {
+        lines.push('### Page Sections — render in this EXACT order, no exceptions:');
+        inFlow.forEach((item, idx) => {
+          lines.push(`${idx + 1}. **${item.componentName}**: min-height=${hHint[item.heightHint]}, align=${item.xAlign}, z-index:${zNum[item.zLayer] || 1}`);
+        });
+        lines.push('');
+      }
+      lines.push('### Interpretation rules:');
+      lines.push('- height: fullscreen→min-height:100vh | large→min-height:85vh | medium→min-height:50vh | strip→min-height:20vh');
+      lines.push('- align: full-width→section width:100% | left→content left-aligned, text-align:left | center→content centered | right→content right-aligned');
+      lines.push('- All in-flow sections: position:relative, z-index:1 minimum');
+      return lines.join('\n');
+    }
+
     let layoutBlock = '';
-    if (systemContext?.layoutMd) {
+    if (systemContext?.layoutConfig?.length > 0) {
+      layoutBlock = buildLayoutBlockFromConfig(systemContext.layoutConfig);
+    } else if (systemContext?.layoutMd) {
       layoutBlock = `\n\n${systemContext.layoutMd}`;
     }
 
@@ -354,6 +384,49 @@ async function enhancePrompt(options) {
       }
     } catch (validationErr) {
       console.warn('[Claude Enhancer] Section validation skipped (non-fatal):', validationErr.message);
+    }
+
+    // ─── Post-parse: apply user layoutConfig order + props to sections ─────────
+    try {
+      if (systemContext?.layoutConfig?.length > 0) {
+        const lc = systemContext.layoutConfig;
+        const inFlowOrder = lc.filter(i => i.position === 'in-flow').map(i => i.componentName.toLowerCase());
+        const fixedItems  = lc.filter(i => i.position === 'fixed');
+        const hMap = { fullscreen: '100vh', large: '85vh', medium: '50vh', strip: '20vh' };
+        const sections = enhancedPrompt.siteArchitecture.sections;
+
+        // Sort sections to match user's configured order
+        sections.sort((a, b) => {
+          const aRef = (a.componentRef || '').toLowerCase();
+          const bRef = (b.componentRef || '').toLowerCase();
+          const aIdx = inFlowOrder.findIndex(n => aRef.includes(n));
+          const bIdx = inFlowOrder.findIndex(n => bRef.includes(n));
+          if (aIdx === -1 && bIdx === -1) return 0;
+          if (aIdx === -1) return 1;
+          if (bIdx === -1) return -1;
+          return aIdx - bIdx;
+        });
+
+        // Inject layout props into each section
+        for (const section of sections) {
+          const ref = (section.componentRef || '').toLowerCase();
+          const fixedMatch = fixedItems.find(i => ref.includes(i.componentName.toLowerCase()));
+          const flowMatch  = lc.find(i => i.position === 'in-flow' && ref.includes(i.componentName.toLowerCase()));
+          if (fixedMatch) {
+            section.props = { ...section.props, position: 'fixed', zIndex: zNum[fixedMatch.zLayer] };
+          } else if (flowMatch) {
+            section.props = {
+              ...section.props,
+              minHeight: hMap[flowMatch.heightHint],
+              textAlign: flowMatch.xAlign === 'center' ? 'center' : 'left',
+              zIndex: zNum[flowMatch.zLayer] || 1,
+            };
+          }
+        }
+        console.log(`[Claude Enhancer] Applied layoutConfig: ${inFlowOrder.length} in-flow, ${fixedItems.length} fixed`);
+      }
+    } catch (layoutErr) {
+      console.warn('[Claude Enhancer] Layout ordering skipped (non-fatal):', layoutErr.message);
     }
 
     const enhancedPath = saveFile(ENHANCED_DIR, filename, enhancedPrompt);

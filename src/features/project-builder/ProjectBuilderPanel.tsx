@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import './ProjectBuilderPanel.css';
-import type { LayoutConcept } from '../../shared/lib/layoutConceptGenerator';
+import type { LayoutConfig, LayoutItem, ZLayer, XAlign, HeightHint } from '../../shared/types/index';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -69,8 +69,8 @@ export interface ProjectBuilderPanelProps {
   onGenerate: () => void;
   designRules: DesignRules;
   onDesignRulesChange: (rules: DesignRules) => void;
-  layoutConcept: LayoutConcept | null;
-  onOpenLayoutPicker: () => void;
+  layoutConfig: LayoutConfig;
+  onLayoutConfigChange: (c: LayoutConfig) => void;
   styleDirection: StyleDirection;
   onStyleDirectionChange: (s: StyleDirection) => void;
   clientBrief: ClientBrief;
@@ -864,71 +864,113 @@ function ColorsTab({ rules, onChange }: { rules: DesignRules; onChange: (r: Desi
   );
 }
 
-function LayoutTab({ concept, onOpen, disabled }: { concept: LayoutConcept | null; onOpen: () => void; disabled: boolean }) {
-  const getHeight = (hint: string) => {
-    if (hint === 'full-viewport') return '50px';
-    if (hint === 'large') return '36px';
-    if (hint === 'medium') return '24px';
-    if (hint === 'small') return '14px';
-    if (hint === 'strip') return '8px';
-    return '20px';
+function LayoutTab({ config, onChange }: { config: LayoutConfig; onChange: (c: LayoutConfig) => void }) {
+  const updateItem = (componentName: string, updates: Partial<LayoutItem>) =>
+    onChange(config.map(item => item.componentName === componentName ? { ...item, ...updates } : item));
+
+  const catColor = (category: string) => {
+    if (category === 'Backgrounds')    return '#6366f1';
+    if (category === 'TextAnimations') return '#f59e0b';
+    if (category === 'Animations')     return '#10b981';
+    return '#ec4899';
   };
-  const getWidth = (hint: string) => {
-    if (hint === 'full') return '100%';
-    if (hint === 'contained') return '80%';
-    if (hint === 'inline') return '40%';
-    return '100%';
+  const catLabel = (category: string) => {
+    if (category === 'Backgrounds')    return 'BG';
+    if (category === 'TextAnimations') return 'TXT';
+    if (category === 'Animations')     return 'ANI';
+    return 'UI';
   };
+
+  if (config.length === 0) {
+    return (
+      <div className="pbp-layout-tab">
+        <div className="pbp-layout-empty" style={{ cursor: 'default' }}>
+          <div className="pbp-layout-empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" />
+            </svg>
+          </div>
+          <div className="pbp-layout-empty-text">No Components Selected</div>
+          <span className="pbp-layout-empty-sub">Select components to configure layout.</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pbp-layout-tab">
-      <div className="pbp-rule-header" style={{ marginBottom: '12px' }}>
-        <span className="pbp-rule-label">Layout Blueprint</span>
+      <div className="pbp-layout-list-header">
+        <span className="pbp-rule-label">Layer Order</span>
+        <span className="pbp-layout-hint">Drag to reorder</span>
       </div>
-      
-      {concept ? (
-        <button className="pbp-layout-card-interactive" onClick={!disabled ? onOpen : undefined} disabled={disabled}>
-          <div className="pbp-layout-preview-window">
-            <div className="pbp-layout-preview-content">
-              {concept.zones.filter(z => z.heightHint !== 'overlay').map((z, i) => (
-                <div 
-                  key={i} 
-                  className="pbp-wireframe-block" 
-                  style={{ 
-                    height: getHeight(z.heightHint), 
-                    width: getWidth(z.widthHint),
-                    opacity: Math.max(0.2, 1 - (i * 0.15))
-                  }} 
-                />
-              ))}
-            </div>
-            {concept.zones.some(z => z.heightHint === 'overlay') && (
-              <div className="pbp-wireframe-overlay-indicator" title="Includes fixed overlays">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10"></circle></svg>
+      <Reorder.Group
+        axis="y"
+        values={config}
+        onReorder={onChange}
+        className="pbp-layout-list"
+        style={{ listStyle: 'none', padding: 0, margin: 0 }}
+      >
+        {config.map(item => {
+          const isFixed = item.position === 'fixed';
+          const cc = catColor(item.category);
+          return (
+            <Reorder.Item key={item.componentName} value={item} className="pbp-layout-row">
+              <div className="pbp-layout-row-top">
+                <span className="pbp-layout-drag">≡</span>
+                <span className="pbp-layout-row-name">{item.componentName}</span>
+                <span className="pbp-layout-badge" style={{ background: cc + '22', color: cc, borderColor: cc + '55' }}>
+                  {catLabel(item.category)}
+                </span>
               </div>
-            )}
-            <div className="pbp-layout-change-hover">
-              <span>Change Blueprint</span>
-            </div>
-          </div>
-          <div className="pbp-layout-details">
-            <div className="pbp-layout-name">{concept.name}</div>
-            <div className="pbp-layout-desc">{concept.description}</div>
-            <div className="pbp-layout-zone-chips">
-               <span className="pbp-zone-chip">{concept.zones.length} Total Zones</span>
-               {concept.zones.some(z => z.heightHint === 'overlay') && <span className="pbp-zone-chip pbp-zone-chip--accent">Includes Overlays</span>}
-            </div>
-          </div>
-        </button>
-      ) : (
-        <button className="pbp-layout-empty" onClick={!disabled ? onOpen : undefined} disabled={disabled}>
-          <div className="pbp-layout-empty-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
-          </div>
-          <div className="pbp-layout-empty-text">No Blueprint Configured</div>
-          <span className="pbp-layout-empty-sub">Add components to generate blueprints.</span>
-        </button>
-      )}
+              <div className="pbp-layout-row-controls">
+                <div className="pbp-layout-toggle">
+                  <button
+                    className={`pbp-layout-toggle-btn${item.position === 'fixed' ? ' active' : ''}`}
+                    onClick={() => updateItem(item.componentName, { position: 'fixed' })}
+                  >FIXED</button>
+                  <button
+                    className={`pbp-layout-toggle-btn${item.position === 'in-flow' ? ' active' : ''}`}
+                    onClick={() => updateItem(item.componentName, { position: 'in-flow' })}
+                  >FLOW</button>
+                </div>
+                <select
+                  className="pbp-layout-select"
+                  value={item.zLayer}
+                  onChange={e => updateItem(item.componentName, { zLayer: e.target.value as ZLayer })}
+                >
+                  <option value="background">z:0 BG</option>
+                  <option value="content">z:1 Content</option>
+                  <option value="overlay">z:9999 Top</option>
+                </select>
+                {!isFixed && (
+                  <select
+                    className="pbp-layout-select"
+                    value={item.xAlign}
+                    onChange={e => updateItem(item.componentName, { xAlign: e.target.value as XAlign })}
+                  >
+                    <option value="full-width">Full width</option>
+                    <option value="left">Left align</option>
+                    <option value="center">Centered</option>
+                    <option value="right">Right align</option>
+                  </select>
+                )}
+                {!isFixed && (
+                  <select
+                    className="pbp-layout-select"
+                    value={item.heightHint}
+                    onChange={e => updateItem(item.componentName, { heightHint: e.target.value as HeightHint })}
+                  >
+                    <option value="fullscreen">100vh Hero</option>
+                    <option value="large">85vh Large</option>
+                    <option value="medium">50vh Medium</option>
+                    <option value="strip">20vh Strip</option>
+                  </select>
+                )}
+              </div>
+            </Reorder.Item>
+          );
+        })}
+      </Reorder.Group>
     </div>
   );
 }

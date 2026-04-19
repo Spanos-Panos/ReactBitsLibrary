@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ReactBitsItem } from "./shared/types/index";
+import type { ReactBitsItem, LayoutConfig, LayoutItem } from "./shared/types/index";
 import "./shared/types/api";
 import { useComponentLoader }   from "./shared/hooks/useComponentLoader";
 import { useTaskManager }       from "./shared/hooks/useTaskManager";
@@ -7,8 +7,6 @@ import { useGenerationWizard }  from "./shared/hooks/useGenerationWizard";
 import PlasmaWave from "./showcase/Backgrounds/PlasmaWave/PlasmaWave";
 import CardNav from "./showcase/UIComponents/CardNav/CardNav";
 import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief } from "./features/project-builder/ProjectBuilderPanel";
-import LayoutConceptPicker from "./shared/components/LayoutConceptPicker";
-import type { LayoutConcept } from "./shared/lib/layoutConceptGenerator";
 import PresetManager, { type SavedPreset, PRESET_SCHEMA_VERSION } from "./features/preset-manager/PresetManager";
 import ComponentAddPanel from "./features/browser/ComponentAddPanel";
 import ComponentListPane from "./features/browser/ComponentListPane";
@@ -80,8 +78,7 @@ function App() {
   const [designRules,          setDesignRules]          = useState<DesignRules>(DEFAULT_DESIGN_RULES);
   const [styleDirection,       setStyleDirection]       = useState<StyleDirection>(DEFAULT_STYLE_DIRECTION);
   const [clientBrief,          setClientBrief]          = useState<ClientBrief>(DEFAULT_CLIENT_BRIEF);
-  const [layoutConcept,        setLayoutConcept]        = useState<LayoutConcept | null>(null);
-  const [showLayoutPicker,     setShowLayoutPicker]     = useState(false);
+  const [layoutConfig,         setLayoutConfig]         = useState<LayoutConfig>([]);
 
   const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<any>(null);
   const [generateStatus,       setGenerateStatus]       = useState("");
@@ -89,6 +86,19 @@ function App() {
 
   const [appReady,             setAppReady]             = useState(false);
   const [presetsOpen,          setPresetsOpen]          = useState(false);
+
+  // ── Auto-populate layoutConfig when selectedComponents changes ───────────
+  useEffect(() => {
+    setLayoutConfig(prev => {
+      const prevMap = new Map(prev.map((i: LayoutItem) => [i.componentName, i]));
+      return selectedComponents.map((comp): LayoutItem => {
+        if (prevMap.has(comp.name)) return prevMap.get(comp.name)!;
+        if (comp.category === 'Backgrounds')
+          return { componentName: comp.name, category: comp.category, position: 'fixed',   xAlign: 'full-width', zLayer: 'background', heightHint: 'fullscreen' };
+        return       { componentName: comp.name, category: comp.category, position: 'in-flow', xAlign: 'full-width', zLayer: 'content',    heightHint: 'medium'     };
+      });
+    });
+  }, [selectedComponents]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
@@ -207,7 +217,7 @@ function App() {
       projectPrompt,
       selectedComponentIds: selectedIds,
       designRules,
-      layoutConcept,
+      layoutConfig,
       projectName,
       packageManager,
       styleDirection,
@@ -219,7 +229,7 @@ function App() {
     setProjectPrompt(preset.projectPrompt ?? '');
     setSelectedIds(preset.selectedComponentIds ?? []);
     setDesignRules(preset.designRules ?? DEFAULT_DESIGN_RULES);
-    setLayoutConcept(preset.layoutConcept ?? null);
+    setLayoutConfig(preset.layoutConfig ?? []);
     setProjectName(preset.projectName ?? '');
     setPackageManager((preset.packageManager ?? 'npm') as typeof packageManager);
     // v2 fields — fall back to defaults for old presets that don't have them
@@ -246,7 +256,7 @@ function App() {
       setGenerateStatus("AI Architect is designing your project...");
       const enhanceResult = await window.reactBitsApi.enhancePrompt({
         rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
-        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, styleDirection, clientBrief, layoutMd: layoutConcept?.layoutMd ?? null },
+        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, styleDirection, clientBrief, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null },
       });
       const enhanceData = enhanceResult as any;
       if (enhanceData.success) {
@@ -365,8 +375,8 @@ function App() {
               onGenerate={handleBuilderGenerate}
               designRules={designRules}
               onDesignRulesChange={setDesignRules}
-              layoutConcept={layoutConcept}
-              onOpenLayoutPicker={() => setShowLayoutPicker(true)}
+              layoutConfig={layoutConfig}
+              onLayoutConfigChange={setLayoutConfig}
               styleDirection={styleDirection}
               onStyleDirectionChange={setStyleDirection}
               clientBrief={clientBrief}
@@ -409,15 +419,6 @@ function App() {
       )}
 
 {generateStatus && <div className={`status-toast ${toastType}`}>{generateStatus}</div>}
-
-      {showLayoutPicker && (
-        <LayoutConceptPicker
-          selectedComponentNames={selectedComponents.map(c => c.name)}
-          currentConcept={layoutConcept}
-          onConfirm={(concept) => { setLayoutConcept(concept); setShowLayoutPicker(false); }}
-          onClose={() => setShowLayoutPicker(false)}
-        />
-      )}
 
       {/* ComponentAddPanel is now handled in the top bar actions */}
     </div>
