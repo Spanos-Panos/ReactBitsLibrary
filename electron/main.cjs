@@ -284,7 +284,7 @@ ipcMain.handle("select-directory", async () => {
 });
 
 const { generatePlayground } = require("../DemoCLI/index.cjs");
-const { savePrompt, getHistory, clearHistory, openHistoryFolder, savePreset, listPresets, deletePreset } = require("./storage.cjs");
+const { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset } = require("./storage.cjs");
 
 ipcMain.handle("generate-playground", async (event, ...args) => {
   let result;
@@ -349,6 +349,7 @@ ipcMain.handle("storage-open-folder", async () => {
 ipcMain.handle("preset-save",   (_event, preset) => savePreset(preset));
 ipcMain.handle("preset-list",   ()               => listPresets());
 ipcMain.handle("preset-delete", (_event, id)     => deletePreset(id));
+ipcMain.handle("preset-open-folder", ()          => openPresetsFolder());
 
 // Design inspiration image picker
 ipcMain.handle("design-pick-images", async (event) => {

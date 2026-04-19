@@ -10,7 +10,7 @@ import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEF
 import LayoutConceptPicker from "./shared/components/LayoutConceptPicker";
 import type { LayoutConcept } from "./shared/lib/layoutConceptGenerator";
 import PresetManager, { type SavedPreset, PRESET_SCHEMA_VERSION } from "./features/preset-manager/PresetManager";
-import AddComponentModal from "./shared/components/AddComponentModal";
+import ComponentAddPanel from "./features/browser/ComponentAddPanel";
 import ComponentListPane from "./features/browser/ComponentListPane";
 import ComponentInspector from "./features/inspector/ComponentInspector";
 import GenerationQueue from "./features/generation/GenerationQueue/GenerationQueue";
@@ -280,15 +280,16 @@ function App() {
         <div className="top-bar">
           <div className="top-bar-actions">
             {/* Add component */}
-            <button
-              className="nav-action-btn"
-              title="Add component"
-              onClick={() => setShowAddModal(true)}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </button>
+            <ComponentAddPanel
+              isOpen={showAddModal}
+              onToggle={() => setShowAddModal(v => !v)}
+              onAdded={(entry) => {
+                setItems(prev => [...prev.filter(i => i.id !== entry.id), entry as ReactBitsItem]);
+                setToastType("success");
+                setGenerateStatus(`Component "${entry.name}" added to ${entry.category}!`);
+                setTimeout(() => setGenerateStatus(""), 4000);
+              }}
+            />
 
             {/* Presets */}
             <PresetManager
@@ -418,16 +419,7 @@ function App() {
         />
       )}
 
-      <AddComponentModal
-        open={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onAdded={(entry) => {
-          setItems(prev => [...prev.filter(i => i.id !== entry.id), entry as ReactBitsItem]);
-          setToastType("success");
-          setGenerateStatus(`Component "${entry.name}" added to ${entry.category}!`);
-          setTimeout(() => setGenerateStatus(""), 4000);
-        }}
-      />
+      {/* ComponentAddPanel is now handled in the top bar actions */}
     </div>
     </>
   );

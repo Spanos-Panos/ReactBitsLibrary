@@ -19,6 +19,11 @@ function openHistoryFolder() {
   shell.openPath(PROMPTS_BASE_PATH);
 }
 
+function openPresetsFolder() {
+  ensurePresetsDir();
+  shell.openPath(PRESETS_DIR);
+}
+
 function formatTimestamp() {
   const now = new Date();
   const day = String(now.getDate()).padStart(2, '0');
@@ -120,4 +125,4 @@ function deletePreset(id) {
   }
 }
 
-module.exports = { savePrompt, getHistory, clearHistory, openHistoryFolder, savePreset, listPresets, deletePreset };
+module.exports = { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset };
