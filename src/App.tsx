@@ -15,6 +15,7 @@ import GenerationQueue from "./features/generation/GenerationQueue/GenerationQue
 import GenerateWizard from "./features/generation/GenerateWizard";
 import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
+import LayoutPreviewModal from "./features/project-builder/LayoutPreviewModal";
 
 const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,
@@ -86,19 +87,7 @@ function App() {
 
   const [appReady,             setAppReady]             = useState(false);
   const [presetsOpen,          setPresetsOpen]          = useState(false);
-
-  // ── Auto-populate layoutConfig when selectedComponents changes ───────────
-  useEffect(() => {
-    setLayoutConfig(prev => {
-      const prevMap = new Map(prev.map((i: LayoutItem) => [i.componentName, i]));
-      return selectedComponents.map((comp): LayoutItem => {
-        if (prevMap.has(comp.name)) return prevMap.get(comp.name)!;
-        if (comp.category === 'Backgrounds')
-          return { componentName: comp.name, category: comp.category, position: 'fixed',   xAlign: 'full-width', zLayer: 'background', heightHint: 'fullscreen' };
-        return       { componentName: comp.name, category: comp.category, position: 'in-flow', xAlign: 'full-width', zLayer: 'content',    heightHint: 'medium'     };
-      });
-    });
-  }, [selectedComponents]);
+  const [showLayoutIntelligence, setShowLayoutIntelligence] = useState(false);
 
   // ── Derived state ─────────────────────────────────────────────────────────
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
@@ -119,6 +108,19 @@ function App() {
     () => selectedIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ReactBitsItem[],
     [selectedIds, items]
   );
+
+  // ── Auto-populate layoutConfig when selectedComponents changes ───────────
+  useEffect(() => {
+    setLayoutConfig(prev => {
+      const prevMap = new Map(prev.map((i: LayoutItem) => [i.componentName, i]));
+      return selectedComponents.map((comp): LayoutItem => {
+        if (prevMap.has(comp.name)) return prevMap.get(comp.name)!;
+        if (comp.category === 'Backgrounds')
+          return { componentName: comp.name, category: comp.category, position: 'fixed',   xAlign: 'full-width', zLayer: 'background', heightHint: 'fullscreen', entranceAnimation: 'none', widthHint: 'full' };
+        return       { componentName: comp.name, category: comp.category, position: 'in-flow', xAlign: 'full-width', zLayer: 'content',    heightHint: 'medium', entranceAnimation: 'none', widthHint: 'full' };
+      });
+    });
+  }, [selectedComponents]);
 
   // ── Callbacks ─────────────────────────────────────────────────────────────
   const handleSelectComponent = (id: string) => {
@@ -381,6 +383,7 @@ function App() {
               onStyleDirectionChange={setStyleDirection}
               clientBrief={clientBrief}
               onClientBriefChange={setClientBrief}
+              onOpenLayoutIntelligence={() => setShowLayoutIntelligence(true)}
               onRestoreFromHistory={(p: string, sels: any[]) => {
                 setProjectPrompt(p);
                 setSelectedIds(sels.map((s: any) => s.id));
@@ -412,6 +415,12 @@ function App() {
         autoKillOnError={autoKillOnError}
         onAutoKillChange={setAutoKillOnError}
         onConfirm={confirmGenerate}
+      />
+
+      <LayoutPreviewModal
+        isOpen={showLayoutIntelligence}
+        onClose={() => setShowLayoutIntelligence(false)}
+        layoutConfig={layoutConfig}
       />
 
       {activeTaskId && tasks[activeTaskId] && (

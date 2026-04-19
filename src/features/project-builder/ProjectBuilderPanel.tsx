@@ -75,6 +75,7 @@ export interface ProjectBuilderPanelProps {
   onStyleDirectionChange: (s: StyleDirection) => void;
   clientBrief: ClientBrief;
   onClientBriefChange: (b: ClientBrief) => void;
+  onOpenLayoutIntelligence?: () => void;
   onRestoreFromHistory?: (prompt: string, selectedComponents: ComponentItem[]) => void;
 }
 
@@ -864,7 +865,11 @@ function ColorsTab({ rules, onChange }: { rules: DesignRules; onChange: (r: Desi
   );
 }
 
-function LayoutTab({ config, onChange }: { config: LayoutConfig; onChange: (c: LayoutConfig) => void }) {
+function LayoutTab({ config, onChange, onOpenIntelligence }: { 
+  config: LayoutConfig; 
+  onChange: (c: LayoutConfig) => void;
+  onOpenIntelligence?: () => void;
+}) {
   const updateItem = (componentName: string, updates: Partial<LayoutItem>) =>
     onChange(config.map(item => item.componentName === componentName ? { ...item, ...updates } : item));
 
@@ -908,7 +913,7 @@ function LayoutTab({ config, onChange }: { config: LayoutConfig; onChange: (c: L
         values={config}
         onReorder={onChange}
         className="pbp-layout-list"
-        style={{ listStyle: 'none', padding: 0, margin: 0 }}
+        style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}
       >
         {config.map(item => {
           const isFixed = item.position === 'fixed';
@@ -916,61 +921,147 @@ function LayoutTab({ config, onChange }: { config: LayoutConfig; onChange: (c: L
           return (
             <Reorder.Item key={item.componentName} value={item} className="pbp-layout-row">
               <div className="pbp-layout-row-top">
-                <span className="pbp-layout-drag">≡</span>
+                <span className="pbp-layout-drag" title="Drag to reorder">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                </span>
                 <span className="pbp-layout-row-name">{item.componentName}</span>
-                <span className="pbp-layout-badge" style={{ background: cc + '22', color: cc, borderColor: cc + '55' }}>
+                {item.widthHint && item.widthHint !== 'full' && (
+                  <span className="pbp-layout-badge" style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8', borderColor: 'rgba(255,255,255,0.1)' }}>
+                    {item.widthHint === 'half' ? '50% COL' : '33% COL'}
+                  </span>
+                )}
+                <span className="pbp-layout-badge" style={{ background: cc + '1A', color: cc, borderColor: cc + '40' }}>
                   {catLabel(item.category)}
                 </span>
               </div>
               <div className="pbp-layout-row-controls">
-                <div className="pbp-layout-toggle">
-                  <button
-                    className={`pbp-layout-toggle-btn${item.position === 'fixed' ? ' active' : ''}`}
-                    onClick={() => updateItem(item.componentName, { position: 'fixed' })}
-                  >FIXED</button>
-                  <button
-                    className={`pbp-layout-toggle-btn${item.position === 'in-flow' ? ' active' : ''}`}
-                    onClick={() => updateItem(item.componentName, { position: 'in-flow' })}
-                  >FLOW</button>
+
+                <div className="pbp-control-field" style={{ minWidth: '100px', flex: '0.8' }}>
+                  <span className="pbp-control-label">Position</span>
+                  <div className="pbp-layout-segmented">
+                    <button
+                      className={`pbp-layout-seg-btn${item.position === 'fixed' ? ' pbp-layout-seg-btn--active' : ''}`}
+                      onClick={() => updateItem(item.componentName, { position: 'fixed' })}
+                    >
+                      FIXED
+                    </button>
+                    <button
+                      className={`pbp-layout-seg-btn${item.position === 'in-flow' ? ' pbp-layout-seg-btn--active' : ''}`}
+                      onClick={() => updateItem(item.componentName, { position: 'in-flow' })}
+                    >
+                      FLOW
+                    </button>
+                  </div>
                 </div>
-                <select
-                  className="pbp-layout-select"
-                  value={item.zLayer}
-                  onChange={e => updateItem(item.componentName, { zLayer: e.target.value as ZLayer })}
-                >
-                  <option value="background">z:0 BG</option>
-                  <option value="content">z:1 Content</option>
-                  <option value="overlay">z:9999 Top</option>
-                </select>
+
                 {!isFixed && (
-                  <select
-                    className="pbp-layout-select"
-                    value={item.xAlign}
-                    onChange={e => updateItem(item.componentName, { xAlign: e.target.value as XAlign })}
-                  >
-                    <option value="full-width">Full width</option>
-                    <option value="left">Left align</option>
-                    <option value="center">Centered</option>
-                    <option value="right">Right align</option>
-                  </select>
+                  <div className="pbp-control-field" style={{ minWidth: '140px', flex: '1.2' }}>
+                    <span className="pbp-control-label">Width Constraints</span>
+                    <div className="pbp-layout-segmented">
+                      <button
+                        className={`pbp-layout-seg-btn${(item.widthHint || 'full') === 'full' ? ' pbp-layout-seg-btn--active' : ''}`}
+                        onClick={() => updateItem(item.componentName, { widthHint: 'full' })}
+                        title="Full Width"
+                      >
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="6" width="20" height="12" rx="2" ry="2"/></svg>
+                      </button>
+                      <button
+                        className={`pbp-layout-seg-btn${item.widthHint === 'half' ? ' pbp-layout-seg-btn--active' : ''}`}
+                        onClick={() => updateItem(item.componentName, { widthHint: 'half' })}
+                        title="50% Column"
+                      >
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="6" width="8" height="12" rx="1" ry="1"/><rect x="14" y="6" width="8" height="12" rx="1" ry="1"/></svg>
+                      </button>
+                      <button
+                        className={`pbp-layout-seg-btn${item.widthHint === 'third' ? ' pbp-layout-seg-btn--active' : ''}`}
+                        onClick={() => updateItem(item.componentName, { widthHint: 'third' })}
+                        title="33% Column"
+                      >
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="6" width="5" height="12" rx="1" /><rect x="9.5" y="6" width="5" height="12" rx="1" /><rect x="17" y="6" width="5" height="12" rx="1" /></svg>
+                      </button>
+                    </div>
+                  </div>
                 )}
+
+                <div className="pbp-control-field">
+                  <span className="pbp-control-label">Z-Layer</span>
+                  <AnimatedSelect
+                    value={item.zLayer}
+                    onChange={v => updateItem(item.componentName, { zLayer: v as ZLayer })}
+                    options={[
+                      { label: 'z:0 Background', value: 'background' },
+                      { label: 'z:1 View Content', value: 'content' },
+                      { label: 'z:999 Foreground', value: 'overlay' }
+                    ]}
+                  />
+                </div>
+
                 {!isFixed && (
-                  <select
-                    className="pbp-layout-select"
-                    value={item.heightHint}
-                    onChange={e => updateItem(item.componentName, { heightHint: e.target.value as HeightHint })}
-                  >
-                    <option value="fullscreen">100vh Hero</option>
-                    <option value="large">85vh Large</option>
-                    <option value="medium">50vh Medium</option>
-                    <option value="strip">20vh Strip</option>
-                  </select>
+                  <div className="pbp-control-field">
+                    <span className="pbp-control-label">Alignment</span>
+                    <AnimatedSelect
+                      value={item.xAlign}
+                      onChange={v => updateItem(item.componentName, { xAlign: v as XAlign })}
+                      options={[
+                        { label: 'Stretch Full', value: 'full-width' },
+                        { label: 'Align Left', value: 'left' },
+                        { label: 'Centered', value: 'center' },
+                        { label: 'Align Right', value: 'right' }
+                      ]}
+                    />
+                  </div>
                 )}
+
+                {!isFixed && (
+                  <div className="pbp-control-field">
+                    <span className="pbp-control-label">Height Limit</span>
+                    <AnimatedSelect
+                      value={item.heightHint}
+                      onChange={v => updateItem(item.componentName, { heightHint: v as HeightHint })}
+                      options={[
+                        { label: '100vh Hero', value: 'fullscreen' },
+                        { label: '85vh Large', value: 'large' },
+                        { label: '50vh Medium', value: 'medium' },
+                        { label: '20vh Strip', value: 'strip' }
+                      ]}
+                    />
+                  </div>
+                )}
+
+                {!isFixed && (
+                  <div className="pbp-control-field">
+                    <span className="pbp-control-label">Scroll Anim Entrance</span>
+                    <AnimatedSelect
+                      value={item.entranceAnimation || 'none'}
+                      onChange={v => updateItem(item.componentName, { entranceAnimation: v as "none" | "fade-in" | "slide-up" | "scale-up" | "blur-in" })}
+                      options={[
+                        { label: 'None (Static)', value: 'none' },
+                        { label: 'Slide Up', value: 'slide-up' },
+                        { label: 'Fade In', value: 'fade-in' },
+                        { label: 'Scale Up', value: 'scale-up' },
+                        { label: 'Blur In', value: 'blur-in' }
+                      ]}
+                    />
+                  </div>
+                )}
+
               </div>
             </Reorder.Item>
           );
         })}
       </Reorder.Group>
+
+      <div className="pbp-layout-preview-wrap">
+        <button 
+          className="pbp-layout-preview-trigger"
+          onClick={() => onOpenIntelligence?.()}
+        >
+           <span className="pbp-layout-preview-btn-label">Layout Intelligence Generator</span>
+           <span className="pbp-layout-preview-btn-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m7.8 16.2-2.9 2.9"/><path d="M6 12H2"/><path d="m7.8 7.8-2.9-2.9"/><circle cx="12" cy="12" r="3"/></svg>
+           </span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -1422,14 +1513,16 @@ export default function ProjectBuilderPanel({
   onGenerate,
   designRules,
   onDesignRulesChange,
-  layoutConcept,
-  onOpenLayoutPicker,
+  layoutConfig,
+  onLayoutConfigChange,
   styleDirection,
   onStyleDirectionChange,
   clientBrief,
   onClientBriefChange,
+  onOpenLayoutIntelligence,
+  onRestoreFromHistory
 }: ProjectBuilderPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('Layout');
   const [topOpacity, setTopOpacity] = useState(0);
   const [bottomOpacity, setBottomOpacity] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1573,7 +1666,7 @@ export default function ProjectBuilderPanel({
                 {activeTab === 'Style' && <StyleTab style={styleDirection} onChange={onStyleDirectionChange} />}
                 {activeTab === 'Fonts' && <FontsTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Colors' && <ColorsTab rules={designRules} onChange={onDesignRulesChange} />}
-                {activeTab === 'Layout' && <LayoutTab concept={layoutConcept} onOpen={onOpenLayoutPicker} disabled={selectedComponents.length < 2} />}
+                {activeTab === 'Layout' && <LayoutTab config={layoutConfig} onChange={onLayoutConfigChange} onOpenIntelligence={onOpenLayoutIntelligence} />}
                 {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} limits={IMG_LIMITS} />}
               </MotionDiv>
