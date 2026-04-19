@@ -9,7 +9,7 @@ import CardNav from "./components/Components/CardNav/CardNav";
 import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief } from "./components/ProjectBuilderPanel";
 import LayoutConceptPicker from "./components/LayoutConceptPicker";
 import type { LayoutConcept } from "./lib/layoutConceptGenerator";
-import PresetManager, { type SavedPreset } from "./components/PresetManager";
+import PresetManager, { type SavedPreset, PRESET_SCHEMA_VERSION } from "./components/PresetManager";
 import AddComponentModal from "./components/AddComponentModal";
 import ComponentListPane from "./views/ComponentListPane";
 import ComponentInspector from "./views/ComponentInspector";
@@ -21,6 +21,9 @@ import LoadingScreen from "./views/LoadingScreen";
 const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,
 };
+
+/** Shown in project panel assembly as `n / max` selected. */
+const MAX_SELECTED_COMPONENTS_TOTAL = 5;
 
 const PILL_NAV_ITEMS = [
   { id: 'Components',     label: 'Components' },
@@ -196,18 +199,34 @@ function App() {
   const handleSavePreset = async (name: string) => {
     const now = new Date();
     const stamp = `${String(now.getDate()).padStart(2,'0')}${String(now.getMonth()+1).padStart(2,'0')}${now.getFullYear()}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-    await window.reactBitsApi?.savePreset?.({ id: `${name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}_${stamp}`, name, savedAt: now.toISOString(), projectPrompt, selectedComponentIds: selectedIds, designRules, layoutConcept, projectName, packageManager });
+    await window.reactBitsApi?.savePreset?.({
+      id: `${name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}_${stamp}`,
+      name,
+      savedAt: now.toISOString(),
+      schemaVersion: PRESET_SCHEMA_VERSION,
+      projectPrompt,
+      selectedComponentIds: selectedIds,
+      designRules,
+      layoutConcept,
+      projectName,
+      packageManager,
+      styleDirection,
+      clientBrief,
+    });
   };
 
   const handleLoadPreset = (preset: SavedPreset) => {
-    setProjectPrompt(preset.projectPrompt);
-    setSelectedIds(preset.selectedComponentIds);
-    setDesignRules(preset.designRules);
-    setLayoutConcept(preset.layoutConcept);
+    setProjectPrompt(preset.projectPrompt ?? '');
+    setSelectedIds(preset.selectedComponentIds ?? []);
+    setDesignRules(preset.designRules ?? DEFAULT_DESIGN_RULES);
+    setLayoutConcept(preset.layoutConcept ?? null);
     setProjectName(preset.projectName ?? '');
     setPackageManager((preset.packageManager ?? 'npm') as typeof packageManager);
+    // v2 fields — fall back to defaults for old presets that don't have them
+    setStyleDirection(preset.styleDirection ?? DEFAULT_STYLE_DIRECTION);
+    setClientBrief(preset.clientBrief ?? DEFAULT_CLIENT_BRIEF);
     setToastType('success');
-    setGenerateStatus(`Loaded preset "${preset.name}"`);
+    setGenerateStatus(`✓ Loaded "${preset.name}"`);
     setTimeout(() => setGenerateStatus(''), 3000);
   };
 
@@ -338,6 +357,7 @@ function App() {
           <div className="bottom-panel">
             <ProjectBuilderPanel
               selectedComponents={selectedComponents}
+              maxSelectedComponents={MAX_SELECTED_COMPONENTS_TOTAL}
               categoryLimits={CATEGORY_LIMITS}
               prompt={projectPrompt}
               onPromptChange={setProjectPrompt}

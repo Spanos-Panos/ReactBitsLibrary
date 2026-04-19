@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, UIEvent } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
 import "./AnimatedList.css";
 
 export type ListSectionItem = {
@@ -21,8 +21,10 @@ const AnimatedItem: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) el.classList.add("al-item-wrap--visible");
-        else el.classList.remove("al-item-wrap--visible");
+        if (entry.isIntersecting) {
+          el.classList.add("al-item-wrap--visible");
+          observer.disconnect();
+        }
       },
       { threshold: 0.2 }
     );
@@ -64,8 +66,10 @@ export default function AnimatedList({
   const [recentCheckedId, setRecentCheckedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const prevCategoryRef = useRef<string | null>(null);
   const [topOpacity, setTopOpacity] = useState(0);
   const [bottomOpacity, setBottomOpacity] = useState(1);
+  const contentControls = useAnimationControls();
 
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -76,10 +80,23 @@ export default function AnimatedList({
 
   useEffect(() => {
     if (!activeCategory) return;
-    const el = sectionRefs.current[activeCategory];
-    if (el && listRef.current) {
-      listRef.current.scrollTo({ top: el.offsetTop - 8, behavior: "smooth" });
-    }
+    const prevIdx = sections.findIndex(s => s.id === (prevCategoryRef.current ?? activeCategory));
+    const nextIdx = sections.findIndex(s => s.id === activeCategory);
+    const dir = nextIdx >= prevIdx ? 1 : -1;
+    prevCategoryRef.current = activeCategory;
+    contentControls.set({ opacity: 0, y: dir * 28 });
+    contentControls.start({ opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } });
+    let raf1: number, raf2: number;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const el = sectionRefs.current[activeCategory];
+        const container = listRef.current;
+        if (!el || !container) return;
+        const relativeTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+        container.scrollTop = relativeTop - 8;
+      });
+    });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
   }, [activeCategory]);
 
   let globalIndex = 0;
@@ -87,12 +104,10 @@ export default function AnimatedList({
   return (
     <div className={`al-container ${className}`}>
       <div ref={listRef} className="al-scroll" onScroll={handleScroll} onMouseLeave={() => onItemHover?.(null)}>
+        <motion.div animate={contentControls}>
         {sections.map(section => (
-          <div key={section.id} className="al-section">
-            <div
-              ref={el => { sectionRefs.current[section.id] = el; }}
-              className="al-section-header"
-            >
+          <div key={section.id} className="al-section" ref={el => { sectionRefs.current[section.id] = el; }}>
+            <div className="al-section-header">
               {section.label}
             </div>
 
@@ -170,6 +185,7 @@ export default function AnimatedList({
             )}
           </div>
         ))}
+        </motion.div>
       </div>
 
       {showGradients && (

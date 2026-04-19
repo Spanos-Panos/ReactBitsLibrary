@@ -392,6 +392,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 9999;
+  cursor: none;
   background: #111418;
   display: flex;
   align-items: center;

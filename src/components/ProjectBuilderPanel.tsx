@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import './ProjectBuilderPanel.css';
@@ -19,10 +19,13 @@ export type ColorRole = 'background' | 'text' | 'components' | 'accent' | '';
 export interface FontEntry { value: string; role: FontRole }
 export interface ColorEntry { value: string; role: ColorRole }
 
+export type ImageCategory = 'logo' | 'product' | 'inspiration';
+
 export interface ImageEntry {
   name: string;
   path: string;
   base64: string;
+  category?: ImageCategory;
 }
 
 export interface DesignRules {
@@ -58,6 +61,8 @@ export interface StyleDirection {
 
 export interface ProjectBuilderPanelProps {
   selectedComponents: ComponentItem[];
+  /** Total selection cap shown in assembly as `n / max` (e.g. 3/5). Defaults to 5. */
+  maxSelectedComponents?: number;
   categoryLimits?: Record<string, number>;
   prompt: string;
   onPromptChange: (val: string) => void;
@@ -124,14 +129,224 @@ type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images
 const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Layout', 'Sizes', 'Images'];
 
 
-const CHIP_CATEGORY_CLASS: Record<string, string> = {
-  Components: 'pbp-chip--components',
-  Backgrounds: 'pbp-chip--backgrounds',
-  TextAnimations: 'pbp-chip--textanimations',
-  Animations: 'pbp-chip--animations',
-};
+type AssemblyCategoryId = 'Components' | 'Backgrounds' | 'Animations' | 'TextAnimations';
+
+/** Grid order: top Components | Backgrounds, bottom Animations | Text */
+const ASSEMBLY_GRID_CATEGORIES: { id: AssemblyCategoryId; tileLabel: string; popoverTitle: string }[] = [
+  { id: 'Components', tileLabel: 'Components', popoverTitle: 'Components' },
+  { id: 'Backgrounds', tileLabel: 'Backgrounds', popoverTitle: 'Backgrounds' },
+  { id: 'Animations', tileLabel: 'Animations', popoverTitle: 'Animations' },
+  { id: 'TextAnimations', tileLabel: 'Text', popoverTitle: 'Text animations' },
+];
+
+function groupSelectedByAssemblyCategory(components: ComponentItem[]): Record<AssemblyCategoryId, ComponentItem[]> {
+  const buckets: Record<AssemblyCategoryId, ComponentItem[]> = {
+    Components: [],
+    Backgrounds: [],
+    Animations: [],
+    TextAnimations: [],
+  };
+  for (const c of components) {
+    if (c.category in buckets) buckets[c.category as AssemblyCategoryId].push(c);
+  }
+  return buckets;
+}
+
+function AssemblySelectedCategories({
+  selectedComponents,
+  maxSelectedComponents,
+}: {
+  selectedComponents: ComponentItem[];
+  maxSelectedComponents: number;
+}) {
+  const grouped = useMemo(() => groupSelectedByAssemblyCategory(selectedComponents), [selectedComponents]);
+  const [popover, setPopover] = useState<{ id: AssemblyCategoryId; rect: DOMRect } | null>(null);
+
+  useEffect(() => {
+    if (!popover) return;
+    const close = () => setPopover(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [popover]);
+
+  const openTile = (id: AssemblyCategoryId, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (popover?.id === id) { setPopover(null); return; }
+    setPopover({ id, rect: e.currentTarget.getBoundingClientRect() });
+  };
+
+  // Keep last valid computed display data alive during exit animation
+  const lastPopoverDataRef = useRef<{
+    meta: typeof ASSEMBLY_GRID_CATEGORIES[0] | undefined;
+    items: ComponentItem[];
+    style: { top: number; left: number; width: number };
+  } | null>(null);
+
+  const popoverItems = popover ? grouped[popover.id] : [];
+  const popoverMeta = popover ? ASSEMBLY_GRID_CATEGORIES.find(c => c.id === popover.id) : null;
+
+  const popStyle = popover
+    ? (() => {
+        const { rect } = popover;
+        const w = 256;
+        const margin = 10;
+        let left = rect.right - w;
+        if (left < margin) left = margin;
+        if (left + w > window.innerWidth - margin) left = window.innerWidth - w - margin;
+        let top = rect.bottom + 8;
+        const est = Math.min(280, 48 + popoverItems.length * 40);
+        if (top + est > window.innerHeight - margin) {
+          top = Math.max(margin, rect.top - est - 8);
+        }
+        return { top, left, width: w } as const;
+      })()
+    : null;
+
+  // Update ref whenever popover is open with fresh data
+  if (popover && popStyle && popoverMeta !== undefined) {
+    lastPopoverDataRef.current = {
+      meta: popoverMeta ?? undefined,
+      items: popoverItems,
+      style: popStyle,
+    };
+  }
+
+  // During exit animation, fall back to the last recorded data
+  const displayMeta = popoverMeta ?? lastPopoverDataRef.current?.meta;
+  const displayItems = popover ? popoverItems : (lastPopoverDataRef.current?.items ?? []);
+  const displayStyle = popStyle ?? lastPopoverDataRef.current?.style ?? null;
+
+  return (
+    <>
+      <div className="pbp-assembly-selected-head">
+        <span className="pbp-brief-label">Selected components</span>
+        <span className="pbp-brief-label pbp-assembly-selected-cap" aria-live="polite" style={{ position: 'relative', overflow: 'hidden', display: 'inline-flex' }}>
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.span
+              key={selectedComponents.length}
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -12, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+              style={{ display: 'inline-block' }}
+            >
+              {selectedComponents.length}/{maxSelectedComponents}
+            </motion.span>
+          </AnimatePresence>
+        </span>
+      </div>
+      <div className="pbp-assembly-cat-grid" role="group" aria-label="Selected components by category">
+        {ASSEMBLY_GRID_CATEGORIES.map(cat => {
+          const count = grouped[cat.id].length;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              className={`pbp-assembly-cat-tile${count === 0 ? ' pbp-assembly-cat-tile--zero' : ''}`}
+              onClick={e => openTile(cat.id, e)}
+              aria-expanded={popover?.id === cat.id}
+              aria-haspopup="dialog"
+            >
+              <span className="pbp-assembly-cat-tile-inner">
+                <span className="pbp-assembly-cat-tile-label">{cat.tileLabel}</span>
+                <span className="pbp-assembly-cat-tile-count" style={{ position: 'relative', overflow: 'hidden', display: 'inline-flex', minWidth: '1ch' }}>
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <motion.span
+                      key={count}
+                      initial={{ y: 10, opacity: 0, scale: 0.7 }}
+                      animate={{ y: 0, opacity: 1, scale: 1 }}
+                      exit={{ y: -10, opacity: 0, scale: 0.7 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      style={{ display: 'inline-block' }}
+                    >
+                      {count}
+                    </motion.span>
+                  </AnimatePresence>
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {createPortal(
+        <AnimatePresence>
+          {popover && displayStyle && (
+            <motion.div
+              key="popover-overlay"
+              className="pbp-assembly-popover-overlay"
+              aria-hidden
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onMouseDown={e => {
+                e.preventDefault();
+                setPopover(null);
+              }}
+            />
+          )}
+          {popover && displayStyle && (
+            <motion.div
+              key="popover-panel"
+              className="pbp-assembly-popover"
+              role="dialog"
+              aria-label={displayMeta?.popoverTitle ?? ''}
+              style={{ top: displayStyle.top, left: displayStyle.left, width: displayStyle.width }}
+              onMouseDown={e => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.92, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.88, y: -8 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+            >
+              <div className="pbp-assembly-popover-head">
+                <span className="pbp-assembly-popover-title">{displayMeta?.popoverTitle}</span>
+                <button type="button" className="pbp-assembly-popover-close" onClick={() => setPopover(null)} aria-label="Close">
+                  ×
+                </button>
+              </div>
+              <ul className="pbp-assembly-popover-list">
+                {displayItems.length === 0 ? (
+                  <li className="pbp-assembly-popover-empty">None in this category.</li>
+                ) : (
+                  displayItems.map((c, idx) => (
+                    <motion.li
+                      key={c.id}
+                      className="pbp-assembly-popover-item"
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ type: 'spring', stiffness: 350, damping: 28, delay: idx * 0.04 }}
+                    >
+                      {c.name}
+                    </motion.li>
+                  ))
+                )}
+              </ul>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
+  );
+}
 
 const MotionDiv = motion.div;
+
+/** Same stroke play icon as ComponentInspector `BuildIcon` (generate demo). */
+function AssemblyGenerateBuildIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  );
+}
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -798,59 +1013,101 @@ function SizesTab({ rules, onChange }: { rules: DesignRules; onChange: (r: Desig
   );
 }
 
+function ImgGrid({
+  items,
+  limit,
+  onPick,
+  onRemove,
+  addLabel = 'Upload',
+  wide = false,
+}: {
+  items: ImageEntry[];
+  limit: number;
+  onPick: () => void;
+  onRemove: (img: ImageEntry) => void;
+  addLabel?: string;
+  wide?: boolean;
+}) {
+  return (
+    <div className={`pbp-img-grid${wide ? ' pbp-img-grid--wide' : ''}`}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {items.map((img, i) => (
+          <motion.div
+            layout
+            key={`${img.name}-${i}`}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 25 }}
+            className={`pbp-img-card${wide ? ' pbp-img-card--wide' : ''}`}
+          >
+            <img src={img.base64} alt={img.name} className="pbp-img-element" />
+            <div className="pbp-img-overlay">
+              <button className="pbp-img-delete" onClick={() => onRemove(img)} title="Remove">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </motion.div>
+        ))}
+        {items.length < limit && (
+          <motion.button
+            layout
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 25 }}
+            className={`pbp-img-add-card${wide ? ' pbp-img-card--wide' : ''}`}
+            onClick={onPick}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span className="pbp-img-add-text">{addLabel}</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function ImagesTab({
   images,
   onPick,
   onRemove,
+  limits,
 }: {
   images: ImageEntry[];
-  onPick: () => void;
-  onRemove: (i: number) => void;
+  onPick: (category: ImageCategory) => void;
+  onRemove: (img: ImageEntry) => void;
+  limits: Record<ImageCategory, number>;
 }) {
+  const logoImages = images.filter(img => img.category === 'logo');
+  const productImages = images.filter(img => img.category === 'product');
+  const inspirationImages = images.filter(img => !img.category || img.category === 'inspiration');
+
   return (
     <div className="pbp-images-tab">
-      <div className="pbp-rule-header" style={{ marginBottom: '8px' }}>
-        <span className="pbp-rule-label">Inspiration Images</span>
-        <span className="pbp-rule-hint">{images.length}/8 uploads</span>
+      {/* Logo */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Brand Logo</span>
+        <span className="pbp-rule-hint">{logoImages.length}/{limits.logo}</span>
       </div>
+      <p className="pbp-empty-hint" style={{ marginTop: 0, marginBottom: '8px' }}>Used as the site logo — SVG or PNG preferred.</p>
+      <ImgGrid items={logoImages} limit={limits.logo} onPick={() => onPick('logo')} onRemove={onRemove} addLabel="Upload Logo" />
 
-      <div className="pbp-img-grid">
-        <AnimatePresence mode="popLayout" initial={false}>
-          {images.map((img, i) => (
-            <motion.div
-              layout
-              key={`${img.name}-${i}`}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 25 }}
-              className="pbp-img-card"
-            >
-              <img src={img.base64} alt={img.name} className="pbp-img-element" />
-              <div className="pbp-img-overlay">
-                <button className="pbp-img-delete" onClick={() => onRemove(i)} title="Remove Image">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-              </div>
-            </motion.div>
-          ))}
-
-          {images.length < 8 && (
-            <motion.button
-              layout
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 25 }}
-              className="pbp-img-add-card"
-              onClick={onPick}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-              <span className="pbp-img-add-text">Upload Image</span>
-            </motion.button>
-          )}
-        </AnimatePresence>
+      {/* Products */}
+      <div className="pbp-rule-header" style={{ marginTop: '16px' }}>
+        <span className="pbp-rule-label">Product / Hero Images</span>
+        <span className="pbp-rule-hint">{productImages.length}/{limits.product}</span>
       </div>
+      <p className="pbp-empty-hint" style={{ marginTop: 0, marginBottom: '8px' }}>Actual product shots, team photos, or hero visuals.</p>
+      <ImgGrid items={productImages} limit={limits.product} onPick={() => onPick('product')} onRemove={onRemove} addLabel="Add Image" />
+
+      {/* Inspiration */}
+      <div className="pbp-rule-header" style={{ marginTop: '16px' }}>
+        <span className="pbp-rule-label">Style References</span>
+        <span className="pbp-rule-hint">{inspirationImages.length}/{limits.inspiration}</span>
+      </div>
+      <p className="pbp-empty-hint" style={{ marginTop: 0, marginBottom: '8px' }}>Mood board, competitor sites, or design references.</p>
+      <ImgGrid items={inspirationImages} limit={limits.inspiration} onPick={() => onPick('inspiration')} onRemove={onRemove} addLabel="Add Reference" />
     </div>
   );
 }
@@ -1101,10 +1358,23 @@ function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: St
   );
 }
 
+// ── Idle state ─────────────────────────────────────────────────────────────────
+
+function IdleConfigState() {
+  return (
+    <div className="pbp-idle-state">
+      <img src="/ReactIcon.svg" alt="BitForge" className="pbp-idle-logo" />
+      <span className="pbp-idle-label">Configure</span>
+      <span className="pbp-idle-hint">Select a tab to shape your project</span>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function ProjectBuilderPanel({
   selectedComponents,
+  maxSelectedComponents = 5,
   prompt,
   onPromptChange,
   onGenerate,
@@ -1117,7 +1387,7 @@ export default function ProjectBuilderPanel({
   clientBrief,
   onClientBriefChange,
 }: ProjectBuilderPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('Brief');
+  const [activeTab, setActiveTab] = useState<Tab | null>(null);
   const [topOpacity, setTopOpacity] = useState(0);
   const [bottomOpacity, setBottomOpacity] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1143,19 +1413,23 @@ export default function ProjectBuilderPanel({
   };
 
 
-  const handlePickImages = async () => {
+  const IMG_LIMITS: Record<ImageCategory, number> = { logo: 1, product: 6, inspiration: 8 };
+
+  const handlePickImages = async (category: ImageCategory) => {
     const picked = await window.reactBitsApi.pickDesignImages?.() ?? [];
     if (!picked.length) return;
-    onDesignRulesChange({
-      ...designRules,
-      images: [...(designRules.images ?? []), ...picked].slice(0, 8),
-    });
+    const tagged = picked.map(img => ({ ...img, category }));
+    const existing = designRules.images ?? [];
+    const others = existing.filter(img => (img.category ?? 'inspiration') !== category);
+    const same = existing.filter(img => (img.category ?? 'inspiration') === category);
+    const merged = [...same, ...tagged].slice(0, IMG_LIMITS[category]);
+    onDesignRulesChange({ ...designRules, images: [...others, ...merged] });
   };
 
-  const handleRemoveImage = (i: number) =>
+  const handleRemoveImage = (img: ImageEntry) =>
     onDesignRulesChange({
       ...designRules,
-      images: (designRules.images ?? []).filter((_, idx) => idx !== i),
+      images: (designRules.images ?? []).filter(m => m !== img),
     });
 
   const getTabIcon = (tab: Tab) => {
@@ -1178,14 +1452,26 @@ export default function ProjectBuilderPanel({
 
       {/* NEW: Unified Sub-panel Header Bar */}
       <div className="pbp-unified-header-bar">
-        <div className="pbp-col-header" style={{ width: '180px' }}>
+        <div className="pbp-col-header pbp-col-header--forge">
           <span className="pbp-nav-header-text">Forge</span>
         </div>
-        <div className="pbp-col-header" style={{ flex: 1 }}>
-          <span className="pbp-workspace-title-text">{activeTab.toUpperCase()} CONFIGURATION</span>
-        </div>
-        <div className="pbp-col-header" style={{ width: '200px' }}>
+        <div />
+        <div className="pbp-col-header pbp-col-header--assembly">
           <span className="pbp-panel-title-text">ASSEMBLY</span>
+        </div>
+        <div className="pbp-config-title-center">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={activeTab ?? 'idle'}
+              className="pbp-workspace-title-text"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {activeTab ? `${activeTab.toUpperCase()} CONFIGURATION` : 'CONFIGURATION'}
+            </motion.span>
+          </AnimatePresence>
         </div>
       </div>
 
@@ -1233,20 +1519,21 @@ export default function ProjectBuilderPanel({
           >
             <AnimatePresence mode="wait">
               <MotionDiv
-                key={activeTab}
+                key={activeTab ?? 'idle'}
                 initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 style={{ height: '100%' }}
               >
+                {activeTab === null && <IdleConfigState />}
                 {activeTab === 'Brief' && <BriefTab brief={clientBrief} onChange={onClientBriefChange} />}
                 {activeTab === 'Style' && <StyleTab style={styleDirection} onChange={onStyleDirectionChange} />}
                 {activeTab === 'Fonts' && <FontsTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Colors' && <ColorsTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Layout' && <LayoutTab concept={layoutConcept} onOpen={onOpenLayoutPicker} disabled={selectedComponents.length < 2} />}
                 {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
-                {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} />}
+                {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} limits={IMG_LIMITS} />}
               </MotionDiv>
             </AnimatePresence>
           </div>
@@ -1258,48 +1545,37 @@ export default function ProjectBuilderPanel({
             tabIndex={0}
             onMouseEnter={handleMouseEnter}
           >
-            <div className="pbp-section-card">
-              <span className="pbp-section-label">Components</span>
-              <div className="pbp-chips-box">
-                {selectedComponents.length === 0
-                  ? <p className="pbp-chips-empty">Select components to build</p>
-                  : (
-                    <AnimatePresence>
-                      {selectedComponents.map(c => (
-                        <MotionDiv
-                          key={c.id}
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.8 }}
-                          className={`pbp-chip ${CHIP_CATEGORY_CLASS[c.category] ?? ''}`}
-                        >
-                          {c.name}
-                        </MotionDiv>
-                      ))}
-                    </AnimatePresence>
-                  )
-                }
+            <div className="pbp-assembly-stack">
+              <div className="pbp-assembly-block pbp-assembly-components">
+                <AssemblySelectedCategories
+                  selectedComponents={selectedComponents}
+                  maxSelectedComponents={maxSelectedComponents}
+                />
               </div>
-            </div>
 
-            <div className="pbp-section-card pbp-prompt-container">
-              <span className="pbp-section-label">Command Brief</span>
-              <textarea
-                className="pbp-prompt-area"
-                placeholder="Describe the soul of your project..."
-                value={prompt}
-                onChange={e => onPromptChange(e.target.value)}
-              />
-            </div>
-
-            <div style={{ padding: '0 0.6rem 0.6rem' }}>
-              <button
-                className="pbp-generate-trigger"
-                disabled={selectedComponents.length === 0 || !prompt.trim()}
-                onClick={onGenerate}
-              >
-                Generate Architecture
-              </button>
+              <div className="pbp-assembly-block pbp-prompt-container">
+                <span className="pbp-brief-label">Command Brief</span>
+                <textarea
+                  className="pbp-brief-textarea"
+                  placeholder="Describe the soul of your project..."
+                  value={prompt}
+                  onChange={e => onPromptChange(e.target.value)}
+                />
+                <div className="pbp-prompt-generate-wrap">
+                  <button
+                    type="button"
+                    className="pbp-assembly-generate-btn"
+                    disabled={selectedComponents.length === 0 || !prompt.trim()}
+                    onClick={onGenerate}
+                    title="Generate project"
+                  >
+                    <span className="pbp-assembly-generate-btn-label">Generate project</span>
+                    <span className="pbp-assembly-generate-btn-icon">
+                      <AssemblyGenerateBuildIcon />
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
