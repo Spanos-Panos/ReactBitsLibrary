@@ -306,14 +306,36 @@ async function generateViteReact(options) {
     const accentFont = (dtTypo.accent  || dtTypo.accentFont  || '').split(',')[0].trim();
     const maxWidthMatch = (enhancedPrompt?.technicalRequirements?.layoutStrategy || '').match(/(\d{3,4})px/);
     const maxWidthPx = maxWidthMatch ? maxWidthMatch[1] : '1280';
-    const isBrutalist = dt.borderRadius === '0px' || dt.borderRadius === '0';
+    // Detect aesthetic from mood string (enhancer sets projectMeta.mood)
+    const mood = (enhancedPrompt?.projectMeta?.mood || '').toLowerCase();
+    const isBrutalist = mood.includes('brutal') || dt.borderRadius === '0px' || dt.borderRadius === '0';
+    const isEditorial = mood.includes('editorial');
+    const isFuturistic = mood.includes('futuristic') || mood.includes('cyber') || mood.includes('neo');
+    const isMinimal = mood.includes('minimal') || mood.includes('clean');
+
+    const aestheticCSS = isBrutalist ? `
+/* Brutalist overrides */
+h1, h2, h3 { font-weight: 900; letter-spacing: -0.02em; }
+section + section { border-top: 2px solid var(--color-text); }
+button, [role="button"], a.btn { border: 2px solid currentColor; border-radius: 0; text-transform: uppercase; letter-spacing: 0.1em; }
+small, .label, caption { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.7rem; }` : isEditorial ? `
+/* Editorial overrides */
+h1 { font-size: clamp(4rem, 12vw, 10rem); letter-spacing: -0.04em; line-height: 0.9; }
+h2 { font-size: clamp(2rem, 6vw, 5rem); letter-spacing: -0.03em; }` : isFuturistic ? `
+/* Futuristic overrides */
+h1, h2 { text-shadow: 0 0 30px var(--color-accent); }
+small, .label, code { font-family: var(--font-accent); text-transform: uppercase; letter-spacing: 0.15em; }` : isMinimal ? `
+/* Minimal overrides */
+h1, h2 { font-weight: 300; letter-spacing: 0.02em; }` : '';
 
     const cssFundamentals = `
 # CSS FOUNDATION
 
-Write these exact CSS variable declarations at the top of \`src/index.css\` (before \`@import "tailwindcss"\`):
+Replace the **entire** content of \`src/index.css\` with the following (\`@import\` MUST be the first line — PostCSS will throw an error if anything precedes it):
 
 \`\`\`css
+@import "tailwindcss";
+
 :root {
   --color-bg: ${dtColors.background || '#000'};
   --color-text: ${dtColors.text || '#fff'};
@@ -330,10 +352,10 @@ body {
 
 h1, h2, h3 {${headingFont ? `\n  font-family: var(--font-heading);` : ''}
 }
-${isBrutalist ? '*, *::before, *::after { border-radius: 0 !important; }' : ''}
+${isBrutalist ? '*, *::before, *::after { border-radius: 0 !important; }' : ''}${aestheticCSS}
 \`\`\`
 
-Apply these as the design foundation — do not replace them with generic styles.`;
+Do not add any rules before \`@import "tailwindcss"\` — it will break the build.`;
 
     // ── Write CLAUDE.md (self-contained mission brief) ────────────────────────
     const claudeMdContent = `# MISSION
@@ -413,19 +435,27 @@ ${cursorNames.length > 0 ? `**Cursor / Overlay components** (${cursorNames.join(
 <ComponentName style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }} />
 \`\`\`` : ''}
 
-**Section structure** — use this pattern for every content section to prevent left/right gaps:
+**Section structure** — use this pattern for every content section to prevent left/right gaps and ensure content renders above fixed backgrounds:
 \`\`\`tsx
-<section style={{ width: '100%', padding: '8rem 0' }}>
+<section style={{ width: '100%', padding: '8rem 0', position: 'relative', zIndex: 1 }}>
   <div style={{ maxWidth: 'var(--max-width, 1280px)', margin: '0 auto', padding: '0 clamp(1.5rem, 5vw, 5rem)' }}>
     {/* content */}
   </div>
 </section>
 \`\`\`
-NEVER apply \`max-width\` to the outer \`<section>\` — only to the inner wrapper \`<div>\`.
+NEVER apply \`max-width\` to the outer \`<section>\` — only to the inner wrapper \`<div>\`. ALL content \`<section>\` elements MUST have \`position: relative; zIndex: 1\` to stack above fixed background components.
 
 - Do **NOT** wrap full-viewport components in fixed-height containers
 - Use Tailwind classes and/or inline styles for all layout and spacing
 - Do **NOT** scan \`node_modules\` or install new packages unless \`tsc\` reveals a missing \`@types/\` package
+
+**Layout variety — avoid AI-generic patterns:**
+- NEVER create three equal-width cards in a single row — use 2-col asymmetric or full-width alternating layout
+- NEVER apply identical padding to every section — vary: hero 0, feature sections 8rem, closing 16rem
+- Hero sections must be at minimum \`85vh\` tall
+- Alternate section backgrounds: use \`var(--color-primary)\` or \`var(--color-accent)\` as the background color for 1–2 non-hero sections
+- Left-align body text in most sections — centered text is for heroes and short CTAs only
+- Stats and numbers: display at \`4rem\` minimum font-size, not in small badge cards
 
 ---
 
@@ -435,6 +465,12 @@ NEVER apply \`max-width\` to the outer \`<section>\` — only to the inner wrapp
 - Use \`string\` color values (hex literals) for WebGL/canvas components — not CSS variables
 - TextAnimation components must have explicit color props set (WCAG AA contrast ≥ 4.5:1)
 - **Icons**: Do NOT import from any icon library (\`lucide-react\`, \`react-icons\`, etc.) in \`App.tsx\`. Icon exports are inconsistent across versions and TypeScript will not always catch bad names. Use Unicode symbols (\`→ ← ✕ ☰ ✓ ●\`) or a simple inline \`<svg>\` instead. ReactBits components that already import icons internally will work fine.
+- **Placeholder images**: For any component prop that expects an image path (\`src\`, \`icon\`, \`image\`, \`imageSrc\`, \`avatar\`, \`backgroundImage\`, etc.), use one of these pre-installed files — they are already in \`public/\` and served at root:
+  - Square / profile → \`/joker-square.jpg\`
+  - Portrait / tall → \`/joker-portrait.jpg\`
+  - Landscape / banner → \`/joker-landscape.jpg\`
+  - Icon / logo SVG → \`/ReactIcon.svg\`
+  Do NOT invent URLs, use \`picsum.photos\`, or reference any other external image URLs.
 - **Interactive component props**: When a component prop expects a React element (e.g. an icon), pass an actual JSX element — not a string
 ${colorGuidanceSection}
 
