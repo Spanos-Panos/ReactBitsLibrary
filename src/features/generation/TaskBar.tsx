@@ -1,4 +1,4 @@
-import type { Task } from "../types/index";
+import type { Task } from "../../shared/types/index";
 
 interface TaskBarProps {
   tasks: Record<string, Task>;

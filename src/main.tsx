@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import "./types/api"; // loads window.reactBitsApi global declaration
+import "./shared/types/api"; // loads window.reactBitsApi global declaration
 import "./styles/tokens.css";
 import "./styles/globals.css";
 import "./styles/layout.css";

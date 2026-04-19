@@ -1,22 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ReactBitsItem } from "./types/index";
-import "./types/api";
-import { useComponentLoader }   from "./hooks/useComponentLoader";
-import { useTaskManager }       from "./hooks/useTaskManager";
-import { useGenerationWizard }  from "./hooks/useGenerationWizard";
-import PlasmaWave from "./components/Backgrounds/PlasmaWave/PlasmaWave";
-import CardNav from "./components/Components/CardNav/CardNav";
-import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief } from "./components/ProjectBuilderPanel";
-import LayoutConceptPicker from "./components/LayoutConceptPicker";
-import type { LayoutConcept } from "./lib/layoutConceptGenerator";
-import PresetManager, { type SavedPreset, PRESET_SCHEMA_VERSION } from "./components/PresetManager";
-import AddComponentModal from "./components/AddComponentModal";
-import ComponentListPane from "./views/ComponentListPane";
-import ComponentInspector from "./views/ComponentInspector";
-import GenerationQueue from "./components/GenerationQueue/GenerationQueue";
-import GenerateWizard from "./views/GenerateWizard";
-import TaskOverlay from "./views/TaskOverlay";
-import LoadingScreen from "./views/LoadingScreen";
+import type { ReactBitsItem } from "./shared/types/index";
+import "./shared/types/api";
+import { useComponentLoader }   from "./shared/hooks/useComponentLoader";
+import { useTaskManager }       from "./shared/hooks/useTaskManager";
+import { useGenerationWizard }  from "./shared/hooks/useGenerationWizard";
+import PlasmaWave from "./showcase/Backgrounds/PlasmaWave/PlasmaWave";
+import CardNav from "./showcase/UIComponents/CardNav/CardNav";
+import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief } from "./features/project-builder/ProjectBuilderPanel";
+import LayoutConceptPicker from "./shared/components/LayoutConceptPicker";
+import type { LayoutConcept } from "./shared/lib/layoutConceptGenerator";
+import PresetManager, { type SavedPreset, PRESET_SCHEMA_VERSION } from "./features/preset-manager/PresetManager";
+import AddComponentModal from "./shared/components/AddComponentModal";
+import ComponentListPane from "./features/browser/ComponentListPane";
+import ComponentInspector from "./features/inspector/ComponentInspector";
+import GenerationQueue from "./features/generation/GenerationQueue/GenerationQueue";
+import GenerateWizard from "./features/generation/GenerateWizard";
+import TaskOverlay from "./features/generation/TaskOverlay";
+import LoadingScreen from "./features/generation/LoadingScreen";
 
 const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,

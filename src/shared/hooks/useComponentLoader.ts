@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import manifest from '../reactbits-manifest.json';
+import manifest from '../../reactbits-manifest.json';
 import type { ReactBitsItem, ComponentFile, ParsedInstallData } from '../types/index';
+
 
 /**
  * Owns the component catalogue, the selected item, and the side effects that

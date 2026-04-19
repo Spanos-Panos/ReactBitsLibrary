@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { ReactBitsItem } from "../types/index";
-import AnimatedList from "../components/Components/AnimatedList/AnimatedList";
+import type { ReactBitsItem } from "../../shared/types/index";
+import AnimatedList from "../../showcase/UIComponents/AnimatedList/AnimatedList";
 
 const CATEGORY_ORDER = [
   { id: "Components",     label: "Components" },

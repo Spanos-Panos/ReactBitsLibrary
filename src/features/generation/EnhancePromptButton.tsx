@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "./EnhancePromptButton.css";
-import "../types/api";
+import "../../shared/types/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

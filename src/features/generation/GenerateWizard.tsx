@@ -1,4 +1,4 @@
-import type { ReactBitsItem } from "../types/index";
+import type { ReactBitsItem } from "../../shared/types/index";
 
 type InstallTab = 'cli' | 'manual';
 type PackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun';

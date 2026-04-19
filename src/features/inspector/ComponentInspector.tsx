@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactElement } from "react";
-import type { ReactBitsItem, ParsedInstallData } from "../types/index";
+import type { ReactBitsItem, ParsedInstallData } from "../../shared/types/index";
 
 type Mode = 'eye' | 'code';
 type SubMode = 'install' | 'usage' | 'code';

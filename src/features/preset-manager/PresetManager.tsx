@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import "../types/api";
-import type { DesignRules, StyleDirection, ClientBrief } from './ProjectBuilderPanel';
-import type { LayoutConcept } from '../lib/layoutConceptGenerator';
+import "../../shared/types/api";
+import type { DesignRules, StyleDirection, ClientBrief } from '../project-builder/ProjectBuilderPanel';
+import type { LayoutConcept } from '../../shared/lib/layoutConceptGenerator';
 
 // ── Schema version ──────────────────────────────────────────────────────────────
 // v1: original  (projectPrompt, selectedComponentIds, designRules, layoutConcept, projectName, packageManager)

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import './ProjectBuilderPanel.css';
-import type { LayoutConcept } from '../lib/layoutConceptGenerator';
+import type { LayoutConcept } from '../../shared/lib/layoutConceptGenerator';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

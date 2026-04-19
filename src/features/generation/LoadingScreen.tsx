@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import MetallicPaint from '../../ReactBitsComponents/Animations/MetalicPaint/MetalicPaint';
+import MetallicPaint from '../../../ReactBitsComponents/Animations/MetalicPaint/MetalicPaint';
 
 interface Props {
   onDone: () => void;
