@@ -42,13 +42,12 @@ function saveFile(dir, filename, content) {
 const PROMPT_ENHANCER_SKILL = `
 # Senior Project Architect (Claude Haiku 4.5 Edition)
 
-You are a Senior UI Architect and Frontend Lead. Your mission is to transform a raw user request + a set of custom React components (Full Source provided) into a Master Project Brief.
+You are a Senior UI Architect and Frontend Lead. Your mission is to transform a raw user request + a set of custom React components into a Master Project Brief.
 
 ## YOUR CONTEXT
 You will be provided with a "componentContext" array. For each component, you have:
-1. **Source Code**: The actual .tsx and .css files. Analyze the 'props' interface carefully.
-2. **Usage**: A markdown file showing how to implement it.
-3. **Install**: The dependencies required.
+1. **Usage**: A markdown file showing how to implement it (includes props and usage patterns).
+2. **Install**: The dependencies required.
 
 ## OUTPUT FORMAT
 Return ONLY a raw JSON object. No preamble, no backticks.
@@ -78,6 +77,9 @@ Return ONLY a raw JSON object. No preamble, no backticks.
 3. **Prop Precision**: Use EXACT prop names from the provided component source code.
 4. **TextAnimation Contrast**: When any TextAnimation component is included, you MUST set its color props explicitly in the \`props\` field so the text has WCAG AA contrast (≥4.5:1) against the section/page background. Use exact prop names from source (e.g. \`color\`, \`textColor\`, \`colors\`). Never leave TextAnimation color props unset — invisible text is a critical bug.
 5. **No JavaScript in JSON**: ALL values in the JSON must be valid JSON types (string, number, boolean, array, object, null). NEVER write JavaScript function syntax like \`() => alert()\`, \`function() {}\`, or JSX like \`<Icon />\`. For callback props (onClick, onChange, etc.), use a string label like "navigate-home" or simply omit them.
+6. **Real npm packages only**: In \`technicalRequirements.dependencies\`, list ONLY real npm package names (e.g. "framer-motion", "gsap", "lucide-react"). NEVER invent \`@react-bits/\` packages — ReactBits components are already copied locally and do NOT exist on npm.
+7. **All Components Required**: Every component listed in COMPONENT CONTEXT MUST appear in \`siteArchitecture.sections\`. Do NOT omit any component — if you cannot find a fitting narrative section, create one. Components in the \`Backgrounds\` category MUST be included as a fixed ambient layer: add a section with \`"id": "ambient-bg"\`, \`"componentRef": "{ComponentName}"\`, \`"props": { "style": "position:fixed, inset:0, zIndex:0, pointerEvents:none" }\`.
+8. **Font Hierarchy**: When 3 fonts are configured, distribute them hierarchically — NEVER equally. Heading font → \`h1\`, \`h2\`, \`h3\` elements only. Body font → all body text, paragraphs, lists (the majority of the page). Accent font → labels, tags, code snippets, small captions only (max 10–15% of text elements). State in \`technicalRequirements.layoutStrategy\` which font maps to which role.
 
 ## CREATIVE DIRECTION RULES (ANTI-SLOP)
 
@@ -232,14 +234,26 @@ async function enhancePrompt(options) {
 
     // ─── Model Discovery Loop ──────────────────────────────────────────────
     const candidateModels = [
-      "claude-sonnet-4-6",
       "claude-haiku-4-5-20251001",
-      "claude-3-haiku-20240307"
+      "claude-sonnet-4-6",
     ];
 
     let message = null;
     let successfulModel = "";
     let lastError = null;
+
+    // Strip full source files — enhancer only needs usage docs to understand component API.
+    // Source code is for Claude Code to read from disk, not for the enhancer.
+    const strippedComponents = (selectedComponents || []).map(c => ({
+      name: c.name,
+      category: c.category,
+      usage: c.usage || '',
+      install: c.install || '',
+    }));
+
+    const dynamicSystemBlock = [clientBriefBlock, styleBlock, designBlock, layoutBlock,
+      "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object."
+    ].filter(Boolean).join('');
 
     for (const modelId of candidateModels) {
       try {
@@ -247,15 +261,18 @@ async function enhancePrompt(options) {
         message = await anthropic.messages.create({
           model: modelId,
           max_tokens: 4096,
-          temperature: 0, // Lower temperature = more stable JSON
-          system: PROMPT_ENHANCER_SKILL + clientBriefBlock + styleBlock + designBlock + layoutBlock + "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object.",
+          temperature: 0,
+          system: [
+            { type: "text", text: PROMPT_ENHANCER_SKILL, cache_control: { type: "ephemeral" } },
+            { type: "text", text: dynamicSystemBlock },
+          ],
           messages: [
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: `USER PROMPT: "${rawPrompt}"\n\nSYSTEM CONTEXT:\n${JSON.stringify(systemContext, null, 2)}\n\nCOMPONENT CONTEXT:\n${JSON.stringify(selectedComponents, null, 2)}`
+                  text: `USER PROMPT: "${rawPrompt}"\n\nCOMPONENT CONTEXT:\n${JSON.stringify(strippedComponents, null, 2)}`
                 }
               ]
             }
@@ -298,6 +315,45 @@ async function enhancePrompt(options) {
     } catch (parseErr) {
       console.error("[Claude Enhancer] JSON Parse Failed. Raw text was:", responseText);
       throw new Error(`Claude returned invalid JSON: ${parseErr.message}`);
+    }
+
+    // ─── Post-parse: guarantee every selected component is in sections ─────────
+    // Haiku occasionally drops components from siteArchitecture.sections even when
+    // Rule 7 says not to. Catch it here so code gen always sees all components.
+    try {
+      if (!enhancedPrompt.siteArchitecture) enhancedPrompt.siteArchitecture = {};
+      if (!Array.isArray(enhancedPrompt.siteArchitecture.sections)) {
+        enhancedPrompt.siteArchitecture.sections = [];
+      }
+      const sections = enhancedPrompt.siteArchitecture.sections;
+      const allRefs = sections.map(s => (s.componentRef || '').toLowerCase());
+
+      for (const comp of strippedComponents) {
+        const compLower = comp.name.toLowerCase();
+        const alreadyPresent = allRefs.some(
+          ref => ref === compLower || ref.includes(compLower)
+        );
+        if (!alreadyPresent) {
+          const isBackground = comp.category === 'Backgrounds';
+          const newSection = isBackground
+            ? {
+                id: 'ambient-bg',
+                componentRef: comp.name,
+                props: { style: 'position:fixed, inset:0, zIndex:0, pointerEvents:none' },
+                content: {}
+              }
+            : {
+                id: `section-${comp.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+                componentRef: comp.name,
+                props: {},
+                content: { headline: '', body: '', cta: '' }
+              };
+          sections.push(newSection);
+          console.warn(`[Claude Enhancer] Auto-inserted missing component into sections: ${comp.name}`);
+        }
+      }
+    } catch (validationErr) {
+      console.warn('[Claude Enhancer] Section validation skipped (non-fatal):', validationErr.message);
     }
 
     const enhancedPath = saveFile(ENHANCED_DIR, filename, enhancedPrompt);

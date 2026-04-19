@@ -50,11 +50,12 @@ function formatStreamMessage(msg) {
  *
  * @param {{ projectPath: string, onProgress: (msg: string) => void }} options
  */
-async function generateCode({ projectPath, onProgress }) {
+async function generateCode({ projectPath, onProgress }, _attempt = 0) {
   const notify = (msg) => { if (onProgress) onProgress(msg); };
   notify('[Generator] Starting Claude Code agent...');
 
   return new Promise((resolve, reject) => {
+    let saw429 = false;
     const isWin = process.platform === 'win32';
 
     // The prompt is intentionally short — the real mission lives in CLAUDE.md.
@@ -128,9 +129,9 @@ async function generateCode({ projectPath, onProgress }) {
       stderrBuf = lines.pop();
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('npm warn') && !trimmed.includes('added ')) {
-          notify(`[stderr] ${trimmed}`);
-        }
+        if (!trimmed || trimmed.startsWith('npm warn') || trimmed.includes('added ')) continue;
+        if (trimmed.includes('429') || trimmed.toLowerCase().includes('rate limit')) saw429 = true;
+        notify(`[stderr] ${trimmed}`);
       }
     });
 
@@ -141,10 +142,15 @@ async function generateCode({ projectPath, onProgress }) {
 
     child.on('close', (code) => {
       clearTimeout(timeoutHandle);
-      // code null = killed, 0 = success, anything else = error
       if (code === 0 || code === null) {
         notify('[Generator] Claude Code finished.');
         resolve();
+      } else if (saw429 && _attempt < 2) {
+        const waitSec = 65;
+        notify(`[Generator] Rate limit hit — retrying in ${waitSec}s (attempt ${_attempt + 1}/2)...`);
+        setTimeout(() => {
+          generateCode({ projectPath, onProgress }, _attempt + 1).then(resolve).catch(reject);
+        }, waitSec * 1000);
       } else {
         reject(new Error(`[Generator] Claude Code exited with code ${code}. Check the log for details.`));
       }

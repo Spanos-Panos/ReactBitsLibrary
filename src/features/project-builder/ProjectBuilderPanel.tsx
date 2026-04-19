@@ -32,7 +32,7 @@ export interface DesignRules {
   fonts: FontEntry[];
   colors: ColorEntry[];
   sizes: { 
-    strategy: 'mobile-first' | 'desktop-first' | 'both' | ''; 
+    strategy: 'desktop' | 'mobile' | 'both' | ''; 
     maxWidth: string;
     spacingScale: 'compact' | 'comfortable' | 'spacious' | '';
     borderRadius: 'none' | 'small' | 'medium' | 'large' | 'pill' | '';
@@ -102,7 +102,7 @@ export const DEFAULT_DESIGN_RULES: DesignRules = {
   fonts: [],
   colors: [],
   sizes: { 
-    strategy: 'mobile-first', 
+    strategy: 'desktop', 
     maxWidth: '1280px',
     spacingScale: 'comfortable',
     borderRadius: 'medium'
@@ -965,8 +965,8 @@ function SizesTab({ rules, onChange }: { rules: DesignRules; onChange: (r: Desig
               value={rules.sizes.strategy}
               onChange={e => set('strategy', e.target.value)}
             >
-              <option value="mobile-first">Mobile-first</option>
-              <option value="desktop-first">Desktop-first</option>
+              <option value="desktop">Desktop</option>
+              <option value="mobile">Mobile</option>
               <option value="both">Adaptive (Both)</option>
             </select>
             <div className="pbp-sizes-select-icon">

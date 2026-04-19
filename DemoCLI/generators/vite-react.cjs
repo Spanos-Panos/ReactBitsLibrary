@@ -70,6 +70,7 @@ async function generateViteReact(options) {
   // misreads the slash as a GitHub shorthand and tries to clone via SSH (exit 128).
   // Scoped packages (@org/pkg) are fine since they always start with @.
   const isValidPackageName = (d) => typeof d === 'string' && d.trim() &&
+    !d.startsWith('@react-bits/') &&   // local components — never real npm packages
     (d.startsWith('@') || !d.includes('/'));
 
   if (enhancedPrompt?.technicalRequirements?.dependencies) {
@@ -284,6 +285,56 @@ async function generateViteReact(options) {
       .map(c => c.name);
     const colorGuidanceSection = buildColorGuidanceSection(textAnimComponents, bgColor);
 
+    // ── Build mandatory component usage list ──────────────────────────────────
+    const mandatoryList = allComponents
+      .filter(c => c.name && c.category)
+      .map(c => {
+        if (c.category === 'Backgrounds')
+          return `- **${c.name}** → AMBIENT: render \`<${c.name} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />\` at App root, OUTSIDE all sections`;
+        if (cursorNames.includes(c.name))
+          return `- **${c.name}** → OVERLAY: render \`<${c.name} style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }} />\` at App root, OUTSIDE all sections`;
+        return `- **${c.name}** → must appear in at least one \`<section>\` in App.tsx`;
+      })
+      .join('\n');
+
+    // ── Build CSS foundation from designTokens ────────────────────────────────
+    const dt = enhancedPrompt?.designTokens || {};
+    const dtColors = dt.colors || {};
+    const dtTypo = dt.typography || {};
+    const headingFont = (dtTypo.heading || dtTypo.headingFont || '').split(',')[0].trim();
+    const bodyFont   = (dtTypo.body    || dtTypo.bodyFont    || '').split(',')[0].trim();
+    const accentFont = (dtTypo.accent  || dtTypo.accentFont  || '').split(',')[0].trim();
+    const maxWidthMatch = (enhancedPrompt?.technicalRequirements?.layoutStrategy || '').match(/(\d{3,4})px/);
+    const maxWidthPx = maxWidthMatch ? maxWidthMatch[1] : '1280';
+    const isBrutalist = dt.borderRadius === '0px' || dt.borderRadius === '0';
+
+    const cssFundamentals = `
+# CSS FOUNDATION
+
+Write these exact CSS variable declarations at the top of \`src/index.css\` (before \`@import "tailwindcss"\`):
+
+\`\`\`css
+:root {
+  --color-bg: ${dtColors.background || '#000'};
+  --color-text: ${dtColors.text || '#fff'};
+  --color-primary: ${dtColors.primary || '#fff'};
+  --color-secondary: ${dtColors.secondary || '#888'};
+  --color-accent: ${dtColors.accent || '#f00'};
+  --max-width: ${maxWidthPx}px;${headingFont ? `\n  --font-heading: '${headingFont}', sans-serif;` : ''}${bodyFont ? `\n  --font-body: '${bodyFont}', sans-serif;` : ''}${accentFont ? `\n  --font-accent: '${accentFont}', monospace;` : ''}
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);${bodyFont ? `\n  font-family: var(--font-body);` : ''}
+}
+
+h1, h2, h3 {${headingFont ? `\n  font-family: var(--font-heading);` : ''}
+}
+${isBrutalist ? '*, *::before, *::after { border-radius: 0 !important; }' : ''}
+\`\`\`
+
+Apply these as the design foundation — do not replace them with generic styles.`;
+
     // ── Write CLAUDE.md (self-contained mission brief) ────────────────────────
     const claudeMdContent = `# MISSION
 
@@ -302,7 +353,10 @@ You must produce something visually distinctive — not generic AI output. Befor
 **Typography**
 - Apply the fonts from \`designTokens.typography\` — load them from Google Fonts (add a \`<link>\` in \`index.html\`, apply via \`font-family\` in \`src/index.css\`)
 - NEVER use Inter, Roboto, Arial, or system-ui as the primary typeface — these are generic defaults
-- Pair the heading font on all \`h1\`–\`h3\` elements; apply the body font globally via \`body\` in CSS
+- Heading font: \`h1\`, \`h2\`, \`h3\` elements ONLY
+- Body font: all \`p\`, \`li\`, \`span\`, \`label\` elements — the dominant typeface (majority of the page)
+- Accent font: labels, tags, code snippets, small captions ONLY (max 10–15% of text elements)
+- **Never distribute 3 fonts at equal visual weight** — heading and body must dominate
 
 **Color**
 - Follow \`designTokens.colors\` exactly — use the primary, secondary, background, text, and accent values
@@ -331,6 +385,14 @@ Before using any component, **read its source file** to understand its props int
 
 ---
 
+# MANDATORY COMPONENTS
+
+Every component below MUST appear in \`src/App.tsx\`. Omitting any is a build failure — check this list before outputting DONE.
+
+${mandatoryList || '(no components selected)'}
+
+---
+
 # DESIGN BRIEF
 
 \`\`\`json
@@ -351,6 +413,16 @@ ${cursorNames.length > 0 ? `**Cursor / Overlay components** (${cursorNames.join(
 <ComponentName style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }} />
 \`\`\`` : ''}
 
+**Section structure** — use this pattern for every content section to prevent left/right gaps:
+\`\`\`tsx
+<section style={{ width: '100%', padding: '8rem 0' }}>
+  <div style={{ maxWidth: 'var(--max-width, 1280px)', margin: '0 auto', padding: '0 clamp(1.5rem, 5vw, 5rem)' }}>
+    {/* content */}
+  </div>
+</section>
+\`\`\`
+NEVER apply \`max-width\` to the outer \`<section>\` — only to the inner wrapper \`<div>\`.
+
 - Do **NOT** wrap full-viewport components in fixed-height containers
 - Use Tailwind classes and/or inline styles for all layout and spacing
 - Do **NOT** scan \`node_modules\` or install new packages unless \`tsc\` reveals a missing \`@types/\` package
@@ -362,9 +434,12 @@ ${cursorNames.length > 0 ? `**Cursor / Overlay components** (${cursorNames.join(
 - Read the component's \`.tsx\` source to verify exact prop names before using them
 - Use \`string\` color values (hex literals) for WebGL/canvas components — not CSS variables
 - TextAnimation components must have explicit color props set (WCAG AA contrast ≥ 4.5:1)
-- **Icons**: NEVER import named icons from \`lucide-react\` — the installed version may not export the icon you expect and TypeScript will NOT catch it. Use \`react-icons\` subpaths: \`import { FaGithub } from 'react-icons/fa'\`, \`import { VscHome } from 'react-icons/vsc'\`
-- **Interactive component props**: When a component prop expects a React element (e.g. an icon), pass an actual JSX element — not a string like \`"<VscHome />"\`
+- **Icons**: Do NOT import from any icon library (\`lucide-react\`, \`react-icons\`, etc.) in \`App.tsx\`. Icon exports are inconsistent across versions and TypeScript will not always catch bad names. Use Unicode symbols (\`→ ← ✕ ☰ ✓ ●\`) or a simple inline \`<svg>\` instead. ReactBits components that already import icons internally will work fine.
+- **Interactive component props**: When a component prop expects a React element (e.g. an icon), pass an actual JSX element — not a string
 ${colorGuidanceSection}
+
+---
+${cssFundamentals}
 
 ---
 
@@ -374,8 +449,8 @@ ${colorGuidanceSection}
 2. Read \`src/components/{Category}/{Name}/{Name}.tsx\` for each component — understand its exact props interface
 3. Commit to an aesthetic direction (typography, color, spatial layout) true to the design brief mood
 4. Add Google Fonts \`<link>\` to \`index.html\` for the fonts in \`designTokens.typography\`
-5. Write CSS variables and global font-family rules in \`src/index.css\`
-6. Write \`src/App.tsx\` — complete file, real content, no placeholders
+5. Write the CSS foundation (variables, resets) in \`src/index.css\` as specified in CSS FOUNDATION above
+6. Write \`src/App.tsx\` — complete file, real content, no placeholders; verify every MANDATORY COMPONENT is rendered
 7. Run: \`npx tsc --noEmit\`
 8. If errors → fix them and re-run \`tsc\`
 9. When \`tsc\` is clean → output **DONE** and stop
