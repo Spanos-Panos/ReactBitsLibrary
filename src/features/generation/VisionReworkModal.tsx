@@ -93,10 +93,9 @@ export default function VisionReworkModal({
   }, [reworkData]);
 
   const handleCopyPresetPath = useCallback(() => {
-    if (!reworkData?.projectPath) return;
-    // The preset is embedded in the originalPreset object — offer copying the projectPath for reference
-    const text = reworkData.projectPath;
-    navigator.clipboard.writeText(text).catch(() => {});
+    const pathToCopy = reworkData?.presetJsonPath || reworkData?.projectPath;
+    if (!pathToCopy) return;
+    navigator.clipboard.writeText(pathToCopy).catch(() => {});
   }, [reworkData]);
 
   const canSubmit = !!referenceImage && !!weaknessMd && !!reworkData;
@@ -117,7 +116,7 @@ export default function VisionReworkModal({
 
   if (!open) return null;
 
-  const shotSrc = screenshotB64 || (screenshotPath ? `file://${screenshotPath}` : null);
+  const shotSrc = screenshotB64 || (screenshotPath ? `file:///${screenshotPath.replace(/\\/g, '/')}` : null);
 
   return (
     <AnimatePresence mode="wait">
@@ -186,8 +185,8 @@ export default function VisionReworkModal({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <SectionLabel>Generated Output Screenshot</SectionLabel>
                   <div style={{ display: 'flex', gap: 10 }}>
-                    <PillButton onClick={handleCopyPresetPath} title="Copy project path">
-                      Copy Path
+                    <PillButton onClick={handleCopyPresetPath} title={reworkData?.presetJsonPath ? 'Copy path to bitforge-preset.json' : 'Copy project path'}>
+                      Copy Preset Path
                     </PillButton>
                     <PillButton onClick={handleRecapture} disabled={recapturing}>
                       {recapturing ? 'Capturing…' : 'Re-capture'}

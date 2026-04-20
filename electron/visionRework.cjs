@@ -23,6 +23,17 @@ const TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes (rework is more involved than i
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function spawnAndWait(cmd, args, cwd, onLog, timeout = 60_000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { cwd, shell: true, windowsHide: true });
+    child.stdout?.on('data', d => { const l = d.toString().trim(); if (l) onLog?.(`  ${l}`); });
+    child.stderr?.on('data', d => { const l = d.toString().trim(); if (l) onLog?.(`  ${l}`); });
+    const t = setTimeout(() => { child.kill(); reject(new Error('Timed out')); }, timeout);
+    child.on('close', code => { clearTimeout(t); code === 0 ? resolve() : reject(new Error(`Exit ${code}`)); });
+    child.on('error', err => { clearTimeout(t); reject(err); });
+  });
+}
+
 /** Minimal stream-JSON → human-readable message formatter (mirrors codeGenerator.cjs) */
 function formatStreamMessage(msg) {
   try {
@@ -301,10 +312,17 @@ async function runVisionRework(opts) {
       reject(new Error(`[Rework] Failed to start Claude Code: ${err.message}`));
     });
 
-    child.on('close', code => {
+    child.on('close', async code => {
       clearTimeout(timeoutHandle);
       if (code === 0 || code === null) {
         notify('[Rework] Claude Code rework finished.');
+        notify('[Rework] Verifying TypeScript...');
+        try {
+          await spawnAndWait('npx', ['tsc', '--noEmit'], projectPath, notify, 60_000);
+          notify('[Rework] ✓ TypeScript check passed.');
+        } catch {
+          notify('[Rework] ⚠ TypeScript errors remain — check the project before shipping.');
+        }
         resolve();
       } else if (saw429) {
         reject(new Error('[Rework] Rate limited by API. Please wait 60s and retry.'));

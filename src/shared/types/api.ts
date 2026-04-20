@@ -61,6 +61,7 @@ export interface VisionReworkReadyData {
   projectPath: string;
   screenshotPath: string | null;
   screenshotError: string | null;
+  presetJsonPath: string | null;
 }
 
 export interface ReactBitsApi {

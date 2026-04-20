@@ -322,10 +322,19 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
   if (isAiBuild && result.path) {
     const snapshotPath = result.path;
     const snapshotTaskId = taskId;
+    const enhancedPrompt = args[0]?.enhancedPrompt || null;
     // Run in background — don't await so we return to renderer immediately
     setImmediate(async () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('vision-rework-progress', '[Screenshot] Starting auto-capture after generation...', snapshotTaskId);
+      }
+      // Save preset JSON alongside the project so user can upload it to claude.ai/design
+      let presetJsonPath = null;
+      if (enhancedPrompt) {
+        try {
+          presetJsonPath = require('path').join(snapshotPath, 'bitforge-preset.json');
+          require('fs').writeFileSync(presetJsonPath, JSON.stringify(enhancedPrompt, null, 2), 'utf-8');
+        } catch { presetJsonPath = null; }
       }
       const capture = await captureAndSave(snapshotPath, (msg) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -338,6 +347,7 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
           projectPath: snapshotPath,
           screenshotPath: capture.success ? capture.screenshotPath : null,
           screenshotError: capture.success ? null : capture.error,
+          presetJsonPath,
         });
       }
     });

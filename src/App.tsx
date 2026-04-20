@@ -304,16 +304,32 @@ function App() {
     delete lastPresetByTaskId.current[id];
   };
 
-  // ── Vision Rework IPC listener ─────────────────────────────────────────────
+  // ── Vision Rework IPC listeners ────────────────────────────────────────────
   useEffect(() => {
     if (!window.reactBitsApi?.onVisionReworkReady) return;
     const unsubscribe = window.reactBitsApi.onVisionReworkReady((data) => {
-      // Mark this task as having a screenshot ready
       setReworkReadyTaskIds(prev => new Set([...prev, data.taskId]));
-      // Auto-open the modal
       setVisionReworkData(data);
       setVisionReworkTaskId(data.taskId);
       setVisionReworkOpen(true);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!window.reactBitsApi?.onVisionReworkProgress) return;
+    const unsubscribe = window.reactBitsApi.onVisionReworkProgress((msg, taskId) => {
+      setTasks(prev => {
+        if (!prev[taskId]) return prev;
+        return {
+          ...prev,
+          [taskId]: {
+            ...prev[taskId],
+            logs: [...(prev[taskId].logs || []), msg + '\n'],
+            progress: msg,
+          },
+        };
+      });
     });
     return unsubscribe;
   }, []);
