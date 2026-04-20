@@ -68,7 +68,22 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<'idle' | 'ok' | 'err'>('idle');
   const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const [subPanelVisible, setSubPanelVisible] = useState(false);
+  const [infoPanelVisible, setInfoPanelVisible] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const hasConfirm = !!(confirmLoadId || confirmDeleteId);
+    if (hasConfirm) { setSubPanelVisible(true); return; }
+    const t = setTimeout(() => setSubPanelVisible(false), 320);
+    return () => clearTimeout(t);
+  }, [confirmLoadId, confirmDeleteId]);
+
+  useEffect(() => {
+    if (infoId) { setInfoPanelVisible(true); return; }
+    const t = setTimeout(() => setInfoPanelVisible(false), 320);
+    return () => clearTimeout(t);
+  }, [infoId]);
 
   /* ── data loading ─────────────────────────────────────────── */
 
@@ -118,7 +133,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
       setInfoId(null);
       setConfirmLoadId(null);
       setConfirmDeleteId(null);
-      // We don't close the whole thing immediately if a subpanel is open
+      setTimeout(() => onToggle(), 380);
       return;
     }
     onToggle();
@@ -138,7 +153,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
     pushRecent(preset.id);
     onLoad(preset);
     setConfirmLoadId(null);
-    onToggle();
+    setTimeout(() => onToggle(), 280);
   };
 
   const handleDeleteConfirmed = async (id: string) => {
@@ -155,6 +170,42 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
     } finally { setDeletingId(null); }
   };
 
+  const triggerSubPanel = (type: 'info' | 'load' | 'delete', id: string | null) => {
+    const currInfo = infoId;
+    const currLoad = confirmLoadId;
+    const currDelete = confirmDeleteId;
+
+    const isTogglingOff = (type === 'info' && currInfo === id) || 
+                          (type === 'load' && currLoad === id) || 
+                          (type === 'delete' && currDelete === id) ||
+                          id === null;
+
+    if (isTogglingOff) {
+      setInfoId(null);
+      setConfirmLoadId(null);
+      setConfirmDeleteId(null);
+      return;
+    }
+
+    if (currInfo || currLoad || currDelete) {
+      setInfoId(null);
+      setConfirmLoadId(null);
+      setConfirmDeleteId(null);
+      
+      const delay = currInfo ? 360 : 320;
+      setTimeout(() => {
+        if (type === 'info') setInfoId(id);
+        else if (type === 'load') setConfirmLoadId(id);
+        else if (type === 'delete') setConfirmDeleteId(id);
+      }, delay);
+      return;
+    }
+
+    if (type === 'info') setInfoId(id);
+    else if (type === 'load') setConfirmLoadId(id);
+    else if (type === 'delete') setConfirmDeleteId(id);
+  };
+
   /* ── derived ──────────────────────────────────────────────── */
 
   const recentPresets = recentIds
@@ -164,8 +215,6 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   const infoPreset = presets.find(p => p.id === infoId);
   const confirmLoadPreset = presets.find(p => p.id === confirmLoadId);
   const confirmDeletePreset = presets.find(p => p.id === confirmDeleteId);
-  const hasSubPanel = !!(infoId || confirmLoadId || confirmDeleteId);
-
   /* ── render ───────────────────────────────────────────────── */
 
   return (
@@ -180,345 +229,367 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
         </svg>
-        <AnimatePresence>
-          {presets.length > 0 && !isOpen && (
-            <motion.span key="badge" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
-              style={{ position: 'absolute', top: -2, right: -2, background: '#6366f1', color: '#fff', borderRadius: 9999, fontSize: 9, fontWeight: 800, lineHeight: 1, padding: '2px 5px', border: '2.5px solid #0f172a', pointerEvents: 'none' }}>
-              {presets.length}
-            </motion.span>
-          )}
-        </AnimatePresence>
       </button>
 
       {/* Overlay */}
       <AnimatePresence>
         {isOpen && (
-          <div className="wizard-overlay" style={{ zIndex: 99999 }}>
-            {/* wrapper stack */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }} onClick={e => e.stopPropagation()}>
-
-              {/* ═══ MAIN PANEL ═══ */}
-              <motion.div
-                key="pm-main"
-                initial={{ opacity: 0, scale: 0.94, y: 18 }}
-                animate={{
-                  opacity: 1, scale: 1, y: 0,
-                  borderBottomLeftRadius: hasSubPanel ? 0 : 18,
-                  borderBottomRightRadius: hasSubPanel ? 0 : 18,
-                }}
-                exit={{ opacity: 0, scale: 0.94, y: 18 }}
-                transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.9 }}
-                style={{
-                  width: 400, flexShrink: 0,
-                  background: 'rgba(9, 12, 20, 0.78)',
-                  backdropFilter: 'blur(40px) saturate(180%)',
-                  WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 18,
-                  overflow: 'hidden',
-                  zIndex: 2,
-                  boxShadow: '0 40px 90px -20px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.03)',
-                  display: 'flex', flexDirection: 'column',
-                }}
-              >
-                {/* Integrated Header Bar (No Divider) */}
-                <div style={{
-                  height: 28, padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-                  background: 'rgba(0, 0, 0, 0.15)',
-                }}>
-                  <span style={{
-                    fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
-                    fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
-                    color: 'rgba(241, 245, 249, 0.35)',
+          <div className="wizard-overlay" style={{ zIndex: 99999, alignItems: 'flex-start', paddingTop: '10vh' }}>
+            {/* outer row: main+confirm column | info column */}
+            <motion.div
+              animate={{ x: infoPanelVisible ? -200 : 0 }}
+              transition={{ type: 'spring', damping: 32, stiffness: 360, mass: 0.9 }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Top: Main Panel + Info Panel (Strictly matched heights) */}
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 0, position: 'relative' }}>
+                {/* ═══ MAIN PANEL ═══ */}
+                <motion.div
+                  key="pm-main"
+                  initial={{ opacity: 0, scale: 0.94, y: 18 }}
+                  animate={{
+                    opacity: 1, scale: 1, y: 0,
+                    borderTopRightRadius: infoPanelVisible ? 0 : 18,
+                    borderBottomLeftRadius: subPanelVisible ? 0 : 18,
+                    borderBottomRightRadius: (subPanelVisible || infoPanelVisible) ? 0 : 18,
+                  }}
+                  exit={{ opacity: 0, scale: 0.94, y: 18 }}
+                  transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.9 }}
+                  style={{
+                    width: 400, flexShrink: 0,
+                    background: 'rgba(9, 12, 20, 0.78)',
+                    backdropFilter: 'blur(40px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 18,
+                    overflow: 'hidden',
+                    zIndex: 2,
+                    boxShadow: '0 40px 90px -20px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.03)',
+                    display: 'flex', flexDirection: 'column',
+                  }}
+                >
+                  {/* Integrated Header Bar (No Divider) */}
+                  <div style={{
+                    height: 28, padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+                    background: 'rgba(0, 0, 0, 0.15)',
                   }}>
-                    Presets Intelligence
-                  </span>
-                  <button 
-                    onClick={handleClose} 
-                    style={{
-                      position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', borderRadius: 6,
-                      color: 'rgba(255,255,255,0.25)', fontSize: 16, cursor: 'pointer', padding: 0,
-                      width: 20, height: 20,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s ease',
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                      e.currentTarget.style.color = '#fff';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.background = 'none';
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.25)';
-                    }}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                </div>
+                    <span style={{
+                      fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
+                      fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
+                      color: 'rgba(241, 245, 249, 0.35)',
+                    }}>
+                      Presets Intelligence
+                    </span>
+                    <button 
+                      onClick={handleClose} 
+                      style={{
+                        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                        background: 'none', border: 'none', borderRadius: 6,
+                        color: 'rgba(255,255,255,0.25)', fontSize: 16, cursor: 'pointer', padding: 0,
+                        width: 20, height: 20,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s ease',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                        e.currentTarget.style.color = '#fff';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'none';
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.25)';
+                      }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
 
-                <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+                  <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-                  {/* Section 1 — Create */}
-                  <section>
-                    <SectionLabel>Create Preset</SectionLabel>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <input
-                        ref={inputRef} type="text" value={name}
-                        onChange={e => setName(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSave()}
-                        placeholder="Preset name…"
-                        style={{
-                          flex: 1, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)',
-                          borderRadius: 10, padding: '9px 14px', color: '#f1f5f9', fontSize: '0.82rem',
-                          fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                          outline: 'none', transition: 'border-color .2s, box-shadow .2s',
-                        }}
-                        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
-                        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = 'none'; }}
-                      />
-                      <PremiumUnderlineButton
-                        onClick={handleSave}
-                        disabled={saving || !name.trim()}
-                        primary
-                        active={saving}
-                      >
-                        {saving ? 'Saving…' : 'Save'}
-                      </PremiumUnderlineButton>
-                    </div>
-                  </section>
+                    {/* Section 1 — Create */}
+                    <section>
+                      <SectionLabel>Create Preset</SectionLabel>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          ref={inputRef} type="text" value={name}
+                          onChange={e => setName(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSave()}
+                          placeholder="Preset name…"
+                          style={{
+                            flex: 1, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)',
+                            borderRadius: 10, padding: '9px 14px', color: '#f1f5f9', fontSize: '0.82rem',
+                            fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                            outline: 'none', transition: 'border-color .2s, box-shadow .2s',
+                          }}
+                          onFocus={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
+                          onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = 'none'; }}
+                        />
+                        <PremiumUnderlineButton
+                          onClick={handleSave}
+                          disabled={saving || !name.trim()}
+                          primary
+                          active={saving}
+                        >
+                          {saving ? 'Saving…' : 'Save'}
+                        </PremiumUnderlineButton>
+                      </div>
+                    </section>
 
-                  {/* Divider */}
-                  <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)', margin: '0 -20px' }} />
+                    {/* Divider */}
+                    <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)', margin: '0 -20px' }} />
 
-                  {/* Section 2 — Recent */}
-                  <section>
-                    <SectionLabel>Recent</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <AnimatePresence mode="popLayout" initial={false}>
-                        {recentPresets.length === 0 && (
-                          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            style={{ padding: '20px 0', textAlign: 'center', color: 'rgba(255,255,255,0.15)', fontSize: '0.72rem', fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
-                            Double-click a preset in the browser below
-                          </motion.div>
-                        )}
-                        {recentPresets.map((preset, i) => {
-                          const isHov = hoveredId === preset.id;
-                          const isActive = infoId === preset.id || confirmLoadId === preset.id || confirmDeleteId === preset.id;
-                          const isDel = deletingId === preset.id;
-                          return (
-                            <motion.div
-                              key={preset.id}
-                              layout
-                              initial={{ opacity: 0, x: -8 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, scale: 0.95, x: -8 }}
-                              transition={{ delay: i * 0.03, duration: 0.22 }}
-                              onMouseEnter={() => setHoveredId(preset.id)}
-                              onMouseLeave={() => setHoveredId(null)}
-                              style={{
-                                padding: '10px 12px', borderRadius: 10,
-                                background: isActive ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
-                                border: `1px solid ${isActive ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`,
-                                display: 'flex', alignItems: 'center', gap: 10,
-                                cursor: 'default', transition: 'background .18s, border-color .18s',
-                              }}
-                            >
-                              {/* preset name */}
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{
-                                  fontSize: '0.82rem', fontWeight: 600, color: 'rgba(255,255,255,0.88)',
-                                  fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                }}>
-                                  {preset.name}
-                                </div>
-                                <div style={{
-                                  fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', marginTop: 2,
-                                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                }}>
-                                  {formatDate(preset.savedAt)}
-                                </div>
-                              </div>
-
-                              {/* hover action buttons */}
-                              <motion.div
-                                initial={false}
-                                animate={{ opacity: isHov ? 1 : 0, x: isHov ? 0 : 8, pointerEvents: isHov ? 'auto' as const : 'none' as const }}
-                                transition={{ duration: 0.15 }}
-                                style={{ display: 'flex', gap: 4, flexShrink: 0 }}
-                              >
-                                {/* Info */}
-                                <MiniBtn
-                                  title="Info"
-                                  active={infoId === preset.id}
-                                  onClick={() => { setConfirmLoadId(null); setConfirmDeleteId(null); setInfoId(infoId === preset.id ? null : preset.id); }}
-                                >
-                                  <span style={{ fontSize: 11, fontWeight: 900, lineHeight: 1 }}>!</span>
-                                </MiniBtn>
-
-                                {/* Delete */}
-                                <MiniBtn
-                                  title="Delete"
-                                  active={confirmDeleteId === preset.id}
-                                  onClick={() => { setInfoId(null); setConfirmLoadId(null); setConfirmDeleteId(confirmDeleteId === preset.id ? null : preset.id); }}
-                                  danger
-                                >
-                                  {isDel
-                                    ? <span style={{ fontSize: 10 }}>…</span>
-                                    : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                  }
-                                </MiniBtn>
-
-                                {/* Load */}
-                                <MiniBtn
-                                  title="Load"
-                                  accent
-                                  active={confirmLoadId === preset.id}
-                                  onClick={() => { setInfoId(null); setConfirmDeleteId(null); setConfirmLoadId(confirmLoadId === preset.id ? null : preset.id); }}
-                                >
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                </MiniBtn>
-                              </motion.div>
+                    {/* Section 2 — Recent */}
+                    <section>
+                      <SectionLabel>Recent</SectionLabel>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          {recentPresets.length === 0 && (
+                            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                              style={{ padding: '20px 0', textAlign: 'center', color: 'rgba(255,255,255,0.15)', fontSize: '0.72rem', fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
+                              Double-click a preset in the browser below
                             </motion.div>
-                          );
-                        })}
-                      </AnimatePresence>
-                    </div>
-                  </section>
-
-                  {/* Divider */}
-                  <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)', margin: '0 -20px' }} />
-
-                  {/* Section 3 — Browser */}
-                  <section>
-                    <SectionLabel>Browser · {presets.length}</SectionLabel>
-
-                    {/* Import button + folder link row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                      <button
-                        onClick={handleImport}
-                        style={{
-                          flex: 1, padding: '8px 0', borderRadius: 8,
-                          background: importStatus === 'ok' ? 'rgba(74,222,128,0.06)' : importStatus === 'err' ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.02)',
-                          border: `1px dashed ${importStatus === 'ok' ? 'rgba(74,222,128,0.3)' : importStatus === 'err' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                          color: importStatus === 'ok' ? '#4ade80' : importStatus === 'err' ? '#f87171' : 'rgba(255,255,255,0.35)',
-                          fontSize: '0.64rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em',
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                          transition: 'background .18s, color .18s, border-color .18s',
-                        }}
-                        onMouseEnter={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; } }}
-                        onMouseLeave={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; } }}
-                      >
-                        {importStatus === 'ok' ? (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                        ) : importStatus === 'err' ? (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                        ) : (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        )}
-                        {importStatus === 'ok' ? 'Imported!' : importStatus === 'err' ? 'Invalid File' : 'Import Preset File'}
-                      </button>
-                      <button
-                        onClick={() => api()?.openPresetsFolder?.()}
-                        title="Open presets folder"
-                        style={{
-                          flexShrink: 0, padding: '8px 10px', borderRadius: 8,
-                          background: 'none', border: '1px solid rgba(255,255,255,0.04)',
-                          color: 'rgba(255,255,255,0.2)', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'color .15s, border-color .15s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.2)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                      </button>
-                    </div>
-
-                    {/* hint */}
-                    {presets.length > 0 && (
-                      <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.18)', marginBottom: 6, fontFamily: "var(--font-body, 'Satoshi', sans-serif)", letterSpacing: '0.02em' }}>
-                        Double-click any preset to pin it to Recent
-                      </div>
-                    )}
-
-                    {/* Scrollable preset list */}
-                    {presets.length === 0 ? (
-                      <div style={{ padding: '16px 0', textAlign: 'center', color: 'rgba(255,255,255,0.12)', fontSize: '0.72rem', fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
-                        No presets found — import one above
-                      </div>
-                    ) : (
-                      <div style={{
-                        maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4,
-                        scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent',
-                      }}>
-                        {presets.map(preset => {
-                          const isPinned = pinnedId === preset.id;
-                          const isRecent = recentIds.includes(preset.id);
-                          return (
-                            <div
-                              key={preset.id}
-                              onDoubleClick={() => {
-                                pushRecent(preset.id);
-                                setPinnedId(preset.id);
-                                setTimeout(() => setPinnedId(null), 900);
-                              }}
-                              title="Double-click to pin to Recent"
-                              style={{
-                                padding: '7px 10px', borderRadius: 8,
-                                background: isPinned ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)',
-                                border: `1px solid ${isPinned ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.04)'}`,
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                cursor: 'default', userSelect: 'none',
-                                transition: 'background .15s, border-color .15s',
-                              }}
-                            >
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{
-                                  fontSize: '0.76rem', fontWeight: 600,
-                                  color: isPinned ? '#a5b4fc' : 'rgba(255,255,255,0.7)',
-                                  fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                  transition: 'color .15s',
-                                }}>
-                                  {preset.name}
+                          )}
+                          {recentPresets.map((preset, i) => {
+                            const isHov = hoveredId === preset.id;
+                            const isActive = infoId === preset.id || confirmLoadId === preset.id || confirmDeleteId === preset.id;
+                            const isDel = deletingId === preset.id;
+                            return (
+                              <motion.div
+                                key={preset.id}
+                                layout
+                                initial={{ opacity: 0, x: -8 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, x: -8 }}
+                                transition={{ delay: i * 0.03, duration: 0.22 }}
+                                onMouseEnter={() => setHoveredId(preset.id)}
+                                onMouseLeave={() => setHoveredId(null)}
+                                style={{
+                                  padding: '10px 12px', borderRadius: 10,
+                                  background: isActive ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
+                                  border: `1px solid ${isActive ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`,
+                                  display: 'flex', alignItems: 'center', gap: 10,
+                                  cursor: 'default', transition: 'background .18s, border-color .18s',
+                                }}
+                              >
+                                {/* preset name */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontSize: '0.82rem', fontWeight: 600, color: 'rgba(255,255,255,0.88)',
+                                    fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                  }}>
+                                    {preset.name}
+                                  </div>
+                                  <div style={{
+                                    fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', marginTop: 2,
+                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                  }}>
+                                    {formatDate(preset.savedAt)}
+                                  </div>
                                 </div>
-                                <div style={{
-                                  fontSize: '0.55rem', color: 'rgba(255,255,255,0.18)', marginTop: 1,
-                                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                }}>
-                                  {formatDate(preset.savedAt)} · {preset.selectedComponentIds?.length ?? 0} comp
+
+                                {/* hover action buttons */}
+                                <motion.div
+                                  initial={false}
+                                  animate={{ opacity: isHov ? 1 : 0, x: isHov ? 0 : 8, pointerEvents: isHov ? 'auto' as const : 'none' as const }}
+                                  transition={{ duration: 0.15 }}
+                                  style={{ display: 'flex', gap: 4, flexShrink: 0 }}
+                                >
+                                  {/* Info */}
+                                  <MiniBtn
+                                    title="Info"
+                                    active={infoId === preset.id}
+                                    onClick={() => triggerSubPanel('info', infoId === preset.id ? null : preset.id)}
+                                  >
+                                    <span style={{ fontSize: 11, fontWeight: 900, lineHeight: 1 }}>!</span>
+                                  </MiniBtn>
+
+                                  {/* Delete */}
+                                  <MiniBtn
+                                    title="Delete"
+                                    active={confirmDeleteId === preset.id}
+                                    onClick={() => triggerSubPanel('delete', confirmDeleteId === preset.id ? null : preset.id)}
+                                    danger
+                                  >
+                                    {isDel
+                                      ? <span style={{ fontSize: 10 }}>…</span>
+                                      : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                    }
+                                  </MiniBtn>
+
+                                  {/* Load */}
+                                  <MiniBtn
+                                    title="Load"
+                                    accent
+                                    active={confirmLoadId === preset.id}
+                                    onClick={() => triggerSubPanel('load', confirmLoadId === preset.id ? null : preset.id)}
+                                  >
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                  </MiniBtn>
+                                </motion.div>
+                              </motion.div>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
+                    </section>
+
+                    {/* Divider */}
+                    <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)', margin: '0 -20px' }} />
+
+                    {/* Section 3 — Browser */}
+                    <section>
+                      <SectionLabel>Browser · {presets.length}</SectionLabel>
+
+                      {/* Import button + folder link row */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <button
+                          onClick={handleImport}
+                          style={{
+                            flex: 1, padding: '8px 0', borderRadius: 8,
+                            background: importStatus === 'ok' ? 'rgba(74,222,128,0.06)' : importStatus === 'err' ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.02)',
+                            border: `1px dashed ${importStatus === 'ok' ? 'rgba(74,222,128,0.3)' : importStatus === 'err' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                            color: importStatus === 'ok' ? '#4ade80' : importStatus === 'err' ? '#f87171' : 'rgba(255,255,255,0.35)',
+                            fontSize: '0.64rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                            transition: 'background .18s, color .18s, border-color .18s',
+                          }}
+                          onMouseEnter={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; } }}
+                          onMouseLeave={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; } }}
+                        >
+                          {importStatus === 'ok' ? (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                          ) : importStatus === 'err' ? (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                          )}
+                          {importStatus === 'ok' ? 'Imported!' : importStatus === 'err' ? 'Invalid File' : 'Import Preset File'}
+                        </button>
+                        <button
+                          onClick={() => api()?.openPresetsFolder?.()}
+                          title="Open presets folder"
+                          style={{
+                            flexShrink: 0, padding: '8px 10px', borderRadius: 8,
+                            background: 'none', border: '1px solid rgba(255,255,255,0.04)',
+                            color: 'rgba(255,255,255,0.2)', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'color .15s, border-color .15s',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.2)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+                        </button>
+                      </div>
+
+                      {/* hint */}
+                      {presets.length > 0 && (
+                        <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.18)', marginBottom: 6, fontFamily: "var(--font-body, 'Satoshi', sans-serif)", letterSpacing: '0.02em' }}>
+                          Double-click any preset to pin it to Recent
+                        </div>
+                      )}
+
+                      {/* Scrollable preset list */}
+                      {presets.length === 0 ? (
+                        <div style={{ padding: '16px 0', textAlign: 'center', color: 'rgba(255,255,255,0.12)', fontSize: '0.72rem', fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
+                          No presets found — import one above
+                        </div>
+                      ) : (
+                        <div style={{
+                          maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4,
+                          scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent',
+                        }}>
+                          {presets.map(preset => {
+                            const isPinned = pinnedId === preset.id;
+                            const isRecent = recentIds.includes(preset.id);
+                            return (
+                              <div
+                                key={preset.id}
+                                onDoubleClick={() => {
+                                  pushRecent(preset.id);
+                                  setPinnedId(preset.id);
+                                  setTimeout(() => setPinnedId(null), 900);
+                                }}
+                                title="Double-click to pin to Recent"
+                                style={{
+                                  padding: '10px 12px', borderRadius: 10,
+                                  background: isPinned ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
+                                  border: `1px solid ${isPinned ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`,
+                                  display: 'flex', alignItems: 'center', gap: 10,
+                                  cursor: 'default', userSelect: 'none',
+                                  transition: 'background .18s, border-color .18s',
+                                }}
+                              >
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontSize: '0.82rem', fontWeight: 600,
+                                    color: isPinned ? '#a5b4fc' : 'rgba(255,255,255,0.88)',
+                                    fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                    transition: 'color .15s',
+                                  }}>
+                                    {preset.name}
+                                  </div>
+                                  <div style={{
+                                    fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', marginTop: 2,
+                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                  }}>
+                                    {formatDate(preset.savedAt)}
+                                  </div>
                                 </div>
+                                {isPinned && (
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                )}
                               </div>
-                              {isRecent && !isPinned && (
-                                <span style={{
-                                  fontSize: '0.52rem', fontWeight: 700, color: 'rgba(99,102,241,0.55)',
-                                  textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0,
-                                }}>
-                                  Recent
-                                </span>
-                              )}
-                              {isPinned && (
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-                </div>
-              </motion.div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                </motion.div>
 
-              {/* ═══ SUB-PANELS (Stacking below) ═══ */}
+                {/* ═══ INFO PANEL (matched to Main Panel height) ═══ */}
+                <AnimatePresence initial={false}>
+                  {infoId && infoPreset && (
+                    <motion.div
+                      key="pm-info"
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: 400, opacity: 1 }}
+                      exit={{ width: 0, opacity: 0 }}
+                      transition={{ type: 'spring', damping: 32, stiffness: 360, mass: 0.9 }}
+                      style={{
+                        position: 'absolute', top: 0, bottom: 0, left: 400,
+                        width: 400, flexShrink: 0, overflow: 'hidden',
+                        background: 'rgba(9, 12, 20, 0.78)',
+                        backdropFilter: 'blur(40px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+                        borderTop: '1px solid rgba(255,255,255,0.08)',
+                        borderRight: '1px solid rgba(255,255,255,0.08)',
+                        borderBottom: '1px solid rgba(255,255,255,0.08)',
+                        borderLeft: '1px solid rgba(255,255,255,0.04)',
+                        borderRadius: '0 18px 18px 0',
+                        boxShadow: '0 40px 90px -20px rgba(0,0,0,0.7)',
+                      }}
+                    >
+                      <div style={{ width: 400, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <InfoPanelContent preset={infoPreset} onClose={() => setInfoId(null)} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* ═══ CONFIRM SUB-PANELS (strictly below Main Panel width) ═══ */}
               <AnimatePresence initial={false}>
-                {(infoId || confirmLoadId || confirmDeleteId) && (
+                {(confirmLoadId || confirmDeleteId) && (
                   <motion.div
-                    key="pm-sub"
+                    key="pm-confirm"
                     initial={{ opacity: 0, height: 0, y: -20, scale: 0.98 }}
                     animate={{ opacity: 1, height: 'auto', y: -1, scale: 1 }}
                     exit={{ opacity: 0, height: 0, y: -20, scale: 0.98 }}
@@ -536,22 +607,11 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                       zIndex: 1,
                     }}
                   >
-                    {/* INFO SUB-PANEL */}
-                    {infoId && infoPreset && (
-                      <InfoPanelContent
-                        preset={infoPreset}
-                        onClose={() => setInfoId(null)}
-                      />
-                    )}
-
-                    {/* CONFIRM LOAD SUB-PANEL */}
+                    {/* CONFIRM LOAD */}
                     {confirmLoadId && confirmLoadPreset && (
                       <div style={{ padding: '24px 20px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                          <span style={{
-                            fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
-                            fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(165, 180, 252, 0.45)',
-                          }}>Load Confirmation</span>
+                          <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(165, 180, 252, 0.45)' }}>Load Confirmation</span>
                         </div>
                         <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 6 }}>Switch to this preset?</div>
                         <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.45, marginBottom: 20 }}>
@@ -564,14 +624,11 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                       </div>
                     )}
 
-                    {/* CONFIRM DELETE SUB-PANEL */}
+                    {/* CONFIRM DELETE */}
                     {confirmDeleteId && confirmDeletePreset && (
                       <div style={{ padding: '24px 20px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                          <span style={{
-                            fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
-                            fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(248, 113, 113, 0.45)',
-                          }}>Delete Safety</span>
+                          <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(248, 113, 113, 0.45)' }}>Delete Safety</span>
                         </div>
                         <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 6 }}>Remove this preset?</div>
                         <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.45, marginBottom: 20 }}>
@@ -579,12 +636,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                         </div>
                         <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
                           <PremiumUnderlineButton onClick={() => setConfirmDeleteId(null)}>Keep it</PremiumUnderlineButton>
-                          <PremiumUnderlineButton
-                            onClick={() => handleDeleteConfirmed(confirmDeletePreset.id)}
-                            disabled={!!deletingId}
-                            active
-                            danger
-                          >
+                          <PremiumUnderlineButton onClick={() => handleDeleteConfirmed(confirmDeletePreset.id)} disabled={!!deletingId} active danger>
                             {deletingId ? 'Deleting...' : 'Yes, Delete'}
                           </PremiumUnderlineButton>
                         </div>
@@ -593,8 +645,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                   </motion.div>
                 )}
               </AnimatePresence>
-
-            </div>
+            </motion.div>{/* end outer row */}
           </div>
         )}
       </AnimatePresence>
@@ -741,39 +792,41 @@ function InfoPanelContent({ preset, onClose }: { preset: SavedPreset; onClose: (
   const hasLongPrompt = (preset.projectPrompt?.length ?? 0) > 80;
 
   return (
-    <div style={{ width: '100%', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 20, maxHeight: 600, overflowY: 'auto' }}>
-      {/* sub-panel header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', marginBottom: 16 }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Header bar — matches main panel "Presets Intelligence" style */}
+      <div style={{
+        height: 28, padding: '0 16px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+        background: 'rgba(0, 0, 0, 0.15)',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+      }}>
         <span style={{
           fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
           fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
-          color: 'rgba(165, 180, 252, 0.45)',
+          color: 'rgba(241, 245, 249, 0.35)',
         }}>
-          Detailed Information
+          Preset Details
         </span>
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           style={{
-            position: 'absolute', right: -2, top: '50%', transform: 'translateY(-50%)',
+            position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
             background: 'none', border: 'none', borderRadius: 6,
             color: 'rgba(255,255,255,0.25)', fontSize: 16, cursor: 'pointer', padding: 0,
             width: 20, height: 20,
             display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s ease',
           }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-            e.currentTarget.style.color = '#fff';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = 'none';
-            e.currentTarget.style.color = 'rgba(255,255,255,0.25)';
-          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.25)'; }}
         >
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
+
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* Project Name */}
       {preset.projectName && (
@@ -911,6 +964,8 @@ function InfoPanelContent({ preset, onClose }: { preset: SavedPreset; onClose: (
         <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.25)', fontFamily: "'JetBrains Mono', monospace" }}>
           REGISTERED: {formatDate(preset.savedAt)}
         </span>
+      </div>
+
       </div>
     </div>
   );
