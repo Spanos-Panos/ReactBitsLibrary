@@ -32,6 +32,37 @@ export interface GenerateResult {
   error?: string;
 }
 
+export interface PickFileResult {
+  canceled: boolean;
+  path?: string;
+  base64?: string;   // for image files
+  content?: string;  // for text/md files
+}
+
+export interface ScreenshotResult {
+  success: boolean;
+  screenshotPath?: string;
+  error?: string;
+}
+
+export interface VisionReworkPayload {
+  projectPath: string;
+  projectName: string;
+  originalPreset: object;
+  referenceImagePath: string;
+  screenshotPath?: string;
+  weaknessesMd: string;
+  backupFirst: boolean;
+  taskId: string;
+}
+
+export interface VisionReworkReadyData {
+  taskId: string;
+  projectPath: string;
+  screenshotPath: string | null;
+  screenshotError: string | null;
+}
+
 export interface ReactBitsApi {
   getItems(): ReactBitsItem[];
   getDiagnostics(): unknown;
@@ -54,6 +85,11 @@ export interface ReactBitsApi {
   importPreset(): Promise<{ success?: boolean; preset?: unknown; canceled?: boolean; error?: string }>;
   addComponent(payload: NewComponentPayload): Promise<AddComponentResult>;
   pickDesignImages(): Promise<Array<{ name: string; path: string; base64: string }>>;
+  captureProjectScreenshot(projectPath: string): Promise<ScreenshotResult>;
+  runVisionRework(payload: VisionReworkPayload): Promise<{ success: boolean; taskId?: string; error?: string }>;
+  pickSingleFile(filters: Array<{ name: string; extensions: string[] }>): Promise<PickFileResult | null>;
+  onVisionReworkReady(cb: (data: VisionReworkReadyData) => void): () => void;
+  onVisionReworkProgress(cb: (msg: string, taskId: string) => void): () => void;
 }
 
 declare global {

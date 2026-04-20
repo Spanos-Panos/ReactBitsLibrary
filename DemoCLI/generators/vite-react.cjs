@@ -80,7 +80,7 @@ function buildAppScaffold(selectedComponents, layoutConfig) {
   const motionImport = hasMotion ? "import { motion } from 'framer-motion';\n" : '';
 
   const imports = allComponents
-    .map(c => `import ${c.name} from './components/${c.category}/${c.name}/${c.name}';`)
+    .map(c => `import ${c.name} from './components/${c.category}/${c.name}/${c.name}'; // ← DO NOT REMOVE`)
     .join('\n');
 
   const fixedLines = fixed.map(item => {
@@ -222,6 +222,198 @@ function buildPageLayoutSpec(enhancedPrompt, layoutConfig, ambientNames, cursorN
   lines.push('- Do NOT wrap full-viewport components in fixed-height containers');
 
   return lines.join('\n');
+}
+
+// ── Style enforcement rules (all 8 aesthetics) ───────────────────────────────
+const STYLE_RULES = {
+  brutalist: [
+    'Borders: 2–4px solid (--color-text or --color-primary) ONLY — no border-radius ever (set border-radius: 0 everywhere)',
+    'Typography: font-weight 800–900, large sizes, ALL flush-left (no text-align: center on headings)',
+    'Layout: NO centering. All content grid-aligned or flush left. No max-width centering on text — use full grid columns.',
+    'Colors: maximum 2 colors only (background + 1 accent). Pure contrast.',
+    'Transitions: NONE except on buttons (:hover only, < 0.1s)',
+    'Sections separated by thick borders (3px solid), NOT whitespace or cards',
+    'Buttons: uppercase, no border-radius, solid colored background',
+  ],
+  editorial: [
+    'Typography: h1 clamp(5rem, 12vw, 11rem), font-weight 300, tight line-height 0.9–1.0',
+    'Layout: asymmetric — large left margin (min 8vw), content never fully centered',
+    'Large oversized numbers for section indexes (display: block, font-size: clamp(6rem, 15vw, 14rem))',
+    'Long horizontal rules (<hr>) between sections',
+    'Text columns: max 60ch for body, left-aligned',
+    'Images: full-bleed or harsh crop, no rounded corners',
+    'Lots of negative space — sections can be almost empty',
+  ],
+  futuristic: [
+    'Typography: text-shadow on headings (0 0 20px currentColor). Uppercase labels with wide letter-spacing (0.15em+)',
+    'Borders: 1px solid with glow — box-shadow: 0 0 8px var(--color-primary)',
+    'Background: dark (#050508). Text: near-white or neon accent',
+    'Scanline/grid texture via CSS repeating-linear-gradient background',
+    'Transitions: 0.4s ease-out. Hover effects on all interactive elements.',
+    'HUD-style labels: small, monospace, uppercase',
+    'Use CSS clip-path for geometric shapes instead of border-radius',
+  ],
+  minimal: [
+    'Font-weight: 300–400 only. No bold except for single hero word.',
+    'Monochrome palette: 2 colors max (off-white + near-black). No color accents.',
+    'Single column layout. Generous line-height (1.8+). Max-width 640px for body text.',
+    'No decorative elements: no borders, no shadows, no gradients.',
+    'Lots of whitespace — section padding: 8rem+ top/bottom',
+    'Buttons: text-only with underline or minimal border',
+    'No transitions except opacity fade (0.3s)',
+  ],
+  organic: [
+    'Border-radius: generous (24px–48px or 50% on cards)',
+    'Colors: warm, earthy (terracotta, sage, sand, cream). No pure black — use #1a1208 max.',
+    'Typography: serif or humanist sans. Mixed weights.',
+    'Irregular grid — columns of different widths, staggered cards',
+    'Soft shadows (box-shadow: 0 8px 40px rgba(0,0,0,0.08))',
+    'Blob or soft shape separators between sections (SVG or border-radius tricks)',
+    'Transitions: slow, ease (0.6s+). Gentle hover lifts.',
+  ],
+  playful: [
+    'Colors: bright, saturated (use all 5 CSS variables in rotation)',
+    'Border-radius: extreme (full pill on buttons: border-radius: 999px)',
+    'Typography: mixed weights within headings. Some rotated text (transform: rotate(-3deg))',
+    'Bold section backgrounds: alternate bg color every section',
+    'Hover effects: scale(1.05)+ bounce (spring easing)',
+    'Borders: 2px solid in accent colors, mixed radii',
+  ],
+  luxury: [
+    'Colors: near-black (#0a0a0a) + gold (#C9A96E) or platinum (#E8E4DC). Never more than 3 colors.',
+    'Typography: thin weight (100–200) at large sizes. Wide letter-spacing (0.2em+) on headings.',
+    'Images: always full-bleed, high contrast. No rounded corners.',
+    'Spacing: extreme. Section padding: min 12rem top/bottom.',
+    'Borders: only 1px hairlines. No box-shadows except 0 1px 0 rgba(255,255,255,0.1).',
+    'Transitions: very slow (0.8s–1.2s), ease-in-out. No bouncing.',
+    'NO busy patterns, gradients, or texture. Silence is the design.',
+  ],
+  corporate: [
+    'Colors: professional — primary blue (#1d4ed8 range) + neutrals. Max 3 colors.',
+    'Typography: font-weight 500–700. Clean sans-serif. Left-aligned body text.',
+    'Layout: structured grid, consistent column spacing',
+    'Sections: clearly delineated with subtle background shifts or thin borders',
+    'Buttons: filled primary + ghost secondary. border-radius: 6–8px.',
+    'Trust signals: icons, badges, lists — structure over decoration',
+    'Transitions: subtle, 0.2s. Professional, no flashy animations.',
+  ],
+};
+
+function buildStyleEnforcementBlock(aesthetics) {
+  const active = (aesthetics || []).map(a => a.toLowerCase()).filter(a => STYLE_RULES[a]);
+  if (!active.length) return '';
+  const lines = ['## ❗ STYLE ENFORCEMENT RULES — MANDATORY, NOT SUGGESTIONS', ''];
+  for (const style of active) {
+    lines.push(`### ${style.charAt(0).toUpperCase() + style.slice(1)}`);
+    for (const rule of STYLE_RULES[style]) lines.push(`- ${rule}`);
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+// ── Layout personality (aesthetic → layout decisions) ─────────────────────────
+const LAYOUT_PERSONALITY_MAP = {
+  brutalist:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'dense',  gridStyle: 'raw' },
+  editorial:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'airy',   gridStyle: 'asymmetric' },
+  futuristic: { textAlign: 'center', heroAlign: 'center', sectionDensity: 'medium', gridStyle: 'geometric' },
+  minimal:    { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'airy',   gridStyle: 'single-column' },
+  organic:    { textAlign: 'left',   heroAlign: 'center', sectionDensity: 'medium', gridStyle: 'irregular' },
+  playful:    { textAlign: 'center', heroAlign: 'center', sectionDensity: 'dense',  gridStyle: 'mixed' },
+  luxury:     { textAlign: 'center', heroAlign: 'center', sectionDensity: 'sparse', gridStyle: 'single-column' },
+  corporate:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'medium', gridStyle: 'structured' },
+};
+
+function buildLayoutPersonalityBlock(lp) {
+  if (!lp) return '';
+  const densityDesc = {
+    airy:   'Generous whitespace. Section padding: min 8rem top/bottom. Sections breathe.',
+    dense:  'Tight sections. Padding: 3–5rem top/bottom. Pack content close.',
+    sparse: 'Extreme whitespace. Section padding: min 12rem top/bottom. Silence is design.',
+    medium: 'Balanced. Section padding: 5–7rem top/bottom.',
+  };
+  const gridDesc = {
+    asymmetric:      'Columns of unequal width. Never 50/50. Shift content off-center.',
+    'single-column': 'Single centered column, max-width 800px for all body content.',
+    raw:             'No max-width centering. Full-width flush blocks. No inner padding.',
+    geometric:       'Grid-based with sharp edges. Use clip-path for shape variety.',
+    irregular:       'Staggered cards, varying column widths per section.',
+    mixed:           'Mix grid and full-bleed freely. No consistent column count.',
+    structured:      'Consistent 12-column grid, uniform gutters.',
+  };
+  return [
+    '## LAYOUT PERSONALITY — FOLLOW EXACTLY',
+    '',
+    `- **Default text-align:** \`${lp.textAlign}\` on ALL sections unless overridden`,
+    `- **Hero alignment:** Content in the first section is ${lp.heroAlign === 'center' ? 'centered' : 'flush-left'}`,
+    `- **Section density:** ${densityDesc[lp.sectionDensity] || ''}`,
+    `- **Grid style:** ${gridDesc[lp.gridStyle] || ''}`,
+    '',
+  ].join('\n');
+}
+
+// ── Style reference library (offline, curated) ────────────────────────────────
+const STYLE_REFERENCES = {
+  brutalist: [
+    'Bloomberg Terminal aesthetic: dense info grid, monospace type, zero whitespace wasted',
+    'Observed: border-top: 3px solid on every section break — the only decoration',
+    'Observed: links as plain underlined text, no hover color change',
+  ],
+  editorial: [
+    'NYT/Le Monde aesthetic: wide leading, columnar layout, huge headline + narrow body',
+    'Observed: section numbers as huge decorative elements (opacity: 0.08, font-size: 20vw)',
+    'Observed: pull quotes at 130% body size, left-bordered with 4px solid accent',
+  ],
+  luxury: [
+    'LVMH/Bottega Veneta: maximum restraint, long pauses between elements',
+    'Observed: heading letter-spacing: 0.3em, font-weight: 200, all uppercase',
+    'Observed: product images at 70vw width, no caption, full silence around them',
+  ],
+  minimal: [
+    'Muji/Dieter Rams aesthetic: function over decoration, every element earns its place',
+    'Observed: single typeface, two weights only (300 + 600)',
+    'Observed: sections separated only by vertical space, never borders or backgrounds',
+  ],
+  futuristic: [
+    'Linear/Vercel aesthetic: dark base, sharp geometric shapes, data-dense HUD elements',
+    'Observed: glow on primary CTA (box-shadow: 0 0 20px var(--color-primary))',
+    'Observed: grid overlay texture at opacity: 0.04 on hero background',
+  ],
+  organic: [
+    'Aesop/Kinfolk aesthetic: warm paper tones, editorial photography, generous margins',
+    'Observed: blob-shaped image masks (border-radius: 60% 40% 55% 45%)',
+    'Observed: section dividers as wavy SVG paths, never straight lines',
+  ],
+  playful: [
+    'Duolingo/Figma aesthetic: bright color blocks, personality-driven micro-copy',
+    'Observed: section backgrounds alternate between 4 distinct colors',
+    'Observed: CTAs use pill shape with bounce hover animation',
+  ],
+  corporate: [
+    'Stripe/Salesforce aesthetic: trust signals, clear hierarchy, professional restraint',
+    'Observed: 3-column feature grid with icon + heading + 2-line description',
+    'Observed: testimonials as full-width quote blocks with avatar + name + company',
+  ],
+};
+
+function buildReferenceBlock(aesthetics) {
+  const refs = (aesthetics || []).flatMap(a => STYLE_REFERENCES[a.toLowerCase()] || []);
+  if (!refs.length) return '';
+  return ['## REFERENCE PATTERNS (from award-winning sites)', '', ...refs.map(r => `- ${r}`), ''].join('\n');
+}
+
+// ── Scrollbar CSS ─────────────────────────────────────────────────────────────
+function buildScrollbarCSS(scrollbarStyle) {
+  if (!scrollbarStyle || scrollbarStyle.mode === 'default') return '';
+  if (scrollbarStyle.mode === 'hidden') return `
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }`;
+  const track = scrollbarStyle.track || 'transparent';
+  const thumb = scrollbarStyle.thumb || '#555';
+  return `
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: ${track}; }
+*::-webkit-scrollbar-thumb { background: ${thumb}; border-radius: 3px; }
+* { scrollbar-width: thin; scrollbar-color: ${thumb} ${track}; }`;
 }
 
 async function generateViteReact(options) {
@@ -390,7 +582,8 @@ async function generateViteReact(options) {
   const indexHtmlPath = path.join(targetDir, 'index.html');
 
   await fs.writeFile(appCssPath, '/* Generated by ReactBits Explorer */\n', 'utf-8');
-  await fs.writeFile(indexCssPath, `@import "tailwindcss";\n\nbody { margin: 0; background: #000; color: #fff; min-height: 100vh; overflow-x: hidden; }`, 'utf-8');
+  const baseScrollbarCSS = buildScrollbarCSS(options.scrollbarStyle || null);
+  await fs.writeFile(indexCssPath, `@import "tailwindcss";\n\nbody { margin: 0; background: #000; color: #fff; min-height: 100vh; overflow-x: hidden; }${baseScrollbarCSS}`, 'utf-8');
 
   // Overwrite index.html — removes Vite favicon/logo references that trigger CORS errors
   await fs.writeFile(indexHtmlPath, `<!doctype html>
@@ -466,17 +659,18 @@ async function generateViteReact(options) {
       .map(c => c.name);
     const colorGuidanceSection = buildColorGuidanceSection(textAnimComponents, bgColor);
 
-    // ── Build mandatory component usage list ──────────────────────────────────
-    const mandatoryList = allComponents
-      .filter(c => c.name && c.category)
+    // ── Build mandatory component usage checklist (hard FAIL format) ─────────
+    const mandatoryComponents = allComponents.filter(c => c.name && c.category);
+    const mandatoryChecklist = mandatoryComponents
       .map(c => {
         if (c.category === 'Backgrounds')
-          return `- **${c.name}** → AMBIENT: render \`<${c.name} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />\` at App root, OUTSIDE all sections`;
+          return `[ ] ${c.name}  ← AMBIENT: <${c.name} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} /> at App root`;
         if (cursorNames.includes(c.name))
-          return `- **${c.name}** → OVERLAY: render \`<${c.name} style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }} />\` at App root, OUTSIDE all sections`;
-        return `- **${c.name}** → must appear in at least one \`<section>\` in App.tsx`;
+          return `[ ] ${c.name}  ← OVERLAY: <${c.name} style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }} /> at App root`;
+        return `[ ] ${c.name}  ← must appear in JSX of at least one <section> in App.tsx`;
       })
       .join('\n');
+    const mandatoryList = mandatoryChecklist;
 
     // ── Build CSS foundation from designTokens ────────────────────────────────
     const dt = enhancedPrompt?.designTokens || {};
@@ -499,6 +693,31 @@ async function generateViteReact(options) {
     const isEditorial = mood.includes('editorial');
     const isFuturistic = mood.includes('futuristic') || mood.includes('cyber') || mood.includes('neo');
     const isMinimal = mood.includes('minimal') || mood.includes('clean');
+    const isOrganic = mood.includes('organic') || mood.includes('natural') || mood.includes('earthy');
+    const isPlayful = mood.includes('playful') || mood.includes('fun') || mood.includes('vibrant');
+    const isLuxury = mood.includes('luxury') || mood.includes('premium') || mood.includes('elegant');
+    const isCorporate = mood.includes('corporate') || mood.includes('professional') || mood.includes('business');
+
+    // Build aesthetics array for new style blocks
+    const aesthetics = [];
+    if (isBrutalist) aesthetics.push('brutalist');
+    if (isEditorial) aesthetics.push('editorial');
+    if (isFuturistic) aesthetics.push('futuristic');
+    if (isMinimal) aesthetics.push('minimal');
+    if (isOrganic) aesthetics.push('organic');
+    if (isPlayful) aesthetics.push('playful');
+    if (isLuxury) aesthetics.push('luxury');
+    if (isCorporate) aesthetics.push('corporate');
+    // Also check if enhancer added layoutPersonality (Issue 3A)
+    const layoutPersonality = enhancedPrompt?.layoutPersonality
+      || (aesthetics.length > 0 ? LAYOUT_PERSONALITY_MAP[aesthetics[0]] : null);
+
+    // Build new CLAUDE.md blocks
+    const styleEnforcementBlock = buildStyleEnforcementBlock(aesthetics);
+    const layoutPersonalityBlock = buildLayoutPersonalityBlock(layoutPersonality);
+    const referenceBlock = buildReferenceBlock(aesthetics);
+    const scrollbarStyle = options.scrollbarStyle || null;
+    const scrollbarCSS = buildScrollbarCSS(scrollbarStyle);
 
     const aestheticCSS = isBrutalist ? `
 /* Brutalist overrides */
@@ -587,7 +806,7 @@ You must produce something visually distinctive — not generic AI output. Befor
 
 ---
 
-# COMPONENT IMPORT PATHS
+${styleEnforcementBlock}${styleEnforcementBlock ? '---\n\n' : ''}${referenceBlock}${referenceBlock ? '\n---\n\n' : ''}# COMPONENT IMPORT PATHS
 
 All components are pre-installed in \`src/components/\`. Use these exact import paths:
 
@@ -599,11 +818,13 @@ Before using any component, **read its source file** to understand its props int
 
 ---
 
-# MANDATORY COMPONENTS
+# ❗ MANDATORY COMPONENTS — CHECKLIST
 
-Every component below MUST appear in \`src/App.tsx\`. Omitting any is a build failure — check this list before outputting DONE.
+> **Every component below MUST appear in \`src/App.tsx\` JSX. Missing any = TASK FAILURE. Verify this list before outputting DONE.**
 
+\`\`\`
 ${mandatoryList || '(no components selected)'}
+\`\`\`
 
 ---
 
@@ -617,6 +838,7 @@ ${JSON.stringify(enhancedPrompt, null, 2)}
 
 ${pageLayoutSpec}
 
+${layoutPersonalityBlock}
 - Do **NOT** scan \`node_modules\` or install new packages unless \`tsc\` reveals a missing \`@types/\` package
 - Use Tailwind classes and/or inline styles for all layout and spacing
 - Stats and numbers: display at \`4rem\` minimum font-size, not in small badge cards
@@ -637,10 +859,26 @@ ${pageLayoutSpec}
   - Icon / logo SVG → \`/ReactIcon.svg\`
   Do NOT invent URLs, use \`picsum.photos\`, or reference any other external image URLs.
 - **Interactive component props**: When a component prop expects a React element (e.g. an icon), pass an actual JSX element — not a string
+
+## COLOR USAGE RULES — MANDATORY
+
+- \`var(--color-text)\` is the ONLY allowed color for body copy, paragraphs, and labels under 0.85rem
+- \`var(--color-muted)\` / \`var(--color-accent)\`: use ONLY for display text ≥ 1.5rem, decorative labels, or large uppercase section headings
+- NEVER use muted/accent colors for: \`<p>\`, small body text, nav links, form labels
+- Every text color must pass WCAG AA (4.5:1 contrast ratio) against its background
+
 ${colorGuidanceSection}
 
 ---
 ${cssFundamentals}
+
+## PADDING RULES — NO EXCEPTIONS
+
+- Horizontal padding is handled ENTIRELY by the max-width wrapper \`<div>\` (margin: 0 auto, padding: 0 clamp(1.5rem, 4vw, 4rem))
+- Section elements and their direct children MUST NOT add left/right padding or margin
+- Only top/bottom padding belongs on \`<section>\` elements
+- ✅ Correct:  \`<section style={{ paddingTop: '6rem', paddingBottom: '6rem' }}>\`
+- ❌ WRONG:   \`<section style={{ padding: '6rem 5rem' }}>\` ← never do this
 
 ---
 
@@ -652,9 +890,10 @@ ${cssFundamentals}
 4. Add Google Fonts \`<link>\` to \`index.html\` for the fonts in \`designTokens.typography\`
 5. Write the CSS foundation (variables, resets) in \`src/index.css\` as specified in CSS FOUNDATION above
 6. Fill in \`src/App.tsx\` — the structural scaffold is already in place (fixed layers, section stubs, entrance animations). Your job: replace each \`{/* FILL */}\` comment with the real component and surrounding content. Do NOT change section order, \`minHeight\`, \`position\`, or \`zIndex\` values — those are locked constraints
-7. Run: \`npx tsc --noEmit\`
-8. If errors → fix them and re-run \`tsc\`
-9. When \`tsc\` is clean → output **DONE** and stop
+7. **Verify the MANDATORY COMPONENTS checklist above — every component must appear in JSX**
+8. Run: \`npx tsc --noEmit\`
+9. If errors → fix them and re-run \`tsc\`
+10. When \`tsc\` is clean AND all mandatory components are in JSX → output **DONE** and stop
 `;
 
     await fs.writeFile(path.join(targetDir, 'CLAUDE.md'), claudeMdContent, 'utf-8');
@@ -713,6 +952,47 @@ ${cssFundamentals}
       projectPath: targetDir,
       onProgress: notify,
     });
+
+    // Post-generation: verify all selected components appear in App.tsx
+    const inFlowComponents = (selectedComponents || []).filter(c => {
+      const lc = options.layoutConfig || [];
+      if (lc.length > 0) {
+        const entry = lc.find(i => i.componentName === c.name);
+        return entry ? entry.position === 'in-flow' : true;
+      }
+      return c.category !== 'Backgrounds' && !['BlobCursor','Crosshair','ImageTrail','PixelTrail','SplashCursor','TargetCursor'].includes(c.name);
+    });
+    try {
+      const appTsx = require('fs').readFileSync(path.join(targetDir, 'src', 'App.tsx'), 'utf-8');
+      const missingComponents = inFlowComponents
+        .map(c => c.name)
+        .filter(name => !appTsx.includes(`<${name}`));
+      if (missingComponents.length > 0) {
+        notify(`[Validator] ⚠️ Missing components: ${missingComponents.join(', ')} — running correction pass...`);
+        const correctionPrompt = `src/App.tsx is missing these required components: ${missingComponents.join(', ')}. Open src/App.tsx and add each missing component to the JSX inside an appropriate section. Import it if not imported. Do not remove anything existing. Output DONE when finished.`;
+        await generateCode({ projectPath: targetDir, onProgress: notify, prompt: correctionPrompt });
+        notify(`[Validator] Correction pass complete.`);
+      } else {
+        notify(`[Validator] ✓ All ${inFlowComponents.length} component(s) present in App.tsx.`);
+      }
+    } catch (e) {
+      log(`[Validator] Warning: Could not verify App.tsx — ${e.message}\n`);
+    }
+
+    // Optional Polish Pass (screenshot + Claude vision + CSS patches)
+    if (options.polishPass) {
+      try {
+        const { runPolishPass } = require('../../electron/polishPass.cjs');
+        await runPolishPass({
+          projectPath: targetDir,
+          enhancedPrompt,
+          aesthetics,
+          onLog: log,
+        });
+      } catch (ppErr) {
+        log(`[Polish] Polish pass skipped: ${ppErr.message}\n`);
+      }
+    }
   }
 
   // 8. Final Integrity Check (always runs after AI build completes, or for single-component builds)

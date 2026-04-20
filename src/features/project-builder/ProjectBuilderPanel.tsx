@@ -77,6 +77,8 @@ export interface ProjectBuilderPanelProps {
   onClientBriefChange: (b: ClientBrief) => void;
   onOpenLayoutIntelligence?: () => void;
   onRestoreFromHistory?: (prompt: string, selectedComponents: ComponentItem[]) => void;
+  scrollbarStyle: ScrollbarStyle;
+  onScrollbarStyleChange: (s: ScrollbarStyle) => void;
 }
 
 export interface ClientBrief {
@@ -126,8 +128,14 @@ export const DEFAULT_CLIENT_BRIEF: ClientBrief = {
   tone: '', personality: '', contactEmail: '', contactPhone: '', location: '', socialLinks: '',
 };
 
-type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images';
-const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Layout', 'Sizes', 'Images'];
+export interface ScrollbarStyle {
+  mode: 'default' | 'hidden' | 'custom';
+  track?: string;
+  thumb?: string;
+}
+
+type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images' | 'Output';
+const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Layout', 'Sizes', 'Images', 'Output'];
 
 
 type AssemblyCategoryId = 'Components' | 'Backgrounds' | 'Animations' | 'TextAnimations';
@@ -1503,6 +1511,56 @@ function IdleConfigState() {
   );
 }
 
+// ── Output Tab (scrollbar + future output settings) ───────────────────────────
+
+function OutputTab({ style, onChange }: { style: ScrollbarStyle; onChange: (s: ScrollbarStyle) => void }) {
+  const modes: ScrollbarStyle['mode'][] = ['default', 'hidden', 'custom'];
+  const modeLabel: Record<ScrollbarStyle['mode'], string> = { default: 'Browser', hidden: 'Hidden', custom: 'Custom' };
+
+  return (
+    <div className="pbp-sizes-tab">
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Scrollbar</span>
+      </div>
+      <div className="pbp-sizes-chip-grid">
+        {modes.map(m => (
+          <button
+            key={m}
+            className={`pbp-sizes-chip ${style.mode === m ? 'pbp-sizes-chip--active' : ''}`}
+            onClick={() => onChange({ ...style, mode: m })}
+          >
+            {modeLabel[m]}
+          </button>
+        ))}
+      </div>
+      {style.mode === 'custom' && (
+        <div className="pbp-sizes-grid" style={{ marginTop: 14 }}>
+          <div className="pbp-sizes-field">
+            <span className="pbp-sizes-label">Track color</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="color" value={style.track || '#000000'}
+                onChange={e => onChange({ ...style, track: e.target.value })}
+                style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'none' }}
+              />
+              <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>{style.track || '#000000'}</span>
+            </div>
+          </div>
+          <div className="pbp-sizes-field">
+            <span className="pbp-sizes-label">Thumb color</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="color" value={style.thumb || '#555555'}
+                onChange={e => onChange({ ...style, thumb: e.target.value })}
+                style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'none' }}
+              />
+              <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>{style.thumb || '#555555'}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function ProjectBuilderPanel({
@@ -1520,7 +1578,9 @@ export default function ProjectBuilderPanel({
   clientBrief,
   onClientBriefChange,
   onOpenLayoutIntelligence,
-  onRestoreFromHistory
+  onRestoreFromHistory,
+  scrollbarStyle,
+  onScrollbarStyleChange,
 }: ProjectBuilderPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('Layout');
   const [topOpacity, setTopOpacity] = useState(0);
@@ -1669,6 +1729,7 @@ export default function ProjectBuilderPanel({
                 {activeTab === 'Layout' && <LayoutTab config={layoutConfig} onChange={onLayoutConfigChange} onOpenIntelligence={onOpenLayoutIntelligence} />}
                 {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} limits={IMG_LIMITS} />}
+                {activeTab === 'Output' && <OutputTab style={scrollbarStyle} onChange={onScrollbarStyleChange} />}
               </MotionDiv>
             </AnimatePresence>
           </div>

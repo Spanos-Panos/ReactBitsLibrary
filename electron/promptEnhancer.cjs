@@ -519,6 +519,39 @@ async function enhancePrompt(options) {
       console.warn('[Claude Enhancer] Layout ordering skipped (non-fatal):', layoutErr.message);
     }
 
+    // ─── Post-parse: derive and attach layoutPersonality ──────────────────────
+    try {
+      const LAYOUT_PERSONALITY_MAP = {
+        brutalist:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'dense',  gridStyle: 'raw' },
+        editorial:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'airy',   gridStyle: 'asymmetric' },
+        futuristic: { textAlign: 'center', heroAlign: 'center', sectionDensity: 'medium', gridStyle: 'geometric' },
+        minimal:    { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'airy',   gridStyle: 'single-column' },
+        organic:    { textAlign: 'left',   heroAlign: 'center', sectionDensity: 'medium', gridStyle: 'irregular' },
+        playful:    { textAlign: 'center', heroAlign: 'center', sectionDensity: 'dense',  gridStyle: 'mixed' },
+        luxury:     { textAlign: 'center', heroAlign: 'center', sectionDensity: 'sparse', gridStyle: 'single-column' },
+        corporate:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'medium', gridStyle: 'structured' },
+      };
+      const aesthetics = (systemContext?.styleDirection?.aesthetics || []).map(a => a.toLowerCase());
+      const mood = (enhancedPrompt.projectMeta?.mood || '').toLowerCase();
+      // Derive primary aesthetic: from styleDirection first, then fallback to mood string
+      const primaryAesthetic = aesthetics[0]
+        || (mood.includes('brutal') ? 'brutalist'
+          : mood.includes('editorial') ? 'editorial'
+          : mood.includes('futuristic') || mood.includes('cyber') ? 'futuristic'
+          : mood.includes('minimal') || mood.includes('clean') ? 'minimal'
+          : mood.includes('organic') || mood.includes('natural') ? 'organic'
+          : mood.includes('playful') || mood.includes('fun') ? 'playful'
+          : mood.includes('luxury') || mood.includes('premium') ? 'luxury'
+          : mood.includes('corporate') || mood.includes('professional') ? 'corporate'
+          : null);
+      if (primaryAesthetic && LAYOUT_PERSONALITY_MAP[primaryAesthetic]) {
+        enhancedPrompt.layoutPersonality = LAYOUT_PERSONALITY_MAP[primaryAesthetic];
+        console.log(`[Claude Enhancer] Attached layoutPersonality for aesthetic: ${primaryAesthetic}`);
+      }
+    } catch (lpErr) {
+      console.warn('[Claude Enhancer] layoutPersonality derivation skipped:', lpErr.message);
+    }
+
     const enhancedPath = saveFile(ENHANCED_DIR, filename, enhancedPrompt);
 
     return {

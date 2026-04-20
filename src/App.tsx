@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import type { ReactBitsItem, LayoutConfig, LayoutItem } from "./shared/types/index";
 import { getRoleData } from "./shared/data/componentRoles";
 import "./shared/types/api";
@@ -7,16 +7,19 @@ import { useTaskManager }       from "./shared/hooks/useTaskManager";
 import { useGenerationWizard }  from "./shared/hooks/useGenerationWizard";
 import PlasmaWave from "./showcase/Backgrounds/PlasmaWave/PlasmaWave";
 import CardNav from "./showcase/UIComponents/CardNav/CardNav";
-import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief } from "./features/project-builder/ProjectBuilderPanel";
+import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief, type ScrollbarStyle } from "./features/project-builder/ProjectBuilderPanel";
 import PresetManager, { type SavedPreset, PRESET_SCHEMA_VERSION } from "./features/preset-manager/PresetManager";
 import ComponentAddPanel from "./features/browser/ComponentAddPanel";
 import ComponentListPane from "./features/browser/ComponentListPane";
 import ComponentInspector from "./features/inspector/ComponentInspector";
 import GenerationQueue from "./features/generation/GenerationQueue/GenerationQueue";
 import GenerateWizard from "./features/generation/GenerateWizard";
+import TaskBar from "./features/generation/TaskBar";
 import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
 import LayoutPreviewModal from "./features/project-builder/LayoutPreviewModal";
+import VisionReworkModal from "./features/generation/VisionReworkModal";
+import type { VisionReworkReadyData } from "./shared/types/api";
 
 const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,
@@ -81,6 +84,8 @@ function App() {
   const [styleDirection,       setStyleDirection]       = useState<StyleDirection>(DEFAULT_STYLE_DIRECTION);
   const [clientBrief,          setClientBrief]          = useState<ClientBrief>(DEFAULT_CLIENT_BRIEF);
   const [layoutConfig,         setLayoutConfig]         = useState<LayoutConfig>([]);
+  const [scrollbarStyle,       setScrollbarStyle]       = useState<ScrollbarStyle>({ mode: 'default' });
+  const [polishPass,           setPolishPass]           = useState(false);
 
   const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<any>(null);
   const [generateStatus,       setGenerateStatus]       = useState("");
@@ -89,6 +94,14 @@ function App() {
   const [appReady,             setAppReady]             = useState(false);
   const [presetsOpen,          setPresetsOpen]          = useState(false);
   const [showLayoutIntelligence, setShowLayoutIntelligence] = useState(false);
+
+  // ── Vision Rework state ───────────────────────────────────────────────────
+  const [visionReworkOpen,     setVisionReworkOpen]     = useState(false);
+  const [visionReworkData,     setVisionReworkData]     = useState<VisionReworkReadyData | null>(null);
+  const [visionReworkTaskId,   setVisionReworkTaskId]   = useState<string | null>(null);
+  const [reworkReadyTaskIds,   setReworkReadyTaskIds]   = useState<Set<string>>(new Set());
+  // Store the last enhanced prompt used per task so rework can reference original preset
+  const lastPresetByTaskId = useRef<Record<string, object>>({});
 
   // ── Derived state ─────────────────────────────────────────────────────────
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
@@ -163,7 +176,7 @@ function App() {
       let result;
       if (isMasterBuild) {
         result = await window.reactBitsApi.generatePlayground({
-          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null },
+          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, scrollbarStyle: scrollbarStyle.mode !== 'default' ? scrollbarStyle : null, polishPass },
           selectedComponents: await Promise.all(selectedComponents.map(c => window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
           enhancedPrompt: lastEnhancedPrompt,
         }, null, taskId);
@@ -178,6 +191,10 @@ function App() {
         const finalStatus = runWhenDone ? 'running' : 'success';
         setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: finalStatus, progress: runWhenDone ? "Local Server Running! (Check Browser)" : "Generation Complete!", path: result.path } }));
         setGenerateStatus(result.message || "Success!");
+        // Remember the preset used for this task so Vision Rework can reference it
+        if (isMasterBuild && lastEnhancedPrompt) {
+          lastPresetByTaskId.current[taskId] = lastEnhancedPrompt;
+        }
         if (isMasterBuild) setLastEnhancedPrompt(null);
       } else {
         setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error } }));
@@ -282,6 +299,60 @@ function App() {
     await window.reactBitsApi?.terminateTask?.(id);
     setTasks(prev => { const next = { ...prev }; delete next[id]; return next; });
     if (activeTaskId === id) setActiveTaskId(null);
+    // Clean up rework state for this task
+    setReworkReadyTaskIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    delete lastPresetByTaskId.current[id];
+  };
+
+  // ── Vision Rework IPC listener ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!window.reactBitsApi?.onVisionReworkReady) return;
+    const unsubscribe = window.reactBitsApi.onVisionReworkReady((data) => {
+      // Mark this task as having a screenshot ready
+      setReworkReadyTaskIds(prev => new Set([...prev, data.taskId]));
+      // Auto-open the modal
+      setVisionReworkData(data);
+      setVisionReworkTaskId(data.taskId);
+      setVisionReworkOpen(true);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleVisionRework = (taskId: string) => {
+    // Re-open modal for this task (e.g. user closed it and clicked Rework pill)
+    setVisionReworkTaskId(taskId);
+    setVisionReworkOpen(true);
+  };
+
+  const handleVisionReworkConfirm = async (payload: {
+    projectPath: string; projectName: string; originalPreset: object;
+    referenceImagePath: string; screenshotPath?: string;
+    weaknessesMd: string; backupFirst: boolean; taskId: string;
+  }) => {
+    setVisionReworkOpen(false);
+    const reworkId = payload.taskId;
+    setTasks(prev => ({
+      ...prev,
+      [reworkId]: {
+        id: reworkId,
+        name: 'Vision Rework',
+        type: 'web' as const,
+        projectName: payload.projectName,
+        progress: 'Running vision rework…',
+        logs: ['Starting Vision Rework pass...\n'],
+        status: 'running' as const,
+      },
+    }));
+    setActiveTaskId(reworkId);
+    const result = await window.reactBitsApi.runVisionRework(payload);
+    setTasks(prev => ({
+      ...prev,
+      [reworkId]: {
+        ...prev[reworkId],
+        status: result.success ? 'success' : 'error',
+        progress: result.success ? 'Vision Rework Complete!' : `Rework failed: ${result.error}`,
+      },
+    }));
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -388,6 +459,8 @@ function App() {
               onStyleDirectionChange={setStyleDirection}
               clientBrief={clientBrief}
               onClientBriefChange={setClientBrief}
+              scrollbarStyle={scrollbarStyle}
+              onScrollbarStyleChange={setScrollbarStyle}
               onOpenLayoutIntelligence={() => setShowLayoutIntelligence(true)}
               onRestoreFromHistory={(p: string, sels: any[]) => {
                 setProjectPrompt(p);
@@ -395,6 +468,16 @@ function App() {
                 setGenerateStatus("Restored project from history!");
                 setTimeout(() => setGenerateStatus(""), 3000);
               }}
+            />
+            {/* Task Bar lives here, just above the builder */}
+            <TaskBar
+              tasks={tasks}
+              activeTaskId={activeTaskId}
+              onSelect={setActiveTaskId}
+              onClose={handleCloseTask}
+              onClearAll={() => { Object.keys(tasks).forEach(handleCloseTask); }}
+              onVisionRework={handleVisionRework}
+              reworkReadyTaskIds={reworkReadyTaskIds}
             />
           </div>
         </section>
@@ -419,6 +502,8 @@ function App() {
         onRunWhenDoneChange={setRunWhenDone}
         autoKillOnError={autoKillOnError}
         onAutoKillChange={setAutoKillOnError}
+        polishPass={polishPass}
+        onPolishPassChange={setPolishPass}
         onConfirm={confirmGenerate}
       />
 
@@ -426,6 +511,15 @@ function App() {
         isOpen={showLayoutIntelligence}
         onClose={() => setShowLayoutIntelligence(false)}
         layoutConfig={layoutConfig}
+      />
+
+      <VisionReworkModal
+        open={visionReworkOpen}
+        onClose={() => setVisionReworkOpen(false)}
+        reworkData={visionReworkData}
+        projectName={visionReworkTaskId ? (tasks[visionReworkTaskId]?.projectName ?? '') : ''}
+        originalPreset={visionReworkTaskId ? (lastPresetByTaskId.current[visionReworkTaskId] ?? null) : null}
+        onConfirm={handleVisionReworkConfirm as any}
       />
 
       {activeTaskId && tasks[activeTaskId] && (

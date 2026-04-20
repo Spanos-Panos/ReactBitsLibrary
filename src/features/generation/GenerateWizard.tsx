@@ -24,6 +24,8 @@ interface GenerateWizardProps {
   onRunWhenDoneChange: (v: boolean) => void;
   autoKillOnError: boolean;
   onAutoKillChange: (v: boolean) => void;
+  polishPass: boolean;
+  onPolishPassChange: (v: boolean) => void;
   onConfirm: () => void;
 }
 
@@ -34,7 +36,7 @@ export default function GenerateWizard({
   projectName, onProjectNameChange, projectPath, onBrowse,
   installTab, onInstallTabChange, packageManager, onPackageManagerChange,
   openWhenDone, onOpenWhenDoneChange, runWhenDone, onRunWhenDoneChange,
-  autoKillOnError, onAutoKillChange, onConfirm
+  autoKillOnError, onAutoKillChange, polishPass, onPolishPassChange, onConfirm
 }: GenerateWizardProps) {
 
   if (!open || (!selected && !lastEnhancedPrompt)) return null;
@@ -214,6 +216,19 @@ export default function GenerateWizard({
                         </motion.div>
                       )}
                     </AnimatePresence>
+
+                    {isAiBuild && (
+                      <>
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }} />
+                        <AutomationRow
+                          icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>}
+                          title="Polish Pass"
+                          subtext="Screenshot → Claude vision → auto CSS fix (+~30s, ~$0.05)"
+                          checked={polishPass}
+                          onChange={onPolishPassChange}
+                        />
+                      </>
+                    )}
                   </div>
                 </div>
 

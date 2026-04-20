@@ -285,6 +285,8 @@ ipcMain.handle("select-directory", async () => {
 
 const { generatePlayground } = require("../DemoCLI/index.cjs");
 const { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset, importPresetFromFile } = require("./storage.cjs");
+const { captureAndSave } = require("./screenshotCapture.cjs");
+const { runVisionRework } = require("./visionRework.cjs");
 
 ipcMain.handle("generate-playground", async (event, ...args) => {
   let result;
@@ -313,7 +315,34 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
     // CRITICAL: Must delete this before returning to renderer to avoid 'An object could not be cloned' error
     delete result.childProcess;
   }
-  
+
+  // ── Auto Vision Rework: capture screenshot AFTER AI Build generation finishes ──
+  // Only for AI Build tasks (rich payload with options.isAiBuild flag)
+  const isAiBuild = args.length === 3 && typeof args[0] === 'object' && args[0].options;
+  if (isAiBuild && result.path) {
+    const snapshotPath = result.path;
+    const snapshotTaskId = taskId;
+    // Run in background — don't await so we return to renderer immediately
+    setImmediate(async () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vision-rework-progress', '[Screenshot] Starting auto-capture after generation...', snapshotTaskId);
+      }
+      const capture = await captureAndSave(snapshotPath, (msg) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('vision-rework-progress', msg, snapshotTaskId);
+        }
+      });
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vision-rework-ready', {
+          taskId: snapshotTaskId,
+          projectPath: snapshotPath,
+          screenshotPath: capture.success ? capture.screenshotPath : null,
+          screenshotError: capture.success ? null : capture.error,
+        });
+      }
+    });
+  }
+
   return result;
 });
 
@@ -359,6 +388,60 @@ ipcMain.handle("preset-import", async (event) => {
   });
   if (canceled || !filePaths.length) return { canceled: true };
   return importPresetFromFile(filePaths[0]);
+});
+
+// ── Vision Rework IPC Handlers ───────────────────────────────────────────────
+
+// Manual screenshot capture (e.g. re-capture button in modal)
+ipcMain.handle("capture-project-screenshot", async (event, projectPath) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  return captureAndSave(projectPath, (msg) => {
+    if (win && !win.isDestroyed()) win.webContents.send('vision-rework-progress', msg, 'manual-capture');
+  });
+});
+
+// Run the vision rework generation pass
+ipcMain.handle("run-vision-rework", async (event, payload) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const reworkTaskId = payload.taskId || `rework-${Date.now()}`;
+  try {
+    await runVisionRework({
+      ...payload,
+      onProgress: (msg) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('vision-rework-progress', msg, reworkTaskId);
+        }
+      },
+    });
+    return { success: true, taskId: reworkTaskId };
+  } catch (e) {
+    return { success: false, error: e.message, taskId: reworkTaskId };
+  }
+});
+
+// Single file picker (for MD and reference PNG uploads in VisionReworkModal)
+ipcMain.handle("pick-single-file", async (event, filters) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    properties: ['openFile'],
+    filters: filters || [{ name: 'All Files', extensions: ['*'] }],
+  });
+  if (canceled || !filePaths.length) return { canceled: true };
+  const filePath = filePaths[0];
+  const ext = require('path').extname(filePath).slice(1).toLowerCase();
+  // Image: return base64
+  if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+    const data = fs.readFileSync(filePath);
+    const mime = ext === 'jpg' ? 'jpeg' : ext;
+    return {
+      canceled: false,
+      path: filePath,
+      base64: `data:image/${mime};base64,${data.toString('base64')}`,
+    };
+  }
+  // Text file: return content
+  const content = fs.readFileSync(filePath, 'utf-8');
+  return { canceled: false, path: filePath, content };
 });
 
 // Design inspiration image picker

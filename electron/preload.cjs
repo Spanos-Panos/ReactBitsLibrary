@@ -108,6 +108,25 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   },
   pickDesignImages() {
     return ipcRenderer.invoke("design-pick-images");
+  },
+  captureProjectScreenshot(projectPath) {
+    return ipcRenderer.invoke("capture-project-screenshot", projectPath);
+  },
+  runVisionRework(payload) {
+    return ipcRenderer.invoke("run-vision-rework", payload);
+  },
+  pickSingleFile(filters) {
+    return ipcRenderer.invoke("pick-single-file", filters);
+  },
+  onVisionReworkReady(callback) {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vision-rework-ready", handler);
+    return () => ipcRenderer.removeListener("vision-rework-ready", handler);
+  },
+  onVisionReworkProgress(callback) {
+    const handler = (_event, message, taskId) => callback(message, taskId);
+    ipcRenderer.on("vision-rework-progress", handler);
+    return () => ipcRenderer.removeListener("vision-rework-progress", handler);
   }
 });
 

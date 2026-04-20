@@ -1,5 +1,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -50,7 +51,7 @@ function formatStreamMessage(msg) {
  *
  * @param {{ projectPath: string, onProgress: (msg: string) => void }} options
  */
-async function generateCode({ projectPath, onProgress }, _attempt = 0) {
+async function generateCode({ projectPath, onProgress, prompt: customPrompt }, _attempt = 0) {
   const notify = (msg) => { if (onProgress) onProgress(msg); };
   notify('[Generator] Starting Claude Code agent...');
 
@@ -60,7 +61,7 @@ async function generateCode({ projectPath, onProgress }, _attempt = 0) {
 
     // The prompt is intentionally short — the real mission lives in CLAUDE.md.
     // Keep it free of ALL shell metacharacters: no backticks, no parens, no $, no quotes.
-    const prompt = 'Read CLAUDE.md and follow the WORKFLOW section to build the site. Output DONE when finished.';
+    const prompt = customPrompt || 'Read CLAUDE.md and follow the WORKFLOW section to build the site. Output DONE when finished.';
 
     // Build the full command as ONE string and pass it to spawn with an empty args array.
     // This avoids the Node.js concatenation-without-quoting bug (DEP0190).
