@@ -66,6 +66,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   const [confirmLoadId, setConfirmLoadId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [importStatus, setImportStatus] = useState<'idle' | 'ok' | 'err'>('idle');
   const inputRef = useRef<HTMLInputElement>(null);
 
   /* ── data loading ─────────────────────────────────────────── */
@@ -98,6 +99,18 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   };
 
   /* ── handlers ─────────────────────────────────────────────── */
+
+  const handleImport = async () => {
+    const result = await api()?.importPreset?.();
+    if (result?.canceled) return;
+    if (result?.success) {
+      setImportStatus('ok');
+      await loadPresets();
+    } else {
+      setImportStatus('err');
+    }
+    setTimeout(() => setImportStatus('idle'), 1800);
+  };
 
   const handleClose = () => {
     if (infoId || confirmLoadId || confirmDeleteId) {
@@ -380,23 +393,51 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                   {/* Section 3 — Browser */}
                   <section>
                     <SectionLabel>Browser</SectionLabel>
-                    <button
-                      onClick={() => api()?.openPresetsFolder?.()}
-                      style={{
-                        width: '100%', padding: '10px 0', borderRadius: 10,
-                        background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',
-                        color: 'rgba(255,255,255,0.35)', fontSize: '0.68rem', fontWeight: 600,
-                        textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                        transition: 'background .18s, color .18s, border-color .18s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                      Open Presets Folder
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {/* Import Preset */}
+                      <button
+                        onClick={handleImport}
+                        style={{
+                          flex: 1, padding: '10px 0', borderRadius: 10,
+                          background: importStatus === 'ok' ? 'rgba(74,222,128,0.06)' : importStatus === 'err' ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.02)',
+                          border: `1px dashed ${importStatus === 'ok' ? 'rgba(74,222,128,0.3)' : importStatus === 'err' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                          color: importStatus === 'ok' ? '#4ade80' : importStatus === 'err' ? '#f87171' : 'rgba(255,255,255,0.35)',
+                          fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                          transition: 'background .18s, color .18s, border-color .18s',
+                        }}
+                        onMouseEnter={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; } }}
+                        onMouseLeave={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; } }}
+                      >
+                        {importStatus === 'ok' ? (
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        ) : importStatus === 'err' ? (
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                        ) : (
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        )}
+                        {importStatus === 'ok' ? 'Imported!' : importStatus === 'err' ? 'Invalid File' : 'Import Preset'}
+                      </button>
+                      {/* Open Presets Folder */}
+                      <button
+                        onClick={() => api()?.openPresetsFolder?.()}
+                        style={{
+                          flex: 1, padding: '10px 0', borderRadius: 10,
+                          background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',
+                          color: 'rgba(255,255,255,0.35)', fontSize: '0.68rem', fontWeight: 600,
+                          textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                          transition: 'background .18s, color .18s, border-color .18s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+                        Open Folder
+                      </button>
+                    </div>
                   </section>
                 </div>
               </motion.div>

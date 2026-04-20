@@ -125,4 +125,27 @@ function deletePreset(id) {
   }
 }
 
-module.exports = { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset };
+function importPresetFromFile(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const preset = JSON.parse(raw);
+    if (!preset.id || !preset.name || !preset.selectedComponentIds) {
+      return { error: 'Invalid preset file — missing required fields.' };
+    }
+    ensurePresetsDir();
+    const destPath = path.join(PRESETS_DIR, `${preset.id}.json`);
+    let finalPreset = preset;
+    if (fs.existsSync(destPath)) {
+      finalPreset = { ...preset, id: `${preset.id}-imported` };
+    }
+    const finalPath = path.join(PRESETS_DIR, `${finalPreset.id}.json`);
+    fs.writeFileSync(finalPath, JSON.stringify(finalPreset, null, 2), 'utf-8');
+    console.log(`[Storage] Imported preset: ${finalPath}`);
+    return { success: true, preset: finalPreset };
+  } catch (err) {
+    console.error('[Storage] Failed to import preset:', err);
+    return { error: err.message };
+  }
+}
+
+module.exports = { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset, importPresetFromFile };

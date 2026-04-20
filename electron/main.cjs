@@ -284,7 +284,7 @@ ipcMain.handle("select-directory", async () => {
 });
 
 const { generatePlayground } = require("../DemoCLI/index.cjs");
-const { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset } = require("./storage.cjs");
+const { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset, importPresetFromFile } = require("./storage.cjs");
 
 ipcMain.handle("generate-playground", async (event, ...args) => {
   let result;
@@ -350,6 +350,16 @@ ipcMain.handle("preset-save",   (_event, preset) => savePreset(preset));
 ipcMain.handle("preset-list",   ()               => listPresets());
 ipcMain.handle("preset-delete", (_event, id)     => deletePreset(id));
 ipcMain.handle("preset-open-folder", ()          => openPresetsFolder());
+ipcMain.handle("preset-import", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    title: 'Import Preset',
+    filters: [{ name: 'JSON Preset', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (canceled || !filePaths.length) return { canceled: true };
+  return importPresetFromFile(filePaths[0]);
+});
 
 // Design inspiration image picker
 ipcMain.handle("design-pick-images", async (event) => {

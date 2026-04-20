@@ -100,6 +100,9 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   openPresetsFolder() {
     return ipcRenderer.invoke("preset-open-folder");
   },
+  importPreset() {
+    return ipcRenderer.invoke("preset-import");
+  },
   addComponent(payload) {
     return ipcRenderer.invoke("add-component", payload);
   },

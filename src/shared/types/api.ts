@@ -51,6 +51,7 @@ export interface ReactBitsApi {
   listPresets(): Promise<unknown>;
   deletePreset(id: string): Promise<unknown>;
   openPresetsFolder(): Promise<unknown>;
+  importPreset(): Promise<{ success?: boolean; preset?: unknown; canceled?: boolean; error?: string }>;
   addComponent(payload: NewComponentPayload): Promise<AddComponentResult>;
   pickDesignImages(): Promise<Array<{ name: string; path: string; base64: string }>>;
 }
