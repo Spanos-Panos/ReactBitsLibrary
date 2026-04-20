@@ -44,6 +44,186 @@ function runCommand(command, args, cwd, onLog) {
   });
 }
 
+// ── App.tsx structural scaffold builder ──────────────────────────────────────
+function buildAppScaffold(selectedComponents, layoutConfig) {
+  const lc = layoutConfig || [];
+  const allComponents = (selectedComponents || []).filter(c => c.name && c.category);
+
+  const hHint = { fullscreen: '100vh', large: '85vh', medium: '50vh', strip: '20vh' };
+  const ANIM_MOTION = {
+    'fade-in':  { init: '{ opacity: 0 }',                              view: '{ opacity: 1 }',                          dur: '0.6' },
+    'slide-up': { init: '{ y: 40, opacity: 0 }',                       view: '{ y: 0, opacity: 1 }',                    dur: '0.7' },
+    'scale-up': { init: '{ scale: 0.95, opacity: 0 }',                 view: '{ scale: 1, opacity: 1 }',                dur: '0.6' },
+    'blur-in':  { init: "{ filter: 'blur(8px)', opacity: 0 }",         view: "{ filter: 'blur(0px)', opacity: 1 }",     dur: '0.7' },
+  };
+  const CURSOR_NAMES = ['BlobCursor', 'Crosshair', 'ImageTrail', 'PixelTrail', 'SplashCursor', 'TargetCursor'];
+
+  let fixed = [];
+  let inFlow = [];
+
+  if (lc.length > 0) {
+    fixed = lc.filter(i => i.position === 'fixed');
+    inFlow = lc.filter(i => i.position === 'in-flow');
+  } else {
+    for (const c of allComponents) {
+      if (c.category === 'Backgrounds') {
+        fixed.push({ componentName: c.name, zLayer: 'background', entranceAnimation: 'none' });
+      } else if (CURSOR_NAMES.includes(c.name)) {
+        fixed.push({ componentName: c.name, zLayer: 'overlay', entranceAnimation: 'none' });
+      } else {
+        inFlow.push({ componentName: c.name, heightHint: 'fullscreen', entranceAnimation: 'none' });
+      }
+    }
+  }
+
+  const hasMotion = inFlow.some(i => i.entranceAnimation && i.entranceAnimation !== 'none' && ANIM_MOTION[i.entranceAnimation]);
+  const motionImport = hasMotion ? "import { motion } from 'framer-motion';\n" : '';
+
+  const imports = allComponents
+    .map(c => `import ${c.name} from './components/${c.category}/${c.name}/${c.name}';`)
+    .join('\n');
+
+  const fixedLines = fixed.map(item => {
+    const zIdx = item.zLayer === 'overlay' ? 9999 : 0;
+    return `      <${item.componentName} style={{ position: 'fixed', inset: 0, zIndex: ${zIdx}, pointerEvents: 'none' }} />`;
+  }).join('\n');
+
+  const sectionLines = [];
+  inFlow.forEach((item, idx) => {
+    const minH = hHint[item.heightHint] || '50vh';
+    const anim = ANIM_MOTION[item.entranceAnimation];
+    const styleVal = `{{ width: '100%', minHeight: '${minH}', position: 'relative', zIndex: 1 }}`;
+
+    sectionLines.push(`      {/* SECTION ${idx + 1} — ${item.componentName} */}`);
+    if (anim) {
+      sectionLines.push(`      <motion.section`);
+      sectionLines.push(`        style=${styleVal}`);
+      sectionLines.push(`        initial={${anim.init}}`);
+      sectionLines.push(`        whileInView={${anim.view}}`);
+      sectionLines.push(`        transition={{ duration: ${anim.dur}, ease: [0.16, 1, 0.3, 1] }}`);
+      sectionLines.push(`        viewport={{ once: true }}`);
+      sectionLines.push(`      >`);
+      sectionLines.push(`        {/* FILL: render <${item.componentName} /> with correct props here, plus surrounding content */}`);
+      sectionLines.push(`      </motion.section>`);
+    } else {
+      sectionLines.push(`      <section style=${styleVal}>`);
+      sectionLines.push(`        {/* FILL: render <${item.componentName} /> with correct props here, plus surrounding content */}`);
+      sectionLines.push(`      </section>`);
+    }
+  });
+
+  const fixedPart = fixedLines ? `\n      {/* ── Fixed / ambient layers — DO NOT MOVE outside this div ── */}\n${fixedLines}\n` : '';
+  const sectionsPart = sectionLines.length > 0 ? `\n      {/* ── Content sections — DO NOT REORDER ── */}\n${sectionLines.join('\n')}` : '';
+
+  return `${motionImport}${imports}\n\nexport default function App() {\n  return (\n    <div style={{ position: 'relative', minHeight: '100vh' }}>${fixedPart}${sectionsPart}\n    </div>\n  );\n}\n`;
+}
+
+// ── Layout spec builder ───────────────────────────────────────────────────────
+function buildPageLayoutSpec(enhancedPrompt, layoutConfig, ambientNames, cursorNames) {
+  const hHint = { fullscreen: '100vh', large: '85vh', medium: '50vh', strip: '20vh' };
+  const ANIM_MOTION = {
+    'fade-in':  { init: '{ opacity: 0 }',                        view: '{ opacity: 1 }',                        dur: '0.6' },
+    'slide-up': { init: '{ y: 40, opacity: 0 }',                 view: '{ y: 0, opacity: 1 }',                  dur: '0.7' },
+    'scale-up': { init: '{ scale: 0.95, opacity: 0 }',           view: '{ scale: 1, opacity: 1 }',              dur: '0.6' },
+    'blur-in':  { init: "{ filter: 'blur(8px)', opacity: 0 }",   view: "{ filter: 'blur(0px)', opacity: 1 }",   dur: '0.7' },
+  };
+
+  const lc = layoutConfig || [];
+  const fixed  = lc.filter(i => i.position === 'fixed');
+  const inFlow = lc.filter(i => i.position === 'in-flow');
+
+  // Cross-reference with enhancedPrompt sections for any extra context
+  const sections = enhancedPrompt?.siteArchitecture?.sections || [];
+
+  const lines = ['# PAGE LAYOUT SPECIFICATION', ''];
+  lines.push('Build the page in this exact section order. Heights, z-indices, and positions are fixed constraints. Visual styling, content, and spacing are yours to decide.');
+  lines.push('');
+
+  // Fixed layers
+  if (fixed.length > 0 || ambientNames.length > 0) {
+    lines.push('## Fixed Layers (render at App root, OUTSIDE all `<section>` elements):');
+    lines.push('```tsx');
+    const renderedFixed = new Set();
+    for (const item of fixed) {
+      lines.push(`<${item.componentName} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />`);
+      renderedFixed.add(item.componentName);
+    }
+    for (const name of ambientNames) {
+      if (!renderedFixed.has(name)) {
+        lines.push(`<${name} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />`);
+      }
+    }
+    for (const name of cursorNames) {
+      lines.push(`<${name} style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }} />`);
+    }
+    lines.push('```');
+    lines.push('');
+  }
+
+  // Content sections table
+  if (inFlow.length > 0) {
+    lines.push('## Content Sections (top → bottom):');
+    lines.push('| # | Component | Min-Height | Width | Align | Notes |');
+    lines.push('|---|-----------|------------|-------|-------|-------|');
+    inFlow.forEach((item, idx) => {
+      const height = hHint[item.heightHint] || '50vh';
+      const width  = item.widthHint === 'half' ? '50%' : item.widthHint === 'third' ? '33%' : '100%';
+      const align  = item.xAlign === 'center' ? 'center' : item.xAlign === 'right' ? 'right' : 'left';
+      // Find matching section in enhancedPrompt for any role notes
+      const matchedSection = sections.find(s => (s.componentRef || '').toLowerCase().includes(item.componentName.toLowerCase()));
+      const notes = matchedSection?.content?.headline ? `headline: "${matchedSection.content.headline}"` : '';
+      lines.push(`| ${idx + 1} | ${item.componentName} | ${height} | ${width} | ${align} | ${notes} |`);
+    });
+    lines.push('');
+
+    // Entrance animations
+    const animated = inFlow.filter(i => i.entranceAnimation && i.entranceAnimation !== 'none' && ANIM_MOTION[i.entranceAnimation]);
+    if (animated.length > 0) {
+      lines.push('## Entrance Animations (Framer Motion `whileInView`):');
+      lines.push('Wrap each listed section\'s root element with the corresponding motion wrapper:');
+      lines.push('```tsx');
+      animated.forEach(item => {
+        const m = ANIM_MOTION[item.entranceAnimation];
+        lines.push(`// ${item.componentName} — ${item.entranceAnimation}`);
+        lines.push(`<motion.section initial={${m.init}} whileInView={${m.view}}`);
+        lines.push(`  transition={{ duration: ${m.dur}, ease: [0.16, 1, 0.3, 1] }} viewport={{ once: true }}>`);
+        lines.push('');
+      });
+      lines.push('```');
+      lines.push('');
+    }
+
+    // Multi-column hint
+    const multiCol = inFlow.filter(i => i.widthHint === 'half' || i.widthHint === 'third');
+    if (multiCol.length >= 2) {
+      lines.push('## Multi-Column Layout:');
+      lines.push(`Components ${multiCol.map(i => `**${i.componentName}**`).join(' and ')} are configured for partial width — place them side-by-side in a flex or CSS grid row.`);
+      lines.push('');
+    }
+  }
+
+  // Generic structural rules (always included)
+  lines.push('## Section Structure Pattern:');
+  lines.push('Use this for every in-flow content section:');
+  lines.push('```tsx');
+  lines.push('<section style={{ width: \'100%\', padding: \'8rem 0\', position: \'relative\', zIndex: 1 }}>');
+  lines.push('  <div style={{ maxWidth: \'var(--max-width, 1280px)\', margin: \'0 auto\', padding: \'0 clamp(1.5rem, 5vw, 5rem)\' }}>');
+  lines.push('    {/* content */}');
+  lines.push('  </div>');
+  lines.push('</section>');
+  lines.push('```');
+  lines.push('NEVER apply `max-width` to the outer `<section>` — only to the inner wrapper `<div>`. ALL content sections MUST have `position: relative; zIndex: 1` to stack above fixed backgrounds.');
+  lines.push('');
+  lines.push('**Layout variety rules:**');
+  lines.push('- NEVER create three equal-width cards in a single row — use 2-col asymmetric or full-width alternating layout');
+  lines.push('- Hero sections must be at minimum 85vh tall');
+  lines.push('- Alternate section backgrounds using `var(--color-primary)` or `var(--color-accent)` for 1–2 non-hero sections');
+  lines.push('- Left-align body text in most sections — centered text for heroes and short CTAs only');
+  lines.push('- Do NOT wrap full-viewport components in fixed-height containers');
+
+  return lines.join('\n');
+}
+
 async function generateViteReact(options) {
   const { targetDir, projectName, componentCategory, componentName, componentFiles, usageCode, selectedComponents, enhancedPrompt, packageManager, installData, onProgress, onLog } = options;
   const notify = (msg) => { if (onProgress) onProgress(msg); };
@@ -197,10 +377,11 @@ async function generateViteReact(options) {
     }
     await fs.writeFile(appTsxPath, modifiedUsageCode, 'utf-8');
   } else {
-    // For AI builds, write a temporary loading screen so Vite doesn't crash on missing SVGs while Claude generates code
+    // For AI builds, inject a structural scaffold — fixed layers placed, sections stubbed
+    // with correct heights and entrance animations. Claude Code fills in props + content only.
     const appTsxPath = path.join(targetDir, 'src', 'App.tsx');
-    const tempAiApp = `export default function App() {\n  return (\n    <div style={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', color: '#fff', fontFamily: 'monospace' }}>\n      <p style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>Claude is building your site. Please wait...</p>\n    </div>\n  );\n}\n`;
-    await fs.writeFile(appTsxPath, tempAiApp, 'utf-8');
+    const scaffoldApp = buildAppScaffold(selectedComponents, options.layoutConfig || null);
+    await fs.writeFile(appTsxPath, scaffoldApp, 'utf-8');
   }
 
   notify(`Cleaning up boilerplate styles...`);
@@ -301,9 +482,15 @@ async function generateViteReact(options) {
     const dt = enhancedPrompt?.designTokens || {};
     const dtColors = dt.colors || {};
     const dtTypo = dt.typography || {};
-    const headingFont = (dtTypo.heading || dtTypo.headingFont || '').split(',')[0].trim();
-    const bodyFont   = (dtTypo.body    || dtTypo.bodyFont    || '').split(',')[0].trim();
-    const accentFont = (dtTypo.accent  || dtTypo.accentFont  || '').split(',')[0].trim();
+    const resolveFont = (v) => {
+      if (!v) return '';
+      if (typeof v === 'string') return v.split(',')[0].trim();
+      if (typeof v === 'object') return (v.family || v.font || '').split(',')[0].trim();
+      return '';
+    };
+    const headingFont = resolveFont(dtTypo.heading || dtTypo.headingFont);
+    const bodyFont   = resolveFont(dtTypo.body    || dtTypo.bodyFont);
+    const accentFont = resolveFont(dtTypo.accent  || dtTypo.accentFont);
     const maxWidthMatch = (enhancedPrompt?.technicalRequirements?.layoutStrategy || '').match(/(\d{3,4})px/);
     const maxWidthPx = maxWidthMatch ? maxWidthMatch[1] : '1280';
     // Detect aesthetic from mood string (enhancer sets projectMeta.mood)
@@ -357,12 +544,17 @@ ${isBrutalist ? '*, *::before, *::after { border-radius: 0 !important; }' : ''}$
 
 Do not add any rules before \`@import "tailwindcss"\` — it will break the build.`;
 
+    // ── Build page layout spec from user's layout config ─────────────────────
+    const layoutConfig = options.layoutConfig || null;
+    const pageLayoutSpec = buildPageLayoutSpec(enhancedPrompt, layoutConfig, ambientNames, cursorNames);
+
     // ── Write CLAUDE.md (self-contained mission brief) ────────────────────────
     const claudeMdContent = `# MISSION
 
 You are a senior React + TypeScript developer and UI designer. Build a complete, production-quality site.
 
 - **Editable files**: \`src/App.tsx\`, \`src/index.css\`, \`index.html\` — do not create other source files
+- **App.tsx is pre-scaffolded**: section structure, heights, z-indices, and entrance animations are already written. Fill in component props and content — do NOT restructure or reorder
 - **Stack**: Vite + React 18 (TypeScript) + Tailwind CSS v4
 - **Stop condition**: when \`npx tsc --noEmit\` passes with zero errors, output the word **DONE** and stop
 
@@ -423,39 +615,12 @@ ${JSON.stringify(enhancedPrompt, null, 2)}
 
 ---
 
-# LAYOUT RULES
+${pageLayoutSpec}
 
-${ambientNames.length > 0 ? `**Ambient / Background components** (${ambientNames.join(', ')}):
-\`\`\`tsx
-<ComponentName style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />
-\`\`\`` : ''}
-
-${cursorNames.length > 0 ? `**Cursor / Overlay components** (${cursorNames.join(', ')}):
-\`\`\`tsx
-<ComponentName style={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }} />
-\`\`\`` : ''}
-
-**Section structure** — use this pattern for every content section to prevent left/right gaps and ensure content renders above fixed backgrounds:
-\`\`\`tsx
-<section style={{ width: '100%', padding: '8rem 0', position: 'relative', zIndex: 1 }}>
-  <div style={{ maxWidth: 'var(--max-width, 1280px)', margin: '0 auto', padding: '0 clamp(1.5rem, 5vw, 5rem)' }}>
-    {/* content */}
-  </div>
-</section>
-\`\`\`
-NEVER apply \`max-width\` to the outer \`<section>\` — only to the inner wrapper \`<div>\`. ALL content \`<section>\` elements MUST have \`position: relative; zIndex: 1\` to stack above fixed background components.
-
-- Do **NOT** wrap full-viewport components in fixed-height containers
-- Use Tailwind classes and/or inline styles for all layout and spacing
 - Do **NOT** scan \`node_modules\` or install new packages unless \`tsc\` reveals a missing \`@types/\` package
-
-**Layout variety — avoid AI-generic patterns:**
-- NEVER create three equal-width cards in a single row — use 2-col asymmetric or full-width alternating layout
-- NEVER apply identical padding to every section — vary: hero 0, feature sections 8rem, closing 16rem
-- Hero sections must be at minimum \`85vh\` tall
-- Alternate section backgrounds: use \`var(--color-primary)\` or \`var(--color-accent)\` as the background color for 1–2 non-hero sections
-- Left-align body text in most sections — centered text is for heroes and short CTAs only
+- Use Tailwind classes and/or inline styles for all layout and spacing
 - Stats and numbers: display at \`4rem\` minimum font-size, not in small badge cards
+- NEVER apply identical padding to every section — vary: hero 0, feature sections 8rem, closing 16rem
 
 ---
 
@@ -486,7 +651,7 @@ ${cssFundamentals}
 3. Commit to an aesthetic direction (typography, color, spatial layout) true to the design brief mood
 4. Add Google Fonts \`<link>\` to \`index.html\` for the fonts in \`designTokens.typography\`
 5. Write the CSS foundation (variables, resets) in \`src/index.css\` as specified in CSS FOUNDATION above
-6. Write \`src/App.tsx\` — complete file, real content, no placeholders; verify every MANDATORY COMPONENT is rendered
+6. Fill in \`src/App.tsx\` — the structural scaffold is already in place (fixed layers, section stubs, entrance animations). Your job: replace each \`{/* FILL */}\` comment with the real component and surrounding content. Do NOT change section order, \`minHeight\`, \`position\`, or \`zIndex\` values — those are locked constraints
 7. Run: \`npx tsc --noEmit\`
 8. If errors → fix them and re-run \`tsc\`
 9. When \`tsc\` is clean → output **DONE** and stop

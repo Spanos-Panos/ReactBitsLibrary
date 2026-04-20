@@ -1,7 +1,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-const TIMEOUT_MS = 6 * 60 * 1000; // 6 minutes
+const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 // ── Stream-JSON message formatter ─────────────────────────────────────────────
 
@@ -87,7 +87,7 @@ async function generateCode({ projectPath, onProgress }, _attempt = 0) {
 
     // Kill after timeout
     const timeoutHandle = setTimeout(() => {
-      notify('[Generator] ⏱ Timed out after 6 minutes. Terminating...');
+      notify('[Generator] ⏱ Timed out after 15 minutes. Terminating...');
       if (isWin) {
         try {
           require('child_process').execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: 'ignore' });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactBitsItem, LayoutConfig, LayoutItem } from "./shared/types/index";
+import { getRoleData } from "./shared/data/componentRoles";
 import "./shared/types/api";
 import { useComponentLoader }   from "./shared/hooks/useComponentLoader";
 import { useTaskManager }       from "./shared/hooks/useTaskManager";
@@ -162,7 +163,7 @@ function App() {
       let result;
       if (isMasterBuild) {
         result = await window.reactBitsApi.generatePlayground({
-          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
+          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null },
           selectedComponents: await Promise.all(selectedComponents.map(c => window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
           enhancedPrompt: lastEnhancedPrompt,
         }, null, taskId);
@@ -256,9 +257,13 @@ function App() {
         })
       );
       setGenerateStatus("AI Architect is designing your project...");
+      const componentRoleContext = selectedComponents.map(c => {
+        const role = getRoleData(c.name);
+        return { name: c.name, role: role?.roles[0] ?? 'ui', footprint: role?.footprint ?? 'contained', behaviors: role?.behavior ?? [] };
+      });
       const enhanceResult = await window.reactBitsApi.enhancePrompt({
         rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
-        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, styleDirection, clientBrief, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null },
+        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, styleDirection, clientBrief, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, componentRoleContext },
       });
       const enhanceData = enhanceResult as any;
       if (enhanceData.success) {

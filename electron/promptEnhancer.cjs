@@ -193,38 +193,98 @@ async function enhancePrompt(options) {
       }
     }
 
-    // Layout blueprint block — built from structured layoutConfig if present, fallback to legacy layoutMd
+    // Layout vision block — rich contextual layout guidance for Claude
     const zNum = { background: 0, content: 1, overlay: 9999 };
     const hHint = { fullscreen: '100vh', large: '85vh', medium: '50vh', strip: '20vh' };
 
-    function buildLayoutBlockFromConfig(lc) {
+    const ANIM_MAP = {
+      'fade-in':  "initial: {opacity:0} → whileInView: {opacity:1}",
+      'slide-up': "initial: {y:40, opacity:0} → whileInView: {y:0, opacity:1}",
+      'scale-up': "initial: {scale:0.95, opacity:0} → whileInView: {scale:1, opacity:1}",
+      'blur-in':  "initial: {filter:'blur(8px)', opacity:0} → whileInView: {filter:'blur(0px)', opacity:1}",
+    };
+
+    function buildLayoutBlockFromConfig(lc, roleCtx) {
       if (!lc || lc.length === 0) return '';
+      const roleMap = {};
+      (roleCtx || []).forEach(r => { roleMap[r.name] = r; });
+
       const fixed  = lc.filter(i => i.position === 'fixed');
       const inFlow = lc.filter(i => i.position === 'in-flow');
-      const lines  = ['\n\n## USER-CONFIGURED LAYOUT BLUEPRINT', ''];
-      if (fixed.length) {
-        lines.push('### Fixed / Ambient Layers (rendered outside page flow):');
-        for (const item of fixed)
-          lines.push(`- **${item.componentName}**: position:fixed, inset:0, z-index:${zNum[item.zLayer]}, pointerEvents:none`);
+      const lines  = ['\n\n## LAYOUT VISION', ''];
+
+      // Scroll narrative
+      if (inFlow.length > 0) {
+        const narrativeParts = inFlow.map(item => {
+          const r = roleMap[item.componentName];
+          const role = r?.role || 'section';
+          const isHero = role === 'hero' || role === 'hero-3d';
+          const behaviors = r?.behaviors || [];
+          if (isHero) return `immersive ${behaviors.includes('physics') ? 'physics ' : ''}hero (${item.componentName})`;
+          if (role === 'gallery') return `visual gallery (${item.componentName})`;
+          if (role === 'scroll-driver') return `scroll-driven experience (${item.componentName})`;
+          if (role === 'navigation') return `navigation (${item.componentName})`;
+          if (item.heightHint === 'strip') return `compact CTA strip (${item.componentName})`;
+          return `${role} section (${item.componentName})`;
+        });
+        const lastPart = narrativeParts.pop();
+        const narrative = narrativeParts.length > 0
+          ? `Opens with ${narrativeParts.join(', transitions through ')}, closes with ${lastPart}.`
+          : `Single-section focus: ${lastPart}.`;
+        lines.push(`**Page narrative:** ${narrative}`);
         lines.push('');
       }
+
+      // Fixed / ambient layers
+      if (fixed.length) {
+        lines.push('### Always-On Layers (position:fixed, outside page flow):');
+        for (const item of fixed) {
+          const r = roleMap[item.componentName];
+          const rolePart = r ? `${r.role} · ${r.behaviors.join('/')}` : 'ambient';
+          lines.push(`- **${item.componentName}** [${rolePart}] → z:${zNum[item.zLayer]}, inset:0, pointer-events:none`);
+        }
+        lines.push('');
+      }
+
+      // In-flow content sections
       if (inFlow.length) {
-        lines.push('### Page Sections — render in this EXACT order, no exceptions:');
+        lines.push('### Content Sections — scroll top → bottom:');
         inFlow.forEach((item, idx) => {
-          lines.push(`${idx + 1}. **${item.componentName}**: min-height=${hHint[item.heightHint]}, align=${item.xAlign}, z-index:${zNum[item.zLayer] || 1}`);
+          const r = roleMap[item.componentName];
+          const rolePart = r ? `${r.role} · ${r.behaviors.join('/')}` : 'content';
+          const widthNote = item.widthHint === 'half' ? 'half-width' : item.widthHint === 'third' ? 'one-third-width' : item.widthHint === 'full' ? 'full-width' : 'contained';
+          const alignNote = item.xAlign === 'center' ? 'centered' : item.xAlign === 'right' ? 'right-aligned' : item.xAlign === 'full-width' ? 'full-width' : 'left-aligned';
+          lines.push(`${idx + 1}. **${item.componentName}** [${rolePart}] → ${hHint[item.heightHint]}, ${widthNote}, ${alignNote}, z:${zNum[item.zLayer] || 1}`);
+          const anim = ANIM_MAP[item.entranceAnimation];
+          if (anim) lines.push(`   → Entrance: ${item.entranceAnimation} — ${anim}`);
         });
         lines.push('');
       }
+
+      // Width patterns (only if any non-full)
+      const hasNonFull = inFlow.some(i => i.widthHint === 'half' || i.widthHint === 'third');
+      if (hasNonFull) {
+        lines.push('### Width Patterns:');
+        lines.push('- half-width or one-third-width sections: place components side-by-side in a flex/grid row');
+        lines.push('- full-width sections: section spans 100vw with optional inner max-width wrapper');
+        lines.push('');
+      }
+
       lines.push('### Interpretation rules:');
       lines.push('- height: fullscreen→min-height:100vh | large→min-height:85vh | medium→min-height:50vh | strip→min-height:20vh');
-      lines.push('- align: full-width→section width:100% | left→content left-aligned, text-align:left | center→content centered | right→content right-aligned');
+      lines.push('- align: full-width→section width:100% | left→content left-aligned | center→content centered | right→content right-aligned');
       lines.push('- All in-flow sections: position:relative, z-index:1 minimum');
+      lines.push('- physics/3d components: render in sections with overflow:hidden to prevent layout thrash');
+      lines.push('- scroll-driven components: ensure section has explicit height, not auto');
       return lines.join('\n');
     }
 
     let layoutBlock = '';
     if (systemContext?.layoutConfig?.length > 0) {
-      layoutBlock = buildLayoutBlockFromConfig(systemContext.layoutConfig);
+      layoutBlock = buildLayoutBlockFromConfig(
+        systemContext.layoutConfig,
+        systemContext.componentRoleContext || []
+      );
     } else if (systemContext?.layoutMd) {
       layoutBlock = `\n\n${systemContext.layoutMd}`;
     }
@@ -332,7 +392,7 @@ async function enhancePrompt(options) {
       const startIdx = responseText.indexOf('{');
       const endIdx = responseText.lastIndexOf('}');
       if (startIdx === -1 || endIdx === -1) throw new Error("No JSON object found in response");
-      
+
       let jsonCandidate = responseText.substring(startIdx, endIdx + 1);
 
       // Strip lines containing JS function/JSX values that would break JSON.parse.
@@ -340,6 +400,36 @@ async function enhancePrompt(options) {
       jsonCandidate = jsonCandidate
         .replace(/^\s*"[^"]+"\s*:\s*(?:\([^)]*\)\s*=>|function\s*\()[^\n]*,?\n/gm, '')
         .replace(/^\s*"[^"]+"\s*:\s*<[A-Z][^>]*\/>\s*,?\n/gm, '');   // strip JSX values
+
+      // Sanitize literal control characters inside JSON string values.
+      // Claude sometimes embeds raw newlines/tabs inside string fields which breaks JSON.parse.
+      // We scan char-by-char so we only touch characters inside string values.
+      {
+        let sanitized = '';
+        let inString = false;
+        let i = 0;
+        while (i < jsonCandidate.length) {
+          const ch = jsonCandidate[i];
+          if (inString) {
+            if (ch === '\\') {
+              // Already-escaped sequence — copy both characters as-is
+              sanitized += ch + (jsonCandidate[i + 1] || '');
+              i += 2;
+              continue;
+            }
+            if (ch === '"') { inString = false; sanitized += ch; }
+            else if (ch === '\n') { sanitized += '\\n'; }
+            else if (ch === '\r') { sanitized += '\\r'; }
+            else if (ch === '\t') { sanitized += '\\t'; }
+            else { sanitized += ch; }
+          } else {
+            if (ch === '"') inString = true;
+            sanitized += ch;
+          }
+          i++;
+        }
+        jsonCandidate = sanitized;
+      }
 
       enhancedPrompt = JSON.parse(jsonCandidate);
     } catch (parseErr) {
