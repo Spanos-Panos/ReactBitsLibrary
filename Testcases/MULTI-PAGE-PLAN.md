@@ -188,20 +188,20 @@
 ## 8. Progress & Task Display
 
 - [x] **8.1** Reuse existing `TaskBar` / `TaskOverlay` — generator emits same IPC events automatically
-- [ ] **8.2** Add distinct task type label `"Structure"` vs `"Demo"` in the task system
-- [ ] **8.3** Success notification shows: `"{ProjectName} — {N} pages ready"`
+- [x] **8.2** Add distinct task type label `"Structure"` vs `"Demo"` in the task system
+- [x] **8.3** Success notification shows: `"{ProjectName} — {N} pages ready"`
 
 ---
 
 ## 9. Preset System Integration
 
-- [ ] **9.1** Include `pages` state in `SavedPreset` interface (schema v4)
+- [x] **9.1** Include `pages` state in `SavedPreset` interface (schema v4)
   ```ts
   pages?: PageConfig[];   // v4 addition
   ```
-- [ ] **9.2** Save `pages` in `handleSavePreset` in `App.tsx`
-- [ ] **9.3** Restore `pages` in `handleLoadPreset` (fallback: default single Home page)
-- [ ] **9.4** Bump `PRESET_SCHEMA_VERSION` to `4`
+- [x] **9.2** Save `pages` in `handleSavePreset` in `App.tsx`
+- [x] **9.3** Restore `pages` in `handleLoadPreset` (fallback: default single Home page)
+- [x] **9.4** Bump `PRESET_SCHEMA_VERSION` to `4`
 
 ---
 
@@ -222,20 +222,21 @@
 
 ## 11. Verification Checklist
 
-- [ ] App loads, Pages tab is visible in the builder panel
-- [ ] Can add up to 4 pages, each with a title and type
-- [ ] Without a navbar selected: "Generate Project Structure" button is disabled
-- [ ] With a navbar selected: button is enabled, modal opens
-- [ ] Modal shows correct page summary, approach selector defaults to Free
-- [ ] Clicking Generate creates the project in the output directory
-- [ ] Generated project runs with `npm run dev` without errors
-- [ ] Navigating between routes works (navbar links go to correct pages)
-- [ ] Each page renders only its assigned components
-- [ ] `tsc --noEmit` passes on the generated project
-- [ ] Preset save/load round-trips the pages config correctly
+- [x] App loads, Pages tab is visible in the builder panel
+- [x] Can add up to 4 pages, each with a title and type
+- [x] Without a navbar selected: "Generate Project Structure" button is disabled
+- [x] With a navbar selected: button is enabled, modal opens
+- [x] Modal shows correct page summary, approach selector defaults to Free
+- [x] Clicking Generate creates the project in the output directory
+- [x] Generated project runs with `npm run dev` without errors
+- [x] Navigating between routes works (navbar links go to correct pages)
+- [x] Each page renders only its assigned components
+- [x] `tsc --noEmit` passes on the generated project
+- [x] Preset save/load round-trips the pages config correctly
 
 ---
 
 *Created: 2026-04-21 | Branch: app-new-frontend | Priority: Ship the no-cost generator (sections 1–8) first*
 *Session 1 (2026-04-21): Sections 1, 6, 7 complete*
 *Session 2 (2026-04-21): Sections 2, 3, 4, 5 complete — zero TypeScript errors — remaining: 8.2, 8.3, 9.x*
+*Session 3 (2026-04-21): Sections 8.2, 8.3, 9.1–9.4 complete — zero TypeScript errors — ALL TASKS DONE ✅*
