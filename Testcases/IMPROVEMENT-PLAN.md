@@ -161,16 +161,16 @@ Could offer the user a **Quality tier selector**: Fast ($0.30, Haiku enhance), S
 
 ## Work Order (Suggested Priority)
 
-| # | Issue | Effort | Impact |
-|---|-------|--------|--------|
-| 1 | All selected components must appear in output | Small | High |
-| 2 | Style enforcement rules per style direction | Medium | High |
-| 3 | Layout personality hints per style | Medium | High |
-| 4 | Color contrast rules in CLAUDE.md | Small | Med-High |
-| 5 | Fix excessive horizontal padding | Small | Medium |
-| 6 | Scrollbar hide/customize UI + CSS injection | Small | Medium |
-| 7 | Screenshot polish loop | Large | High |
-| 8 | Internet reference search at generation time | Large | High |
+| # | Issue                                                 | Effort | Impact   |
+|---|-------------------------------------------------------|--------|----------|
+| 1 | All selected components must appear in output         | Small  | High     |
+| 2 | Style enforcement rules per style direction           | Medium | High     |
+| 3 | Layout personality hints per style                    | Medium | High     |
+| 4 | Color contrast rules in CLAUDE.md                     | Small  | Med-High |
+| 5 | Fix excessive horizontal padding                      | Small  | Medium   |
+| 6 | Scrollbar hide/customize UI + CSS injection           | Small  | Medium   |
+| 7 | Screenshot polish loop                                | Large  | High     |
+| 8 | Internet reference search at generation time          | Large  | High     |
 
 Start with 1, 2, 4 — all are CLAUDE.md / prompt changes, low risk, high leverage.
 

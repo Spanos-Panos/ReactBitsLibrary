@@ -1,8 +1,6 @@
 # Dependency directories
 node_modules/
 
-examples/
-
 # Build outputs
 dist/
 dist-ssr/
