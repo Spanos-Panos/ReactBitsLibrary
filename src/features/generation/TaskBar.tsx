@@ -21,7 +21,8 @@ export default function TaskBar({
     <div className="task-bar">
       <span style={{ fontSize: '12px', opacity: 0.6, marginRight: '8px' }}>Active Tasks:</span>
       {taskList.map(task => {
-        const isAiBuild   = task.name?.toLowerCase().includes('ai') || task.name?.toLowerCase().includes('build');
+        const isStructure = task.type === 'structure';
+        const isAiBuild   = !isStructure && (task.name?.toLowerCase().includes('ai') || task.name?.toLowerCase().includes('build'));
         const isCompleted = task.status === 'success';
         const reworkReady = reworkReadyTaskIds.has(task.id);
 
@@ -32,7 +33,21 @@ export default function TaskBar({
             onClick={() => onSelect(task.id)}
           >
             <div className="status-dot"></div>
-            <span className="task-name">{task.name} ({task.projectName})</span>
+            {/* Task type badge */}
+            {isStructure && (
+              <span style={{
+                fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em',
+                padding: '1px 6px', borderRadius: 4,
+                border: '1px solid rgba(251,146,60,0.35)',
+                background: 'rgba(251,146,60,0.1)',
+                color: 'rgba(251,146,60,0.9)',
+                flexShrink: 0,
+                userSelect: 'none',
+              }}>
+                PAGES
+              </span>
+            )}
+            <span className="task-name">{task.projectName}</span>
 
             {/* Vision Rework pill — shown on completed AI Build tasks */}
             {isAiBuild && isCompleted && onVisionRework && (

@@ -246,6 +246,7 @@ function App() {
       packageManager,
       styleDirection,
       clientBrief,
+      pages,
     });
   };
 
@@ -259,6 +260,8 @@ function App() {
     // v2 fields — fall back to defaults for old presets that don't have them
     setStyleDirection(preset.styleDirection ?? DEFAULT_STYLE_DIRECTION);
     setClientBrief(preset.clientBrief ?? DEFAULT_CLIENT_BRIEF);
+    // v4 field — fall back to a single Home page for old presets
+    setPages(preset.pages ?? [{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
     setToastType('success');
     setGenerateStatus(`✓ Loaded "${preset.name}"`);
     setTimeout(() => setGenerateStatus(''), 3000);
@@ -305,7 +308,7 @@ function App() {
 
   const handleStructureConfirm = async () => {
     const taskId = `structure-${Date.now()}`;
-    const task = { id: taskId, name: 'Structure', projectName: structureWizard.projectName, progress: 'Starting...', logs: [], status: 'running' as const, type: 'component' as const };
+    const task = { id: taskId, name: 'Structure', projectName: structureWizard.projectName, progress: 'Starting...', logs: [], status: 'running' as const, type: 'structure' as const };
     setTasks(prev => ({ ...prev, [taskId]: task }));
     setActiveTaskId(taskId);
     structureWizard.close();
@@ -326,10 +329,23 @@ function App() {
       selectedComponents: componentsWithFiles as any,
     } as any);
 
+    const pageCount = structureWizard.pages.length;
+    const successMsg = `${structureWizard.projectName} — ${pageCount} page${pageCount !== 1 ? 's' : ''} ready`;
+
     setTasks(prev => ({
       ...prev,
-      [taskId]: { ...prev[taskId], status: result.success ? 'success' : 'error', progress: result.success ? `${structureWizard.projectName} — ${structureWizard.pages.length} page${structureWizard.pages.length !== 1 ? 's' : ''} ready` : (result.error ?? 'Failed') },
+      [taskId]: { ...prev[taskId], status: result.success ? 'success' : 'error', progress: result.success ? successMsg : (result.error ?? 'Failed') },
     }));
+
+    if (result.success) {
+      setToastType('success');
+      setGenerateStatus(successMsg);
+      setTimeout(() => setGenerateStatus(''), 6000);
+    } else {
+      setToastType('warning');
+      setGenerateStatus(`Structure generation failed: ${result.error ?? 'Unknown error'}`);
+      setTimeout(() => setGenerateStatus(''), 6000);
+    }
   };
 
   const handleCloseTask = async (id: string) => {

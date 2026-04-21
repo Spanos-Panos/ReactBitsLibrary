@@ -5,7 +5,7 @@ export interface Task {
   progress: string;
   logs: string[];
   status: 'running' | 'success' | 'error';
-  type?: 'component' | 'web';
+  type?: 'component' | 'web' | 'structure';
   error?: string;
   path?: string;
 }

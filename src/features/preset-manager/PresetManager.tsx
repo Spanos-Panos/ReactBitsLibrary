@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import "../../shared/types/api";
 import type { DesignRules, StyleDirection, ClientBrief } from '../project-builder/ProjectBuilderPanel';
-import type { LayoutConfig } from '../../shared/types/index';
+import type { LayoutConfig, PageConfig } from '../../shared/types/index';
 
 // ── Schema version ──────────────────────────────────────────────────────────────
 // v1: original  (projectPrompt, selectedComponentIds, designRules, layoutConcept, projectName, packageManager)
 // v2: adds      styleDirection, clientBrief
 // v3: adds      layoutConfig (replaces layoutConcept)
-export const PRESET_SCHEMA_VERSION = 3;
+// v4: adds      pages (multi-page structure config)
+export const PRESET_SCHEMA_VERSION = 4;
 
 export interface SavedPreset {
   id: string;
@@ -24,6 +25,8 @@ export interface SavedPreset {
   // v2 additions — may be absent in old presets, always fall back to defaults on load
   styleDirection?: StyleDirection;
   clientBrief?: ClientBrief;
+  // v4 addition — absent in old presets, falls back to a single Home page on load
+  pages?: PageConfig[];
 }
 
 interface PresetManagerProps {
@@ -49,6 +52,7 @@ const getPresetBadges = (preset: SavedPreset) => {
     if (preset.clientBrief?.brandName) badges.push({ label: 'Brief', color: '#34d399' });
   }
   if (preset.layoutConfig?.length) badges.push({ label: `${preset.layoutConfig.length} Zones`, color: '#fb923c' });
+  if (preset.pages && preset.pages.length > 1) badges.push({ label: `${preset.pages.length} Pages`, color: '#fb923c' });
   if (preset.designRules?.fonts?.length) badges.push({ label: `${preset.designRules.fonts.length} Font${preset.designRules.fonts.length > 1 ? 's' : ''}`, color: '#a78bfa' });
   if (preset.designRules?.colors?.length) badges.push({ label: `${preset.designRules.colors.length} Color${preset.designRules.colors.length > 1 ? 's' : ''}`, color: '#f472b6' });
   if (preset.designRules?.images?.length) badges.push({ label: `${preset.designRules.images.length} Img`, color: '#facc15' });
