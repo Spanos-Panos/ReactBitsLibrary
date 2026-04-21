@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import type { ReactBitsItem, LayoutConfig, LayoutItem } from "./shared/types/index";
+import type { ReactBitsItem, LayoutConfig, LayoutItem, PageConfig } from "./shared/types/index";
 import { getRoleData } from "./shared/data/componentRoles";
 import "./shared/types/api";
 import { useComponentLoader }   from "./shared/hooks/useComponentLoader";
@@ -14,6 +14,8 @@ import ComponentListPane from "./features/browser/ComponentListPane";
 import ComponentInspector from "./features/inspector/ComponentInspector";
 import GenerationQueue from "./features/generation/GenerationQueue/GenerationQueue";
 import GenerateWizard from "./features/generation/GenerateWizard";
+import StructureWizard from "./features/generation/StructureWizard";
+import { useStructureWizard } from "./shared/hooks/useStructureWizard";
 import TaskBar from "./features/generation/TaskBar";
 import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
@@ -85,6 +87,8 @@ function App() {
   const [clientBrief,          setClientBrief]          = useState<ClientBrief>(DEFAULT_CLIENT_BRIEF);
   const [layoutConfig,         setLayoutConfig]         = useState<LayoutConfig>([]);
   const [scrollbarStyle,       setScrollbarStyle]       = useState<ScrollbarStyle>({ mode: 'default' });
+  const [pages,                setPages]                = useState<PageConfig[]>([{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
+  const structureWizard = useStructureWizard();
   const [polishPass,           setPolishPass]           = useState(false);
 
   const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<any>(null);
@@ -295,6 +299,39 @@ function App() {
     setTimeout(() => setGenerateStatus(""), 5000);
   };
 
+  const handleGenerateStructure = (pgs: PageConfig[], navbarId: string) => {
+    structureWizard.open(pgs, navbarId, projectName || 'my-site');
+  };
+
+  const handleStructureConfirm = async () => {
+    const taskId = `structure-${Date.now()}`;
+    const task = { id: taskId, name: 'Structure', projectName: structureWizard.projectName, progress: 'Starting...', logs: [], status: 'running' as const, type: 'component' as const };
+    setTasks(prev => ({ ...prev, [taskId]: task }));
+    setActiveTaskId(taskId);
+    structureWizard.close();
+
+    const componentsWithFiles = await Promise.all(
+      selectedComponents.map(async (comp) => {
+        try { return await window.reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id); }
+        catch { return { id: comp.id, name: comp.name, category: comp.category, files: [], usage: '', install: '' }; }
+      })
+    );
+
+    const result = await window.reactBitsApi.generateStructure({
+      pages: structureWizard.pages,
+      navbarComponentId: structureWizard.navbarId,
+      projectName: structureWizard.projectName,
+      outputPath: structureWizard.outputPath,
+      packageManager: structureWizard.packageManager,
+      selectedComponents: componentsWithFiles as any,
+    } as any);
+
+    setTasks(prev => ({
+      ...prev,
+      [taskId]: { ...prev[taskId], status: result.success ? 'success' : 'error', progress: result.success ? `${structureWizard.projectName} — ${structureWizard.pages.length} page${structureWizard.pages.length !== 1 ? 's' : ''} ready` : (result.error ?? 'Failed') },
+    }));
+  };
+
   const handleCloseTask = async (id: string) => {
     await window.reactBitsApi?.terminateTask?.(id);
     setTasks(prev => { const next = { ...prev }; delete next[id]; return next; });
@@ -484,6 +521,9 @@ function App() {
                 setGenerateStatus("Restored project from history!");
                 setTimeout(() => setGenerateStatus(""), 3000);
               }}
+              pages={pages}
+              onPagesChange={setPages}
+              onGenerateStructure={handleGenerateStructure}
             />
             {/* Task Bar lives here, just above the builder */}
             <TaskBar
@@ -527,6 +567,21 @@ function App() {
         isOpen={showLayoutIntelligence}
         onClose={() => setShowLayoutIntelligence(false)}
         layoutConfig={layoutConfig}
+      />
+
+      <StructureWizard
+        open={structureWizard.isOpen}
+        onClose={structureWizard.close}
+        pages={structureWizard.pages}
+        navbarName={selectedComponents.find(c => `${c.category}/${c.name}` === structureWizard.navbarId || c.name === structureWizard.navbarId)?.name ?? ''}
+        projectName={structureWizard.projectName}
+        onProjectNameChange={structureWizard.setProjectName}
+        outputPath={structureWizard.outputPath}
+        onBrowse={async () => { const p = await window.reactBitsApi.selectDirectory(); if (p) structureWizard.setOutputPath(p); }}
+        packageManager={structureWizard.packageManager}
+        onPackageManagerChange={structureWizard.setPackageManager}
+        onConfirm={handleStructureConfirm}
+        allComponentNames={Object.fromEntries(selectedComponents.map(c => [`${c.category}/${c.name}`, c.name]))}
       />
 
       <VisionReworkModal

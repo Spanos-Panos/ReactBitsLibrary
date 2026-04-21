@@ -3,6 +3,7 @@ const { join } = path;
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const { generateViteReact } = require('./generators/vite-react.cjs');
+const { generateStructure: _generateStructure } = require('./generators/structure-generator.cjs');
 
 const execAsync = promisify(exec);
 
@@ -113,4 +114,35 @@ async function generatePlayground(payload, event, taskId) {
   }
 }
 
-module.exports = { generatePlayground };
+async function generateStructure(payload, event, taskId) {
+  try {
+    const { projectName, outputPath } = payload;
+    if (!outputPath) throw new Error('No output path selected. Please choose a folder first.');
+
+    const safeProjectName = (projectName || 'my-app').replace(/[^a-z0-9-_]/gi, '-');
+    const fullPath = join(path.resolve(outputPath), safeProjectName);
+
+    const onProgress = (msg) => {
+      console.log(`[Structure:${taskId}] ${msg}`);
+      if (event && event.sender) event.sender.send('generate-progress', msg, taskId);
+    };
+    const onLog = (msg) => {
+      process.stdout.write(msg);
+      if (event && event.sender) event.sender.send('generate-log', msg, taskId);
+    };
+
+    const result = await _generateStructure({ ...payload, onProgress, onLog }, event, taskId);
+
+    if (result.success) {
+      const { execAsync } = { execAsync: promisify(exec) };
+      try { await promisify(exec)(`code .`, { cwd: fullPath }); } catch (_) {}
+    }
+
+    return result;
+  } catch (error) {
+    console.error('[DemoCLI] generateStructure failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+module.exports = { generatePlayground, generateStructure };

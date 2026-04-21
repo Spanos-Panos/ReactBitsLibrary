@@ -127,7 +127,10 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
     const handler = (_event, message, taskId) => callback(message, taskId);
     ipcRenderer.on("vision-rework-progress", handler);
     return () => ipcRenderer.removeListener("vision-rework-progress", handler);
-  }
+  },
+  generateStructure(options) {
+    return ipcRenderer.invoke("generate-structure", options);
+  },
 });
 
 function safeReadDir(dirPath) {

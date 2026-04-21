@@ -49,3 +49,28 @@ export interface LayoutItem {
 }
 
 export type LayoutConfig = LayoutItem[];
+
+// ── Multi-Page Generation ──────────────────────────────────────────────────────
+
+export type PageType = 'home' | 'about' | 'services' | 'contact' | 'custom';
+
+export interface PageConfig {
+  id: string;
+  title: string;
+  type: PageType;
+  componentIds: string[];
+}
+
+export interface ProjectStructureOptions {
+  pages: PageConfig[];
+  navbarComponentId: string;
+  projectName: string;
+  outputPath: string;
+  packageManager: 'npm' | 'pnpm' | 'yarn';
+}
+
+export interface StructureGenerateResult {
+  success: boolean;
+  path?: string;
+  error?: string;
+}

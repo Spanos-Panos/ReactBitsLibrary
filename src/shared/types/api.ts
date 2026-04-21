@@ -1,4 +1,4 @@
-import type { ComponentFile, ReactBitsItem } from './index';
+import type { ComponentFile, ReactBitsItem, ProjectStructureOptions, StructureGenerateResult } from './index';
 
 export interface ComponentContext {
   id: string;
@@ -91,6 +91,7 @@ export interface ReactBitsApi {
   pickSingleFile(filters: Array<{ name: string; extensions: string[] }>): Promise<PickFileResult | null>;
   onVisionReworkReady(cb: (data: VisionReworkReadyData) => void): () => void;
   onVisionReworkProgress(cb: (msg: string, taskId: string) => void): () => void;
+  generateStructure(options: ProjectStructureOptions): Promise<StructureGenerateResult>;
 }
 
 declare global {

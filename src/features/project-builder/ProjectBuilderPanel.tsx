@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import './ProjectBuilderPanel.css';
-import type { LayoutConfig, LayoutItem, ZLayer, XAlign, HeightHint } from '../../shared/types/index';
+import type { LayoutConfig, LayoutItem, ZLayer, XAlign, HeightHint, PageConfig, PageType } from '../../shared/types/index';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -79,6 +79,9 @@ export interface ProjectBuilderPanelProps {
   onRestoreFromHistory?: (prompt: string, selectedComponents: ComponentItem[]) => void;
   scrollbarStyle: ScrollbarStyle;
   onScrollbarStyleChange: (s: ScrollbarStyle) => void;
+  pages: PageConfig[];
+  onPagesChange: (pages: PageConfig[]) => void;
+  onGenerateStructure: (pages: PageConfig[], navbarComponentId: string) => void;
 }
 
 export interface ClientBrief {
@@ -134,8 +137,8 @@ export interface ScrollbarStyle {
   thumb?: string;
 }
 
-type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images' | 'Output';
-const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Layout', 'Sizes', 'Images', 'Output'];
+type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images' | 'Output' | 'Pages';
+const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Layout', 'Sizes', 'Images', 'Output', 'Pages'];
 
 
 type AssemblyCategoryId = 'Components' | 'Backgrounds' | 'Animations' | 'TextAnimations';
@@ -1513,6 +1516,132 @@ function IdleConfigState() {
 
 // ── Output Tab (scrollbar + future output settings) ───────────────────────────
 
+// ── Navbar detection ──────────────────────────────────────────────────────────
+function isNavbarComponent(name: string): boolean {
+  const n = name.toLowerCase();
+  return n.includes('nav') || n.includes('menu') || n.includes('header');
+}
+
+// ── Pages Tab ─────────────────────────────────────────────────────────────────
+const PAGE_TYPES: PageType[] = ['home', 'about', 'services', 'contact', 'custom'];
+const DEFAULT_PAGE_TITLES: Record<PageType, string> = {
+  home: 'Home', about: 'About', services: 'Services', contact: 'Contact', custom: 'Page',
+};
+
+function PagesTab({
+  pages, onChange, selectedComponents,
+}: {
+  pages: PageConfig[];
+  onChange: (pages: PageConfig[]) => void;
+  selectedComponents: ComponentItem[];
+}) {
+  const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
+  const nonNavbarComponents = selectedComponents.filter(c => !isNavbarComponent(c.name));
+
+  const addPage = () => {
+    if (pages.length >= 4) return;
+    const id = `page-${Date.now()}`;
+    const type: PageType = 'custom';
+    onChange([...pages, { id, title: `Page ${pages.length + 1}`, type, componentIds: [] }]);
+  };
+
+  const removePage = () => {
+    if (pages.length <= 1) return;
+    onChange(pages.slice(0, -1));
+  };
+
+  const updatePage = (idx: number, patch: Partial<PageConfig>) => {
+    const next = pages.map((p, i) => i === idx ? { ...p, ...patch } : p);
+    onChange(next);
+  };
+
+  const toggleComponentOnPage = (pageIdx: number, compId: string) => {
+    const page = pages[pageIdx];
+    const ids = page.componentIds.includes(compId)
+      ? page.componentIds.filter(id => id !== compId)
+      : [...page.componentIds, compId];
+    updatePage(pageIdx, { componentIds: ids });
+  };
+
+  return (
+    <div className="pbp-sizes-tab">
+      {/* Navbar indicator */}
+      {navbarComponent ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', marginBottom: 14 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="4" rx="1" /><line x1="3" y1="12" x2="21" y2="12" /></svg>
+          <span style={{ fontSize: '0.7rem', color: 'rgba(241,245,249,0.55)' }}>Navbar:</span>
+          <span style={{ fontSize: '0.7rem', color: '#f1f5f9', fontWeight: 600 }}>{navbarComponent.name}</span>
+          <span style={{ fontSize: '0.65rem', color: 'rgba(241,245,249,0.3)', marginLeft: 2 }}>→ all pages</span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', marginBottom: 14 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+          <span style={{ fontSize: '0.7rem', color: 'rgba(245,158,11,0.8)' }}>Select a Nav/Header component to enable multi-page generation</span>
+        </div>
+      )}
+
+      {/* Page count control */}
+      <div className="pbp-rule-header" style={{ marginBottom: 10 }}>
+        <span className="pbp-rule-label">Pages</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: '0.68rem', color: 'rgba(241,245,249,0.35)', minWidth: 28, textAlign: 'center' }}>{pages.length} / 4</span>
+          <button onClick={removePage} disabled={pages.length <= 1} style={{ width: 22, height: 22, borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: pages.length <= 1 ? 'rgba(255,255,255,0.2)' : '#f1f5f9', cursor: pages.length <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1 }}>−</button>
+          <button onClick={addPage} disabled={pages.length >= 4} style={{ width: 22, height: 22, borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: pages.length >= 4 ? 'rgba(255,255,255,0.2)' : '#f1f5f9', cursor: pages.length >= 4 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1 }}>+</button>
+        </div>
+      </div>
+
+      {/* Per-page rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {pages.map((page, idx) => (
+          <div key={page.id} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                value={page.title}
+                onChange={e => updatePage(idx, { title: e.target.value })}
+                placeholder="Page title"
+                style={{ flex: 1, padding: '5px 9px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, color: '#f1f5f9', outline: 'none', fontFamily: 'inherit' }}
+              />
+              <select
+                value={page.type}
+                onChange={e => updatePage(idx, { type: e.target.value as PageType, title: page.title === DEFAULT_PAGE_TITLES[page.type] ? DEFAULT_PAGE_TITLES[e.target.value as PageType] : page.title })}
+                style={{ padding: '5px 8px', fontSize: '0.72rem', background: 'rgba(20,20,30,0.9)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, color: 'rgba(241,245,249,0.7)', outline: 'none', cursor: 'pointer' }}
+              >
+                {PAGE_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+              </select>
+            </div>
+            {nonNavbarComponents.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {nonNavbarComponents.map(comp => {
+                  const active = page.componentIds.includes(comp.id);
+                  return (
+                    <button
+                      key={comp.id}
+                      onClick={() => toggleComponentOnPage(idx, comp.id)}
+                      style={{
+                        padding: '3px 9px', borderRadius: 20, fontSize: '0.65rem', fontWeight: 500,
+                        border: `1px solid ${active ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                        background: active ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)',
+                        color: active ? '#a5b4fc' : 'rgba(241,245,249,0.4)',
+                        cursor: 'pointer', transition: 'all .15s ease',
+                      }}
+                    >
+                      {comp.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {nonNavbarComponents.length === 0 && (
+              <span style={{ fontSize: '0.65rem', color: 'rgba(241,245,249,0.25)' }}>Select non-navbar components to assign them here</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OutputTab({ style, onChange }: { style: ScrollbarStyle; onChange: (s: ScrollbarStyle) => void }) {
   const modes: ScrollbarStyle['mode'][] = ['default', 'hidden', 'custom'];
   const modeLabel: Record<ScrollbarStyle['mode'], string> = { default: 'Browser', hidden: 'Hidden', custom: 'Custom' };
@@ -1581,7 +1710,11 @@ export default function ProjectBuilderPanel({
   onRestoreFromHistory,
   scrollbarStyle,
   onScrollbarStyleChange,
+  pages,
+  onPagesChange,
+  onGenerateStructure,
 }: ProjectBuilderPanelProps) {
+  const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
   const [activeTab, setActiveTab] = useState<Tab>('Layout');
   const [topOpacity, setTopOpacity] = useState(0);
   const [bottomOpacity, setBottomOpacity] = useState(1);
@@ -1636,6 +1769,7 @@ export default function ProjectBuilderPanel({
       case 'Layout': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>;
       case 'Sizes': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="2" width="18" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12" y2="18" /></svg>;
       case 'Images': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>;
+      case 'Pages': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>;
     }
   };
 
@@ -1730,6 +1864,7 @@ export default function ProjectBuilderPanel({
                 {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} limits={IMG_LIMITS} />}
                 {activeTab === 'Output' && <OutputTab style={scrollbarStyle} onChange={onScrollbarStyleChange} />}
+                {activeTab === 'Pages' && <PagesTab pages={pages} onChange={onPagesChange} selectedComponents={selectedComponents} />}
               </MotionDiv>
             </AnimatePresence>
           </div>
@@ -1769,6 +1904,33 @@ export default function ProjectBuilderPanel({
                     <span className="pbp-assembly-generate-btn-icon">
                       <AssemblyGenerateBuildIcon />
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!navbarComponent}
+                    title={!navbarComponent ? 'Add a Nav/Header component to enable' : 'Generate a multi-page React Router project'}
+                    onClick={() => {
+                      if (navbarComponent) {
+                        onGenerateStructure(pages, `${navbarComponent.category}/${navbarComponent.name}`);
+                      }
+                    }}
+                    style={{
+                      marginTop: 6, width: '100%', padding: '8px 14px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      borderRadius: 10, fontSize: '0.75rem', fontWeight: 500,
+                      background: 'transparent',
+                      border: `1px solid ${navbarComponent ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                      color: navbarComponent ? 'rgba(165,180,252,0.85)' : 'rgba(255,255,255,0.25)',
+                      cursor: navbarComponent ? 'pointer' : 'not-allowed',
+                      transition: 'all .18s ease',
+                    }}
+                    onMouseEnter={e => { if (navbarComponent) { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.6)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = navbarComponent ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)'; }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
+                    Generate Project Structure
                   </button>
                 </div>
               </div>

@@ -283,7 +283,7 @@ ipcMain.handle("select-directory", async () => {
   return filePaths[0];
 });
 
-const { generatePlayground } = require("../DemoCLI/index.cjs");
+const { generatePlayground, generateStructure } = require("../DemoCLI/index.cjs");
 const { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset, importPresetFromFile } = require("./storage.cjs");
 const { captureAndSave } = require("./screenshotCapture.cjs");
 const { runVisionRework } = require("./visionRework.cjs");
@@ -353,6 +353,12 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
     });
   }
 
+  return result;
+});
+
+ipcMain.handle("generate-structure", async (event, options) => {
+  const taskId = `structure-${Date.now()}`;
+  const result = await generateStructure(options, event, taskId);
   return result;
 });
 
