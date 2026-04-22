@@ -8,11 +8,13 @@ export interface StructureWizardState {
   projectName: string;
   outputPath: string;
   packageManager: 'npm' | 'pnpm' | 'yarn';
+  openWhenDone: boolean;
   open: (pages: PageConfig[], navbarId: string, suggestedName?: string) => void;
   close: () => void;
   setProjectName: (v: string) => void;
   setOutputPath: (v: string) => void;
   setPackageManager: (v: 'npm' | 'pnpm' | 'yarn') => void;
+  setOpenWhenDone: (v: boolean) => void;
 }
 
 export function useStructureWizard(): StructureWizardState {
@@ -22,6 +24,7 @@ export function useStructureWizard(): StructureWizardState {
   const [projectName, setProjectName] = useState('');
   const [outputPath, setOutputPath] = useState('');
   const [packageManager, setPackageManager] = useState<'npm' | 'pnpm' | 'yarn'>('npm');
+  const [openWhenDone, setOpenWhenDone] = useState(false);
 
   const open = (p: PageConfig[], id: string, suggestedName = '') => {
     setPages(p);
@@ -33,7 +36,7 @@ export function useStructureWizard(): StructureWizardState {
   const close = () => setIsOpen(false);
 
   return {
-    isOpen, pages, navbarId, projectName, outputPath, packageManager,
-    open, close, setProjectName, setOutputPath, setPackageManager,
+    isOpen, pages, navbarId, projectName, outputPath, packageManager, openWhenDone,
+    open, close, setProjectName, setOutputPath, setPackageManager, setOpenWhenDone,
   };
 }

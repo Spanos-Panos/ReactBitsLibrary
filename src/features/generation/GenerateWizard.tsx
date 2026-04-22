@@ -39,14 +39,13 @@ export default function GenerateWizard({
   autoKillOnError, onAutoKillChange, polishPass, onPolishPassChange, onConfirm
 }: GenerateWizardProps) {
 
-  if (!open || (!selected && !lastEnhancedPrompt)) return null;
-
   const isAiBuild = !!lastEnhancedPrompt;
   const titleText = isAiBuild ? "Generate AI Master Project" : "Generate Demo Project";
+  const shouldShow = open && (selected || lastEnhancedPrompt);
 
   return (
     <AnimatePresence mode="wait">
-      {open && (
+      {shouldShow && (
         <div className="wizard-overlay" style={{ zIndex: 99999 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }} onClick={e => e.stopPropagation()}>
             <motion.div

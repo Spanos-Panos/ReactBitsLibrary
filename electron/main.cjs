@@ -283,6 +283,19 @@ ipcMain.handle("select-directory", async () => {
   return filePaths[0];
 });
 
+ipcMain.handle("shell-open-path", async (event, folderPath) => {
+  if (!folderPath) return;
+  require('electron').shell.openPath(folderPath);
+});
+
+ipcMain.handle("open-in-vscode", async (event, folderPath) => {
+  if (!folderPath) return;
+  const { exec } = require('child_process');
+  exec(`code "${folderPath}"`, (err) => {
+    if (err) console.error("[Main] Failed to open in VS Code:", err);
+  });
+});
+
 const { generatePlayground, generateStructure } = require("../DemoCLI/index.cjs");
 const { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset, importPresetFromFile } = require("./storage.cjs");
 const { captureAndSave } = require("./screenshotCapture.cjs");
@@ -479,6 +492,8 @@ ipcMain.handle("design-pick-images", async (event) => {
 ipcMain.handle("enhance-prompt", async (event, payload) => {
   return await enhancePrompt(payload);
 });
+
+
 
 ipcMain.handle("add-component", async (event, { name, category, language, code, css, install, usage }) => {
   try {

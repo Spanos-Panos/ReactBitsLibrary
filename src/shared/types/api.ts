@@ -92,6 +92,8 @@ export interface ReactBitsApi {
   onVisionReworkReady(cb: (data: VisionReworkReadyData) => void): () => void;
   onVisionReworkProgress(cb: (msg: string, taskId: string) => void): () => void;
   generateStructure(options: ProjectStructureOptions): Promise<StructureGenerateResult>;
+  openPath(path: string): Promise<void>;
+  openInVSCode(path: string): Promise<void>;
 }
 
 declare global {

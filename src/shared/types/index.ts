@@ -70,6 +70,7 @@ export interface ProjectStructureOptions {
   projectName: string;
   outputPath: string;
   packageManager: 'npm' | 'pnpm' | 'yarn';
+  taskId?: string;
 }
 
 export interface StructureGenerateResult {

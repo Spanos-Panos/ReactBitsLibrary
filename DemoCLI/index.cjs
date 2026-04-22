@@ -133,9 +133,12 @@ async function generateStructure(payload, event, taskId) {
 
     const result = await _generateStructure({ ...payload, onProgress, onLog }, event, taskId);
 
-    if (result.success) {
-      const { execAsync } = { execAsync: promisify(exec) };
-      try { await promisify(exec)(`code .`, { cwd: fullPath }); } catch (_) {}
+    if (result.success && payload.openWhenDone) {
+      try { 
+        await execAsync(`code .`, { cwd: fullPath }); 
+      } catch (err) {
+        console.warn("[DemoCLI] Failed to open VS Code for structure:", err);
+      }
     }
 
     return result;

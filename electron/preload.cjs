@@ -131,6 +131,12 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   generateStructure(options) {
     return ipcRenderer.invoke("generate-structure", options);
   },
+  openPath(path) {
+    return ipcRenderer.invoke("shell-open-path", path);
+  },
+  openInVSCode(path) {
+    return ipcRenderer.invoke("open-in-vscode", path);
+  },
 });
 
 function safeReadDir(dirPath) {

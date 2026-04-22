@@ -161,6 +161,17 @@ function App() {
     delete lastPresetByTaskId.current[id];
   };
 
+  const handleStopTask = async (id: string) => {
+    await window.reactBitsApi?.terminateTask?.(id);
+    setTasks(prev => {
+      if (!prev[id]) return prev;
+      return {
+        ...prev,
+        [id]: { ...prev[id], progress: 'Server Stopped' }
+      };
+    });
+  };
+
   const handleClearAllTasks = async () => {
     const ids = Object.keys(tasks);
     if (ids.length === 0) return;
@@ -339,9 +350,26 @@ function App() {
 
   const handleStructureConfirm = async () => {
     const taskId = `structure-${Date.now()}`;
-    const task = { id: taskId, name: 'Structure', projectName: structureWizard.projectName, progress: 'Starting...', logs: [], status: 'running' as const, type: 'structure' as const, runWhenDoneUsed: false, autoKillOnErrorUsed: false, hasTerminalError: false };
+    const task = { 
+      id: taskId, 
+      name: 'Structure', 
+      projectName: structureWizard.projectName, 
+      progress: 'Starting...', 
+      logs: [
+        `[System] Initializing structure synthesis for ${structureWizard.projectName}...\n`,
+        `[System] Target Directory: ${structureWizard.outputPath}\n`,
+        `[System] Pages to generate: ${structureWizard.pages.length}\n`,
+        `[System] Package Manager: ${structureWizard.packageManager}\n`
+      ], 
+      status: 'running' as const, 
+      type: 'structure' as const, 
+      path: structureWizard.outputPath,
+      runWhenDoneUsed: false, 
+      autoKillOnErrorUsed: false, 
+      hasTerminalError: false,
+    };
     setTasks(prev => ({ ...prev, [taskId]: task }));
-    setActiveTaskId(taskId);
+    setActiveTaskId(null);
     structureWizard.close();
 
     const componentsWithFiles = await Promise.all(
@@ -357,7 +385,9 @@ function App() {
       projectName: structureWizard.projectName,
       outputPath: structureWizard.outputPath,
       packageManager: structureWizard.packageManager,
+      openWhenDone: structureWizard.openWhenDone,
       selectedComponents: componentsWithFiles as any,
+      taskId: taskId,
     } as any);
 
     const pageCount = structureWizard.pages.length;
@@ -365,7 +395,13 @@ function App() {
 
     setTasks(prev => ({
       ...prev,
-      [taskId]: { ...prev[taskId], status: result.success ? 'success' : 'error', progress: result.success ? successMsg : (result.error ?? 'Failed'), hasTerminalError: !result.success },
+      [taskId]: { 
+        ...prev[taskId], 
+        status: result.success ? 'success' : 'error', 
+        progress: result.success ? successMsg : (result.error ?? 'Failed'), 
+        path: result.success ? structureWizard.outputPath : prev[taskId].path,
+        hasTerminalError: !result.success 
+      },
     }));
 
     if (result.success) {
@@ -615,6 +651,8 @@ function App() {
         onBrowse={async () => { const p = await window.reactBitsApi.selectDirectory(); if (p) structureWizard.setOutputPath(p); }}
         packageManager={structureWizard.packageManager}
         onPackageManagerChange={structureWizard.setPackageManager}
+        openWhenDone={structureWizard.openWhenDone}
+        onOpenWhenDoneChange={structureWizard.setOpenWhenDone}
         onConfirm={handleStructureConfirm}
         allComponentNames={Object.fromEntries(selectedComponents.map(c => [`${c.category}/${c.name}`, c.name]))}
       />
@@ -629,7 +667,13 @@ function App() {
       />
 
       {activeTaskId && tasks[activeTaskId] && (
-        <TaskOverlay task={tasks[activeTaskId]} terminalRef={terminalRef} onHide={() => setActiveTaskId(null)} />
+        <TaskOverlay 
+          task={tasks[activeTaskId]} 
+          terminalRef={terminalRef} 
+          onHide={() => setActiveTaskId(null)} 
+          onStop={handleStopTask}
+          onClear={handleCloseTask}
+        />
       )}
 
 {generateStatus && <div className={`status-toast ${toastType}`}>{generateStatus}</div>}

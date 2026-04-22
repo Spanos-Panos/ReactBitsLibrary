@@ -26,6 +26,10 @@ function getQueueStage(task: Task): QueueStage {
 
   if (hasError) return autoKillOnErrorUsed ? 'error-auto-close' : 'error-static';
   if (task.status === 'running') return 'generating';
+  
+  // If the server was manually stopped, downgrade to static success to remove border effects
+  if (task.progress === 'Server Stopped') return 'success-static';
+  
   return runWhenDoneUsed ? 'success-auto-run' : 'success-static';
 }
 
@@ -139,10 +143,18 @@ export default function GenerationQueue({
   return (
     <div className="gq-container">
       <div className="gq-header">
+        <div className="gq-header-side" /> {/* Spacer to balance centered title */}
         <span className="gq-title">Generations</span>
-        {taskList.length > 0 && (
-          <button className="gq-clear-all" onClick={onClearAll}>Clear All</button>
-        )}
+        <div className="gq-header-side gq-header-side--right">
+          {taskList.length > 0 && (
+            <button className="gq-clear-all" title="Clear All" onClick={onClearAll}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m4.9 4.9 14.2 14.2" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="gq-scroll">
@@ -183,17 +195,18 @@ export default function GenerationQueue({
                     </span>
                   </div>
                   <div className="gq-actions-slot gq-actions-slot--right">
-                    <StatusIcon status={task.status} />
-
                     <button
                       className="gq-kill"
                       title="Terminate & Clear"
                       onClick={e => { e.stopPropagation(); onKill(task.id); }}
                     >
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="m4.9 4.9 14.2 14.2" />
                       </svg>
                     </button>
+
+                    <StatusIcon status={task.status} />
                   </div>
                 </div>
 
