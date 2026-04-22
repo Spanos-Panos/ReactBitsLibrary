@@ -12,7 +12,7 @@
 .gq-header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   padding: 0.75rem 0.85rem 0.4rem;
   flex-shrink: 0;
 }
@@ -26,17 +26,66 @@
   color: rgba(241, 245, 249, 0.4);
 }
 
-.gq-count {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+.gq-clear-all {
+  font-family: var(--font-body, 'Satoshi', sans-serif);
   font-size: 0.6rem;
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: none;
+  border: none;
+  color: rgba(241, 245, 249, 0.25);
+  cursor: pointer;
+  padding: 2px 6px;
   border-radius: 4px;
-  padding: 1px 5px;
-  color: #a5b4fc;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+
+.gq-clear-all:hover {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
 }
 
 /* ── Scroll area ─────────────────────────────────────────────────────────── */
+
+.gq-rework-btn {
+  margin-left: auto;
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.gq-rework-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #c7d2fe;
+}
+
+.gq-rework-btn.rework-ready {
+  border-color: rgba(165, 180, 252, 0.35);
+  background: rgba(99, 102, 241, 0.12);
+  color: rgba(165, 180, 252, 0.9);
+}
+
+.gq-rework-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6366f1;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.8);
+}
 
 .gq-scroll {
   flex: 1;
@@ -154,70 +203,121 @@
   white-space: nowrap;
 }
 
-/* ── Type badge ──────────────────────────────────────────────────────────── */
+/* ── Status badge colors ────────────────────────────────────────────────── */
 
 .gq-badge {
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.55rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  border-radius: 4px;
-  padding: 1px 5px;
-  flex-shrink: 0;
-}
-
-.gq-badge--component {
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  color: #a5b4fc;
-}
-
-.gq-badge--web {
-  background: rgba(6, 182, 212, 0.12);
-  border: 1px solid rgba(6, 182, 212, 0.25);
-  color: #67e8f9;
-}
-
-/* ── Kill button ─────────────────────────────────────────────────────────── */
-
-.gq-kill {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: rgba(239, 68, 68, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
   padding: 0;
 }
 
-.gq-kill:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.45);
-  color: #f87171;
+.gq-badge--project { color: #a5b4fc; }
+.gq-badge--demo { color: #67e8f9; }
+.gq-badge--structure { color: #fcd34d; }
+
+.gq-meta-div {
+  opacity: 0.15;
+  font-size: 0.6rem;
+  color: #fff;
 }
 
-/* ── Status label + progress ─────────────────────────────────────────────── */
-
-.gq-status-label {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.58rem;
-  color: rgba(241, 245, 249, 0.3);
-  flex-shrink: 0;
-}
-
-.gq-progress {
+.gq-info-hint {
   font-family: var(--font-body, 'Satoshi', sans-serif);
-  font-size: 0.68rem;
-  color: rgba(241, 245, 249, 0.4);
+  font-size: 0.62rem;
+  color: rgba(241, 245, 249, 0.2);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Status Icons ────────────────────────────────────────────────────────── */
+
+.gq-status-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: none !important;
+  border: none !important;
+}
+
+.gq-status-icon--running { color: #818cf8; }
+.gq-status-icon--success { color: #4ade80; }
+.gq-status-icon--error { color: #f87171; }
+
+/* ── Card Overrides ─────────────────────────────────────────────────────── */
+
+.gq-card {
+  border-radius: 14px;
+  background: rgba(9, 12, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px) saturate(160%);
+  padding: 0.85rem 1rem;
+  margin-bottom: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.gq-card--running::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.4), transparent);
+}
+
+.gq-name {
+  font-family: var(--font-display, 'Clash Display', sans-serif);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  letter-spacing: 0.01em;
+  flex: 1;
+  min-width: 0;
+}
+
+.gq-row-spacer {
+  flex: 1;
+}
+
+.gq-status-text {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(241, 245, 249, 0.3);
+}
+
+.gq-progress-text {
+  font-family: var(--font-body, 'Satoshi', sans-serif);
+  font-size: 0.7rem;
+  color: rgba(241, 245, 249, 0.45);
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
-  min-width: 0;
+}
+
+.gq-kill {
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  opacity: 0.2;
+}
+
+.gq-kill:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
 }

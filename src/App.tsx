@@ -17,7 +17,6 @@ import GenerationQueue from "./features/generation/GenerationQueue/GenerationQue
 import GenerateWizard from "./features/generation/GenerateWizard";
 import StructureWizard from "./features/generation/StructureWizard";
 import { useStructureWizard } from "./shared/hooks/useStructureWizard";
-import TaskBar from "./features/generation/TaskBar";
 import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
 import LayoutPreviewModal from "./features/project-builder/LayoutPreviewModal";
@@ -492,6 +491,9 @@ function App() {
               tasks={tasks}
               onKill={handleCloseTask}
               onSelect={setActiveTaskId}
+              onClearAll={() => { Object.keys(tasks).forEach(handleCloseTask); }}
+              onVisionRework={handleVisionRework}
+              reworkReadyTaskIds={reworkReadyTaskIds}
             />
           </aside>
 
@@ -541,16 +543,6 @@ function App() {
               pages={pages}
               onPagesChange={setPages}
               onGenerateStructure={handleGenerateStructure}
-            />
-            {/* Task Bar lives here, just above the builder */}
-            <TaskBar
-              tasks={tasks}
-              activeTaskId={activeTaskId}
-              onSelect={setActiveTaskId}
-              onClose={handleCloseTask}
-              onClearAll={() => { Object.keys(tasks).forEach(handleCloseTask); }}
-              onVisionRework={handleVisionRework}
-              reworkReadyTaskIds={reworkReadyTaskIds}
             />
           </div>
         </section>
