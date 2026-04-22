@@ -8,6 +8,9 @@ export interface Task {
   type?: 'component' | 'web' | 'structure';
   error?: string;
   path?: string;
+  runWhenDoneUsed?: boolean;
+  autoKillOnErrorUsed?: boolean;
+  hasTerminalError?: boolean;
 }
 
 export interface ComponentFile {

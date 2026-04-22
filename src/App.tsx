@@ -152,6 +152,25 @@ function App() {
     setShowGenerateWizard(true);
   };
 
+  const handleCloseTask = async (id: string) => {
+    await window.reactBitsApi?.terminateTask?.(id);
+    setTasks(prev => { const next = { ...prev }; delete next[id]; return next; });
+    if (activeTaskIdRef.current === id) setActiveTaskId(null);
+    // Clean up rework state for this task
+    setReworkReadyTaskIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    delete lastPresetByTaskId.current[id];
+  };
+
+  const handleClearAllTasks = async () => {
+    const ids = Object.keys(tasks);
+    if (ids.length === 0) return;
+    await Promise.all(ids.map(id => window.reactBitsApi?.terminateTask?.(id)));
+    setTasks({});
+    setActiveTaskId(null);
+    setReworkReadyTaskIds(new Set());
+    lastPresetByTaskId.current = {};
+  };
+
   const confirmGenerate = async () => {
     if (!projectPath || !window.reactBitsApi?.generatePlayground) return;
     const isMasterBuild = !!lastEnhancedPrompt;
@@ -171,6 +190,9 @@ function App() {
         type: isMasterBuild ? 'web' : 'component',
         projectName, progress: "Initializing project generation...",
         logs: ["Initializing Build Environment...\n"], status: 'running',
+        runWhenDoneUsed: runWhenDone,
+        autoKillOnErrorUsed: autoKillOnError,
+        hasTerminalError: false,
       },
     }));
     setActiveTaskId(null);
@@ -192,8 +214,7 @@ function App() {
         );
       }
       if (result.success) {
-        const finalStatus = runWhenDone ? 'running' : 'success';
-        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: finalStatus, progress: runWhenDone ? "Local Server Running! (Check Browser)" : "Generation Complete!", path: result.path } }));
+        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'success', progress: runWhenDone ? "Generation Complete! Auto Run Enabled." : "Generation Complete!", path: result.path, hasTerminalError: false } }));
         setGenerateStatus(result.message || "Success!");
         // Remember the preset used for this task so Vision Rework can reference it
         if (isMasterBuild && lastEnhancedPrompt) {
@@ -201,12 +222,22 @@ function App() {
         }
         if (isMasterBuild) setLastEnhancedPrompt(null);
       } else {
-        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error } }));
-        setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
+        if (autoKillOnError) {
+          await handleCloseTask(taskId);
+          setGenerateStatus(`Failed and auto-cleared: ${result.error || "Unknown error"}`);
+        } else {
+          setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error, hasTerminalError: true } }));
+          setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
+        }
       }
     } catch (e: any) {
-      setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: e.message } }));
-      setGenerateStatus(`Error: ${e.message}`);
+      if (autoKillOnError) {
+        await handleCloseTask(taskId);
+        setGenerateStatus(`Error and auto-cleared: ${e.message}`);
+      } else {
+        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: e.message, hasTerminalError: true } }));
+        setGenerateStatus(`Error: ${e.message}`);
+      }
     }
     setTimeout(() => setGenerateStatus(""), 8000);
   };
@@ -308,7 +339,7 @@ function App() {
 
   const handleStructureConfirm = async () => {
     const taskId = `structure-${Date.now()}`;
-    const task = { id: taskId, name: 'Structure', projectName: structureWizard.projectName, progress: 'Starting...', logs: [], status: 'running' as const, type: 'structure' as const };
+    const task = { id: taskId, name: 'Structure', projectName: structureWizard.projectName, progress: 'Starting...', logs: [], status: 'running' as const, type: 'structure' as const, runWhenDoneUsed: false, autoKillOnErrorUsed: false, hasTerminalError: false };
     setTasks(prev => ({ ...prev, [taskId]: task }));
     setActiveTaskId(taskId);
     structureWizard.close();
@@ -334,7 +365,7 @@ function App() {
 
     setTasks(prev => ({
       ...prev,
-      [taskId]: { ...prev[taskId], status: result.success ? 'success' : 'error', progress: result.success ? successMsg : (result.error ?? 'Failed') },
+      [taskId]: { ...prev[taskId], status: result.success ? 'success' : 'error', progress: result.success ? successMsg : (result.error ?? 'Failed'), hasTerminalError: !result.success },
     }));
 
     if (result.success) {
@@ -346,15 +377,6 @@ function App() {
       setGenerateStatus(`Structure generation failed: ${result.error ?? 'Unknown error'}`);
       setTimeout(() => setGenerateStatus(''), 6000);
     }
-  };
-
-  const handleCloseTask = async (id: string) => {
-    await window.reactBitsApi?.terminateTask?.(id);
-    setTasks(prev => { const next = { ...prev }; delete next[id]; return next; });
-    if (activeTaskId === id) setActiveTaskId(null);
-    // Clean up rework state for this task
-    setReworkReadyTaskIds(prev => { const next = new Set(prev); next.delete(id); return next; });
-    delete lastPresetByTaskId.current[id];
   };
 
   // ── Vision Rework IPC listeners ────────────────────────────────────────────
@@ -410,6 +432,9 @@ function App() {
         progress: 'Running vision rework…',
         logs: ['Starting Vision Rework pass...\n'],
         status: 'running' as const,
+        runWhenDoneUsed: false,
+        autoKillOnErrorUsed: false,
+        hasTerminalError: false,
       },
     }));
     setActiveTaskId(reworkId);
@@ -420,6 +445,7 @@ function App() {
         ...prev[reworkId],
         status: result.success ? 'success' : 'error',
         progress: result.success ? 'Vision Rework Complete!' : `Rework failed: ${result.error}`,
+        hasTerminalError: !result.success,
       },
     }));
   };
@@ -491,7 +517,7 @@ function App() {
               tasks={tasks}
               onKill={handleCloseTask}
               onSelect={setActiveTaskId}
-              onClearAll={() => { Object.keys(tasks).forEach(handleCloseTask); }}
+              onClearAll={handleClearAllTasks}
               onVisionRework={handleVisionRework}
               reworkReadyTaskIds={reworkReadyTaskIds}
             />
