@@ -95,6 +95,8 @@ const BuildIcon = () => (
   </svg>
 );
 
+import logo from '../../../images/ReactIcons/ReactIcon.svg';
+
 export default function ComponentInspector({
   selected,
   selectedIds,
@@ -162,7 +164,7 @@ export default function ComponentInspector({
         className="ci-layer ci-layer--idle"
         style={{ opacity: fadeIn && !isActive ? 1 : 0, pointerEvents: !isActive ? 'auto' : 'none' }}
       >
-        <img src="/ReactIcon.svg" alt="BitForge" className="ci-empty-logo" />
+        <img src={logo} alt="BitForge" className="ci-empty-logo" />
         <span className="ci-empty-label">BitForge</span>
         <span className="ci-empty-hint">Select a component to inspect</span>
       </div>

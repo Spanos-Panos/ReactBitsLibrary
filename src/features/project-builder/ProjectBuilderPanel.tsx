@@ -393,7 +393,7 @@ function PremiumUnderlineButton({
       style={{
         background: 'none',
         border: 'none',
-        padding: small ? '6px 4px' : '8px 4px',
+        padding: small ? '5px 4px' : '6px 4px',
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
         fontSize: small ? '0.7rem' : '0.78rem',
@@ -1579,11 +1579,12 @@ function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: St
 }
 
 // ── Idle state ─────────────────────────────────────────────────────────────────
+import logo from '../../../images/ReactIcons/ReactIcon.svg';
 
 function IdleConfigState() {
   return (
     <div className="pbp-idle-state">
-      <img src="/ReactIcon.svg" alt="BitForge" className="pbp-idle-logo" />
+      <img src={logo} alt="BitForge" className="pbp-idle-logo" />
       <span className="pbp-idle-label">Configure</span>
       <span className="pbp-idle-hint">Select a tab to shape your project</span>
     </div>
@@ -1616,6 +1617,13 @@ function PagesTab({
 
   const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
   const nonNavbarComponents = selectedComponents.filter(c => !isNavbarComponent(c.name));
+
+  // Safety net — ensure there's always at least one page
+  useEffect(() => {
+    if (pages.length === 0) {
+      onChange([{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
+    }
+  }, [pages.length, onChange]);
 
   const handleLockedClick = () => {
     if (!navbarComponent) {
@@ -1651,34 +1659,48 @@ function PagesTab({
   };
 
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
       <div className="pbp-rule-header">
         <span className="pbp-rule-label">Core Navigation</span>
       </div>
       
       {navbarComponent ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)', marginBottom: 20 }}>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)', marginBottom: 20 }}
+        >
           <span style={{ flex: 1, fontSize: '0.78rem', color: '#a5b4fc', fontWeight: 500 }}>
             {navbarComponent.name}
           </span>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
              <polyline points="20 6 9 17 4 12" />
           </svg>
-        </div>
+        </motion.div>
       ) : (
-        <div 
+        <motion.div 
           ref={topRef}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ 
+            opacity: 1, scale: 1,
+            x: flashWarning ? [0, -4, 4, -4, 4, 0] : 0
+          }}
+          transition={{ duration: flashWarning ? 0.4 : 0.3 }}
           style={{ 
             display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, 
             background: flashWarning ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.02)', 
             border: `1px solid ${flashWarning ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'}`, 
-            marginBottom: 20, transition: 'all 0.3s ease' 
+            marginBottom: 20, transition: 'background 0.3s ease, border 0.3s ease' 
           }}
         >
           <span style={{ fontSize: '0.72rem', color: flashWarning ? '#f87171' : 'rgba(255,255,255,0.5)' }}>
             Please select at least one navigation component to use this feature.
           </span>
-        </div>
+        </motion.div>
       )}
 
       <div className="pbp-rule-header" style={{ marginBottom: 12 }}>
@@ -1712,58 +1734,69 @@ function PagesTab({
           />
         )}
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, opacity: navbarComponent ? 1 : 0.35, pointerEvents: navbarComponent ? 'auto' : 'none', filter: navbarComponent ? 'none' : 'grayscale(100%)', transition: 'all 0.3s ease' }}>
-          {pages.map((page, idx) => (
-            <div key={page.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '14px 16px' }}>
-              <div className="pbp-brief-grid" style={{ marginBottom: 12 }}>
-                <div className="pbp-brief-field">
-                  <span className="pbp-brief-label">Page Title</span>
-                  <input
-                    className="pbp-brief-input"
-                    value={page.title}
-                    onChange={e => updatePage(idx, { title: e.target.value })}
-                    placeholder="e.g. Products"
-                  />
-                </div>
-                <div className="pbp-brief-field">
-                  <span className="pbp-brief-label">Route Type</span>
-                  <AnimatedSelect
-                    value={page.type}
-                    onChange={v => updatePage(idx, { type: v as PageType, title: page.title === DEFAULT_PAGE_TITLES[page.type] ? DEFAULT_PAGE_TITLES[v as PageType] : page.title })}
-                    options={PAGE_TYPES.map(t => ({ label: t.charAt(0).toUpperCase() + t.slice(1), value: t }))}
-                  />
-                </div>
-              </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, opacity: navbarComponent ? 1 : 0.35, pointerEvents: navbarComponent ? 'auto' : 'none', filter: navbarComponent ? 'none' : 'grayscale(100%)', transition: 'all 0.3s ease' }}>
+          <AnimatePresence initial={false}>
+            {pages.map((page, idx) => (
+              <motion.div 
+                key={page.id}
+                initial={{ opacity: 0, height: 0, y: 10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div style={{ borderBottom: idx < pages.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none', paddingBottom: 20 }}>
+                  <div className="pbp-brief-grid" style={{ marginBottom: 12 }}>
+                    <div className="pbp-brief-field">
+                      <span className="pbp-brief-label">Page Title</span>
+                      <input
+                        className="pbp-brief-input"
+                        value={page.title}
+                        onChange={e => updatePage(idx, { title: e.target.value })}
+                        placeholder="e.g. Products"
+                      />
+                    </div>
+                    <div className="pbp-brief-field">
+                      <span className="pbp-brief-label">Route Type</span>
+                      <AnimatedSelect
+                        value={page.type}
+                        onChange={v => updatePage(idx, { type: v as PageType, title: page.title === DEFAULT_PAGE_TITLES[page.type] ? DEFAULT_PAGE_TITLES[v as PageType] : page.title })}
+                        options={PAGE_TYPES.map(t => ({ label: t.charAt(0).toUpperCase() + t.slice(1), value: t }))}
+                      />
+                    </div>
+                  </div>
 
-              <div className="pbp-brief-field">
-                <span className="pbp-brief-label">Page Layout — targeted components</span>
-                {nonNavbarComponents.length > 0 ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 6px', marginTop: 4 }}>
-                    {nonNavbarComponents.map(comp => {
-                      const active = page.componentIds.includes(comp.id);
-                      return (
-                        <button
-                          key={comp.id}
-                          onClick={() => toggleComponentOnPage(idx, comp.id)}
-                          className={`pbp-preset-chip${active ? ' pbp-preset-chip--active' : ''}`}
-                          style={{ padding: '4px 9px 5px', fontSize: '0.68rem' }}
-                        >
-                          {comp.name}
-                        </button>
-                      );
-                    })}
+                  <div className="pbp-brief-field">
+                    <span className="pbp-brief-label">Page Layout — targeted components</span>
+                    {nonNavbarComponents.length > 0 ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 6px', marginTop: 4 }}>
+                        {nonNavbarComponents.map(comp => {
+                          const active = page.componentIds.includes(comp.id);
+                          return (
+                            <button
+                              key={comp.id}
+                              onClick={() => toggleComponentOnPage(idx, comp.id)}
+                              className={`pbp-preset-chip${active ? ' pbp-preset-chip--active' : ''}`}
+                              style={{ padding: '4px 9px 5px', fontSize: '0.68rem' }}
+                            >
+                              {comp.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.72rem', color: 'rgba(241,245,249,0.2)', padding: '6px 0', fontStyle: 'italic' }}>
+                        No components selected to assign.
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ fontSize: '0.72rem', color: 'rgba(241,245,249,0.2)', padding: '8px 0', fontStyle: 'italic' }}>
-                    No non-navbar components selected to assign.
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </div>
-    </>
+    </motion.div>
   );
 }
 
@@ -1840,7 +1873,7 @@ export default function ProjectBuilderPanel({
   onGenerateStructure,
 }: ProjectBuilderPanelProps) {
   const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
-  const [activeTab, setActiveTab] = useState<Tab>('Layout');
+  const [activeTab, setActiveTab] = useState<Tab | null>(null);
   const [topOpacity, setTopOpacity] = useState(0);
   const [bottomOpacity, setBottomOpacity] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -2029,6 +2062,7 @@ export default function ProjectBuilderPanel({
                       <AssemblyGenerateBuildIcon />
                     </span>
                   </PremiumUnderlineButton>
+
                   <PremiumUnderlineButton
                     disabled={!navbarComponent}
                     onClick={() => {
@@ -2039,10 +2073,12 @@ export default function ProjectBuilderPanel({
                     primary
                     fullWidth
                   >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
-                    </svg>
-                    Generate Project Structure
+                    <span className="pbp-assembly-generate-btn-label">Generate Project Structure</span>
+                    <span className="pbp-assembly-generate-btn-icon">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+                      </svg>
+                    </span>
                   </PremiumUnderlineButton>
                 </div>
               </div>

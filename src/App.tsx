@@ -9,6 +9,7 @@ import PlasmaWave from "./showcase/Backgrounds/PlasmaWave/PlasmaWave";
 import CardNav from "./showcase/UIComponents/CardNav/CardNav";
 import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief, type ScrollbarStyle } from "./features/project-builder/ProjectBuilderPanel";
 import PresetManager, { type SavedPreset, PRESET_SCHEMA_VERSION } from "./features/preset-manager/PresetManager";
+import logo from '../images/ReactIcons/ReactIcon.svg';
 import ComponentAddPanel from "./features/browser/ComponentAddPanel";
 import ComponentListPane from "./features/browser/ComponentListPane";
 import ComponentInspector from "./features/inspector/ComponentInspector";
@@ -459,7 +460,7 @@ function App() {
           </div>
 
           <CardNav
-            logo="/ReactIcon.svg"
+            logo={logo}
             logoAlt="BitForge"
             items={CARD_NAV_ITEMS}
             categories={PILL_NAV_ITEMS}

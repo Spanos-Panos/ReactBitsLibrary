@@ -5,7 +5,7 @@ interface Props {
   onDone: () => void;
 }
 
-const logoSrc = './ReactIcon.svg';
+import logoSrc from '../../../images/ReactIcons/ReactIcon.svg';
 
 export default function LoadingScreen({ onDone }: Props) {
   const [visible, setVisible]  = useState(false);

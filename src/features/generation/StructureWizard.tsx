@@ -20,14 +20,18 @@ interface StructureWizardProps {
 const PM_LIST: Array<'npm' | 'pnpm' | 'yarn'> = ['npm', 'pnpm', 'yarn'];
 
 const INPUT_STYLE: React.CSSProperties = {
-  width: '100%', padding: '9px 13px', fontSize: '0.8rem',
-  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)',
-  borderRadius: 10, color: '#f1f5f9', outline: 'none', fontFamily: 'inherit',
+  width: '100%', background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: 12, padding: '12px 16px', color: '#f1f5f9', fontSize: '0.85rem',
+  fontFamily: "var(--font-body, 'Satoshi', sans-serif)", outline: 'none', boxSizing: 'border-box',
 };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(241,245,249,0.3)', marginBottom: 8 }}>
+    <div style={{
+      fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
+      fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
+      color: 'rgba(241, 245, 249, 0.42)', marginBottom: 8,
+    }}>
       {children}
     </div>
   );
@@ -62,9 +66,9 @@ function PremiumUnderlineButton({
       style={{
         background: 'none',
         border: 'none',
-        padding: small ? '6px 4px' : '8px 4px',
+        padding: small ? '5px 4px' : '6px 4px',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        fontFamily: "var(--font-body, 'Inter', sans-serif)",
+        fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
         fontSize: small ? '0.7rem' : '0.78rem',
         fontWeight: small ? 700 : 600,
         color: disabled
@@ -114,6 +118,56 @@ function pageRoute(type: string, title: string) {
   return '/' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+function StrategyRow({
+  icon, title, subtext, active, onClick, disabled
+}: {
+  icon: React.ReactNode; title: string; subtext: string; active: boolean; onClick: () => void; disabled?: boolean;
+}) {
+  return (
+    <div
+      onClick={() => !disabled && onClick()}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'background .2s',
+        background: active ? 'rgba(99,102,241,0.03)' : 'transparent',
+        opacity: disabled ? 0.4 : 1,
+      }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+      onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = active ? 'rgba(99,102,241,0.03)' : 'transparent'; }}
+    >
+      <div style={{
+        width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: active ? '#a5b4fc' : 'rgba(255,255,255,0.15)', transition: 'color .2s'
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: active ? '#f8fafc' : 'rgba(255,255,255,0.3)', transition: 'color .2s' }}>{title}</div>
+        <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.18)', marginTop: 1 }}>{subtext}</div>
+      </div>
+
+      <div style={{
+        width: 32, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        color: active ? '#6366f1' : 'rgba(255,255,255,0.06)', transition: 'all .22s ease',
+      }}>
+        <AnimatePresence mode="wait">
+          {active ? (
+            <motion.svg key="check" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}
+              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </motion.svg>
+          ) : (
+            <motion.div key="plus" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}>
+               {!disabled && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}
+               {disabled && <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.15)' }}>SOON</span>}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 export default function StructureWizard({
   open, onClose, pages, navbarName, projectName, onProjectNameChange,
   outputPath, onBrowse, packageManager, onPackageManagerChange, onConfirm,
@@ -136,8 +190,8 @@ export default function StructureWizard({
               exit={{ opacity: 0, scale: 0.94, y: 18 }}
               transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.9 }}
               style={{
-                width: 460, flexShrink: 0,
-                background: 'rgba(9,12,20,0.92)',
+                width: 440, flexShrink: 0,
+                background: 'rgba(9, 12, 20, 0.85)',
                 backdropFilter: 'blur(60px) saturate(220%)',
                 WebkitBackdropFilter: 'blur(60px) saturate(220%)',
                 border: '1px solid rgba(255,255,255,0.1)',
@@ -146,10 +200,9 @@ export default function StructureWizard({
                 display: 'flex', flexDirection: 'column',
               }}
             >
-              {/* Header */}
               <div style={{ height: 28, padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: 'rgba(0,0,0,0.15)' }}>
                 <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(241,245,249,0.35)' }}>
-                  Generate Project Structure
+                  Initialize Project Structure
                 </span>
                 <button
                   onClick={onClose}
@@ -163,12 +216,11 @@ export default function StructureWizard({
                 </button>
               </div>
 
-              <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-                {/* Project name + path */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                   <div>
-                    <SectionLabel>Project Name</SectionLabel>
+                    <SectionLabel>Logical Handle</SectionLabel>
                     <input
                       type="text"
                       value={projectName}
@@ -178,7 +230,7 @@ export default function StructureWizard({
                     />
                   </div>
                   <div>
-                    <SectionLabel>Output Directory</SectionLabel>
+                    <SectionLabel>Filesystem Destination</SectionLabel>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <input type="text" value={outputPath} readOnly placeholder="Select target directory..." style={{ ...INPUT_STYLE, flex: 1, cursor: 'default' }} />
                       <PremiumUnderlineButton onClick={onBrowse}>Browse</PremiumUnderlineButton>
@@ -186,74 +238,71 @@ export default function StructureWizard({
                   </div>
                 </div>
 
-                {/* Package manager */}
-                <div>
-                  <SectionLabel>Package Manager</SectionLabel>
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    {PM_LIST.map(pm => (
-                      <PremiumUnderlineButton key={pm} onClick={() => onPackageManagerChange(pm)} active={packageManager === pm} small>
-                        {pm}
-                      </PremiumUnderlineButton>
-                    ))}
+                <div style={{ display: 'flex', gap: 24 }}>
+                  <div style={{ flex: 1 }}>
+                     <SectionLabel>Provisioning Engine</SectionLabel>
+                     <div style={{ display: 'flex', gap: 16 }}>
+                       {PM_LIST.map(pm => (
+                         <PremiumUnderlineButton key={pm} onClick={() => onPackageManagerChange(pm)} active={packageManager === pm} small>
+                           {pm}
+                         </PremiumUnderlineButton>
+                       ))}
+                     </div>
                   </div>
                 </div>
 
-                {/* Approach selector */}
                 <div>
-                  <SectionLabel>Generation Approach</SectionLabel>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {[
-                      { id: 'free', label: 'Free', desc: 'Template scaffold, no AI', active: true },
-                      { id: 'smart', label: 'Smart', desc: 'Claude-assisted ($0.15 max)', active: false },
-                      { id: 'mixed', label: 'Mixed', desc: 'Template + AI polish', active: false },
-                    ].map(opt => (
-                      <div
-                        key={opt.id}
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '10px 14px', borderRadius: 10,
-                          border: `1px solid ${opt.id === 'free' ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.06)'}`,
-                          background: opt.id === 'free' ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
-                          opacity: opt.active ? 1 : 0.4,
-                          cursor: opt.active ? 'default' : 'not-allowed',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: opt.id === 'free' ? '#6366f1' : 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
-                          <div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: opt.active ? '#f1f5f9' : 'rgba(241,245,249,0.5)' }}>{opt.label}</div>
-                            <div style={{ fontSize: '0.67rem', color: 'rgba(241,245,249,0.35)' }}>{opt.desc}</div>
-                          </div>
-                        </div>
-                        {!opt.active && (
-                          <span style={{ fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(241,245,249,0.3)', background: 'rgba(255,255,255,0.06)', padding: '2px 7px', borderRadius: 4 }}>Soon</span>
-                        )}
-                      </div>
-                    ))}
+                  <SectionLabel>Generation Strategy</SectionLabel>
+                  <div style={{
+                    background: 'rgba(255,255,255,0.02)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)',
+                    overflow: 'hidden', display: 'flex', flexDirection: 'column'
+                  }}>
+                    <StrategyRow
+                      icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>}
+                      title="Template Scaffold"
+                      subtext="Pre-defined multi-page structure"
+                      active={true}
+                      onClick={() => {}}
+                    />
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }} />
+                    <StrategyRow
+                      icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10h-10V2z"/><path d="M12 12L2.2 9"/><path d="M12 12L19.8 9"/></svg>}
+                      title="AI Synthesis"
+                      subtext="Dynamic assembly & logic generation"
+                      active={false}
+                      disabled
+                      onClick={() => {}}
+                    />
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }} />
+                    <StrategyRow
+                      icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>}
+                      title="Hybrid Flow"
+                      subtext="Template based with AI polish"
+                      active={false}
+                      disabled
+                      onClick={() => {}}
+                    />
                   </div>
                 </div>
 
-                {/* Page summary */}
                 <div>
-                  <SectionLabel>Structure Preview</SectionLabel>
-                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, overflow: 'hidden' }}>
-                    <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 12, fontSize: '0.68rem', color: 'rgba(241,245,249,0.4)' }}>
-                      <span>{pages.length} page{pages.length !== 1 ? 's' : ''}</span>
-                      <span>·</span>
-                      <span>Navbar: <span style={{ color: 'rgba(241,245,249,0.7)' }}>{navbarName}</span></span>
-                      <span>·</span>
-                      <span>React Router</span>
+                  <SectionLabel>Architecture Preview</SectionLabel>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: 12, fontSize: '0.62rem', color: 'rgba(241,245,249,0.3)', fontWeight: 700, letterSpacing: '0.04em' }}>
+                      <span>{pages.length} PAGE{pages.length !== 1 ? 'S' : ''}</span>
+                      <span style={{ opacity: 0.3 }}>·</span>
+                      <span>NAVBAR: <span style={{ color: '#a5b4fc', opacity: 0.8 }}>{navbarName.toUpperCase()}</span></span>
                     </div>
-                    <div style={{ padding: '6px 0' }}>
+                    <div style={{ padding: '10px 0' }}>
                       {pages.map(page => {
                         const comps = page.componentIds.map(id => allComponentNames[id] || id).filter(Boolean);
                         return (
-                          <div key={page.id} style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '5px 14px' }}>
-                            <span style={{ fontSize: '0.75rem', color: '#f1f5f9', fontWeight: 500, minWidth: 80 }}>{page.title}</span>
-                            <span style={{ fontSize: '0.67rem', color: 'rgba(241,245,249,0.35)', fontFamily: 'monospace' }}>{pageRoute(page.type, page.title)}</span>
+                          <div key={page.id} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '6px 20px' }}>
+                            <span style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 600, minWidth: 80 }}>{page.title}</span>
+                            <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.15)', fontFamily: 'var(--font-mono, monospace)' }}>{pageRoute(page.type, page.title)}</span>
                             {comps.length > 0 && (
-                              <span style={{ fontSize: '0.64rem', color: 'rgba(241,245,249,0.4)', marginLeft: 'auto' }}>
-                                [{comps.join(', ')}]
+                              <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.12)', marginLeft: 'auto', fontStyle: 'italic' }}>
+                                {comps.length} bits
                               </span>
                             )}
                           </div>
@@ -263,8 +312,7 @@ export default function StructureWizard({
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: 14, marginTop: 4, paddingBottom: 6, justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 14, marginTop: 12, paddingBottom: 6, justifyContent: 'flex-end' }}>
                   <PremiumUnderlineButton onClick={onClose}>Dismiss</PremiumUnderlineButton>
                   <PremiumUnderlineButton
                     onClick={onConfirm}
@@ -272,7 +320,7 @@ export default function StructureWizard({
                     active
                     primary
                   >
-                    Initialize Structure
+                    Initialize Synthesis
                   </PremiumUnderlineButton>
                 </div>
 
