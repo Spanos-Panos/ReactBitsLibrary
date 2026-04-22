@@ -53,6 +53,25 @@ function detectNavLinksProps(navbarSrc) {
   return null;
 }
 
+/**
+ * Returns true for navbars that use position:absolute/fixed inside a
+ * full-viewport wrapper (e.g. StaggeredMenu, FlowingMenu).
+ * These MUST be placed inside a `position:relative; height:100vh` shell,
+ * NOT as a flex row item — otherwise their panels collapse.
+ */
+function isOverlayNavbar(navbarSrc, navName) {
+  if (!navbarSrc && !navName) return false;
+  const overlayNames = ['StaggeredMenu', 'FlowingMenu'];
+  if (overlayNames.some(n => navName && navName.toLowerCase().includes(n.toLowerCase()))) return true;
+  // Heuristic: component uses position:absolute on its panel + height:100%
+  if (
+    navbarSrc &&
+    navbarSrc.includes('position: absolute') &&
+    navbarSrc.includes('height: 100%')
+  ) return true;
+  return false;
+}
+
 // ── File content builders ─────────────────────────────────────────────────────
 
 function buildMainLayout(navbarComponent, pages, navbarSrc) {
@@ -61,18 +80,56 @@ function buildMainLayout(navbarComponent, pages, navbarSrc) {
 
   const routes = pages.map(p => ({ label: p.title, href: pageTypeToRoute(p.type, p.title) }));
   const linksProp = detectNavLinksProps(navbarSrc);
+  const overlayNav = isOverlayNavbar(navbarSrc, navName);
 
-  let navbarJsx;
+  // Build the props string to forward to the navbar
+  let propsStr = '';
   if (linksProp) {
     const linksLiteral = routes
-      .map(r => `{ label: '${r.label}', href: '${r.href}' }`)
+      .map(r => `{ label: '${r.label}', link: '${r.href}', href: '${r.href}', ariaLabel: 'Go to ${r.label}' }`)
       .join(', ');
-    navbarJsx = `      <${navName} ${linksProp}={[${linksLiteral}]} />`;
-  } else {
-    const todoComment = `{/* TODO: pass navigation links to ${navName} — routes: ${routes.map(r => r.href).join(', ')} */}`;
-    navbarJsx = `      ${todoComment}\n      <${navName} />`;
+    propsStr += ` ${linksProp}={[${linksLiteral}]}`;
+  }
+  // StaggeredMenu also needs 'items' (its actual prop) and a safe logoUrl
+  if (navName === 'StaggeredMenu') {
+    const itemsLiteral = routes
+      .map(r => `{ label: '${r.label}', ariaLabel: 'Go to ${r.label}', link: '${r.href}' }`)
+      .join(', ');
+    // Override the default logoUrl which points to an internal ReactBits path
+    propsStr = ` items={[${itemsLiteral}]} logoUrl="/logo.svg"`;
   }
 
+  const todoComment = `{/* TODO: pass navigation links to ${navName} — routes: ${routes.map(r => r.href).join(', ')} */}`;
+  const navbarJsx = propsStr
+    ? `      <${navName}${propsStr} />`
+    : `      ${todoComment}\n      <${navName} />`;
+
+  if (overlayNav) {
+    // Overlay navbars use position:absolute inside a height:100vh container.
+    // Wrap in a fixed viewport shell so the panel and GSAP animations work.
+    return `import { Outlet } from 'react-router-dom';
+import ${navName} from '${importPath}';
+
+export default function MainLayout() {
+  return (
+    <>
+      {/* Overlay navbar — fixed viewport shell required */}
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', zIndex: 40, pointerEvents: 'none' }}>
+        <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto' }}>
+${navbarJsx}
+        </div>
+      </div>
+      {/* Page content — top padding reserves space under the header bar */}
+      <main style={{ paddingTop: '5rem' }}>
+        <Outlet />
+      </main>
+    </>
+  );
+}
+`;
+  }
+
+  // Standard inline navbar (top of flex column)
   return `import { Outlet } from 'react-router-dom';
 import ${navName} from '${importPath}';
 

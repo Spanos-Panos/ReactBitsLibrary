@@ -360,6 +360,82 @@ function AssemblyGenerateBuildIcon() {
   );
 }
 
+/* ── PREMIUM UNDERLINE BUTTON ──────────────────────────────────────── */
+
+function PremiumUnderlineButton({
+  children,
+  onClick,
+  disabled,
+  active,
+  primary,
+  small,
+  danger,
+  fullWidth
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  primary?: boolean;
+  small?: boolean;
+  danger?: boolean;
+  fullWidth?: boolean;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: small ? '6px 4px' : '8px 4px',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+        fontSize: small ? '0.7rem' : '0.78rem',
+        fontWeight: small ? 700 : 600,
+        color: disabled
+          ? 'rgba(255,255,255,0.15)'
+          : (isHovered || active) ? '#f1f5f9' : 'rgba(241,245,249,0.35)',
+        position: 'relative',
+        transition: 'color 0.25s ease',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: fullWidth ? 'center' : 'flex-start',
+        opacity: disabled ? 0.6 : 1,
+        width: fullWidth ? '100%' : 'auto',
+        gap: 8
+      }}
+    >
+      <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {children}
+        <motion.div
+          initial={false}
+          animate={{
+            scaleX: active ? 1 : (isHovered && !disabled ? 0.65 : 0),
+            opacity: active ? (disabled ? 0.2 : 1) : (isHovered && !disabled ? 0.5 : 0),
+            background: danger ? '#ef4444' : (primary ? '#6366f1' : 'rgba(255,255,255,0.8)')
+          }}
+          transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+          style={{
+            position: 'absolute',
+            bottom: -4,
+            left: 0,
+            right: 0,
+            height: 2,
+            borderRadius: 2,
+            transformOrigin: 'left',
+          }}
+        />
+      </span>
+    </button>
+  );
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function AnimatedSelect({
@@ -1535,8 +1611,19 @@ function PagesTab({
   onChange: (pages: PageConfig[]) => void;
   selectedComponents: ComponentItem[];
 }) {
+  const topRef = useRef<HTMLDivElement>(null);
+  const [flashWarning, setFlashWarning] = useState(false);
+
   const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
   const nonNavbarComponents = selectedComponents.filter(c => !isNavbarComponent(c.name));
+
+  const handleLockedClick = () => {
+    if (!navbarComponent) {
+      topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setFlashWarning(true);
+      setTimeout(() => setFlashWarning(false), 800);
+    }
+  };
 
   const addPage = () => {
     if (pages.length >= 4) return;
@@ -1564,81 +1651,119 @@ function PagesTab({
   };
 
   return (
-    <div className="pbp-sizes-tab">
-      {/* Navbar indicator */}
+    <>
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Core Navigation</span>
+      </div>
+      
       {navbarComponent ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', marginBottom: 14 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="4" rx="1" /><line x1="3" y1="12" x2="21" y2="12" /></svg>
-          <span style={{ fontSize: '0.7rem', color: 'rgba(241,245,249,0.55)' }}>Navbar:</span>
-          <span style={{ fontSize: '0.7rem', color: '#f1f5f9', fontWeight: 600 }}>{navbarComponent.name}</span>
-          <span style={{ fontSize: '0.65rem', color: 'rgba(241,245,249,0.3)', marginLeft: 2 }}>→ all pages</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)', marginBottom: 20 }}>
+          <span style={{ flex: 1, fontSize: '0.78rem', color: '#a5b4fc', fontWeight: 500 }}>
+            {navbarComponent.name}
+          </span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+             <polyline points="20 6 9 17 4 12" />
+          </svg>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', marginBottom: 14 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-          <span style={{ fontSize: '0.7rem', color: 'rgba(245,158,11,0.8)' }}>Select a Nav/Header component to enable multi-page generation</span>
+        <div 
+          ref={topRef}
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, 
+            background: flashWarning ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.02)', 
+            border: `1px solid ${flashWarning ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'}`, 
+            marginBottom: 20, transition: 'all 0.3s ease' 
+          }}
+        >
+          <span style={{ fontSize: '0.72rem', color: flashWarning ? '#f87171' : 'rgba(255,255,255,0.5)' }}>
+            Please select at least one navigation component to use this feature.
+          </span>
         </div>
       )}
 
-      {/* Page count control */}
-      <div className="pbp-rule-header" style={{ marginBottom: 10 }}>
-        <span className="pbp-rule-label">Pages</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: '0.68rem', color: 'rgba(241,245,249,0.35)', minWidth: 28, textAlign: 'center' }}>{pages.length} / 4</span>
-          <button onClick={removePage} disabled={pages.length <= 1} style={{ width: 22, height: 22, borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: pages.length <= 1 ? 'rgba(255,255,255,0.2)' : '#f1f5f9', cursor: pages.length <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1 }}>−</button>
-          <button onClick={addPage} disabled={pages.length >= 4} style={{ width: 22, height: 22, borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: pages.length >= 4 ? 'rgba(255,255,255,0.2)' : '#f1f5f9', cursor: pages.length >= 4 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1 }}>+</button>
+      <div className="pbp-rule-header" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="pbp-rule-label" style={{ color: !navbarComponent && flashWarning ? '#f87171' : undefined, transition: 'color 0.3s ease' }}>Sitemap Configuration</span>
+          {!navbarComponent && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={flashWarning ? "#f87171" : "rgba(255,255,255,0.3)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'stroke 0.3s ease' }}>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          )}
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: navbarComponent ? 1 : 0.4 }}>
+          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(165,180,252,0.3)', fontFamily: 'var(--font-mono)' }}>{pages.length} / 4</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <PremiumUnderlineButton onClick={removePage} disabled={!navbarComponent || pages.length <= 1} small>
+               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </PremiumUnderlineButton>
+            <PremiumUnderlineButton onClick={addPage} disabled={!navbarComponent || pages.length >= 4} small primary>
+               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </PremiumUnderlineButton>
+          </div>
         </div>
       </div>
 
-      {/* Per-page rows */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {pages.map((page, idx) => (
-          <div key={page.id} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="text"
-                value={page.title}
-                onChange={e => updatePage(idx, { title: e.target.value })}
-                placeholder="Page title"
-                style={{ flex: 1, padding: '5px 9px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, color: '#f1f5f9', outline: 'none', fontFamily: 'inherit' }}
-              />
-              <select
-                value={page.type}
-                onChange={e => updatePage(idx, { type: e.target.value as PageType, title: page.title === DEFAULT_PAGE_TITLES[page.type] ? DEFAULT_PAGE_TITLES[e.target.value as PageType] : page.title })}
-                style={{ padding: '5px 8px', fontSize: '0.72rem', background: 'rgba(20,20,30,0.9)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, color: 'rgba(241,245,249,0.7)', outline: 'none', cursor: 'pointer' }}
-              >
-                {PAGE_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-              </select>
-            </div>
-            {nonNavbarComponents.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {nonNavbarComponents.map(comp => {
-                  const active = page.componentIds.includes(comp.id);
-                  return (
-                    <button
-                      key={comp.id}
-                      onClick={() => toggleComponentOnPage(idx, comp.id)}
-                      style={{
-                        padding: '3px 9px', borderRadius: 20, fontSize: '0.65rem', fontWeight: 500,
-                        border: `1px solid ${active ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                        background: active ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)',
-                        color: active ? '#a5b4fc' : 'rgba(241,245,249,0.4)',
-                        cursor: 'pointer', transition: 'all .15s ease',
-                      }}
-                    >
-                      {comp.name}
-                    </button>
-                  );
-                })}
+      <div style={{ position: 'relative' }}>
+        {!navbarComponent && (
+          <div 
+            onClick={handleLockedClick}
+            style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'pointer' }}
+          />
+        )}
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, opacity: navbarComponent ? 1 : 0.35, pointerEvents: navbarComponent ? 'auto' : 'none', filter: navbarComponent ? 'none' : 'grayscale(100%)', transition: 'all 0.3s ease' }}>
+          {pages.map((page, idx) => (
+            <div key={page.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '14px 16px' }}>
+              <div className="pbp-brief-grid" style={{ marginBottom: 12 }}>
+                <div className="pbp-brief-field">
+                  <span className="pbp-brief-label">Page Title</span>
+                  <input
+                    className="pbp-brief-input"
+                    value={page.title}
+                    onChange={e => updatePage(idx, { title: e.target.value })}
+                    placeholder="e.g. Products"
+                  />
+                </div>
+                <div className="pbp-brief-field">
+                  <span className="pbp-brief-label">Route Type</span>
+                  <AnimatedSelect
+                    value={page.type}
+                    onChange={v => updatePage(idx, { type: v as PageType, title: page.title === DEFAULT_PAGE_TITLES[page.type] ? DEFAULT_PAGE_TITLES[v as PageType] : page.title })}
+                    options={PAGE_TYPES.map(t => ({ label: t.charAt(0).toUpperCase() + t.slice(1), value: t }))}
+                  />
+                </div>
               </div>
-            )}
-            {nonNavbarComponents.length === 0 && (
-              <span style={{ fontSize: '0.65rem', color: 'rgba(241,245,249,0.25)' }}>Select non-navbar components to assign them here</span>
-            )}
-          </div>
-        ))}
+
+              <div className="pbp-brief-field">
+                <span className="pbp-brief-label">Page Layout — targeted components</span>
+                {nonNavbarComponents.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 6px', marginTop: 4 }}>
+                    {nonNavbarComponents.map(comp => {
+                      const active = page.componentIds.includes(comp.id);
+                      return (
+                        <button
+                          key={comp.id}
+                          onClick={() => toggleComponentOnPage(idx, comp.id)}
+                          className={`pbp-preset-chip${active ? ' pbp-preset-chip--active' : ''}`}
+                          style={{ padding: '4px 9px 5px', fontSize: '0.68rem' }}
+                        >
+                          {comp.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.72rem', color: 'rgba(241,245,249,0.2)', padding: '8px 0', fontStyle: 'italic' }}>
+                    No non-navbar components selected to assign.
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1651,15 +1776,15 @@ function OutputTab({ style, onChange }: { style: ScrollbarStyle; onChange: (s: S
       <div className="pbp-rule-header">
         <span className="pbp-rule-label">Scrollbar</span>
       </div>
-      <div className="pbp-sizes-chip-grid">
+      <div className="pbp-sizes-chip-grid" style={{ display: 'flex', gap: 16 }}>
         {modes.map(m => (
-          <button
+          <PremiumUnderlineButton
             key={m}
-            className={`pbp-sizes-chip ${style.mode === m ? 'pbp-sizes-chip--active' : ''}`}
+            active={style.mode === m}
             onClick={() => onChange({ ...style, mode: m })}
           >
             {modeLabel[m]}
-          </button>
+          </PremiumUnderlineButton>
         ))}
       </div>
       {style.mode === 'custom' && (
@@ -1893,45 +2018,32 @@ export default function ProjectBuilderPanel({
                   onChange={e => onPromptChange(e.target.value)}
                 />
                 <div className="pbp-prompt-generate-wrap">
-                  <button
-                    type="button"
-                    className="pbp-assembly-generate-btn"
-                    disabled={selectedComponents.length === 0 || !prompt.trim()}
+                  <PremiumUnderlineButton
                     onClick={onGenerate}
-                    title="Generate project"
+                    disabled={selectedComponents.length === 0 || !prompt.trim()}
+                    primary
+                    fullWidth
                   >
                     <span className="pbp-assembly-generate-btn-label">Generate project</span>
                     <span className="pbp-assembly-generate-btn-icon">
                       <AssemblyGenerateBuildIcon />
                     </span>
-                  </button>
-                  <button
-                    type="button"
+                  </PremiumUnderlineButton>
+                  <PremiumUnderlineButton
                     disabled={!navbarComponent}
-                    title={!navbarComponent ? 'Add a Nav/Header component to enable' : 'Generate a multi-page React Router project'}
                     onClick={() => {
                       if (navbarComponent) {
                         onGenerateStructure(pages, `${navbarComponent.category}/${navbarComponent.name}`);
                       }
                     }}
-                    style={{
-                      marginTop: 6, width: '100%', padding: '8px 14px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      borderRadius: 10, fontSize: '0.75rem', fontWeight: 500,
-                      background: 'transparent',
-                      border: `1px solid ${navbarComponent ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                      color: navbarComponent ? 'rgba(165,180,252,0.85)' : 'rgba(255,255,255,0.25)',
-                      cursor: navbarComponent ? 'pointer' : 'not-allowed',
-                      transition: 'all .18s ease',
-                    }}
-                    onMouseEnter={e => { if (navbarComponent) { e.currentTarget.style.background = 'rgba(99,102,241,0.1)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.6)'; } }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = navbarComponent ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)'; }}
+                    primary
+                    fullWidth
                   >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
                     </svg>
                     Generate Project Structure
-                  </button>
+                  </PremiumUnderlineButton>
                 </div>
               </div>
             </div>

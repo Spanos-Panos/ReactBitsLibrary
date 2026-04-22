@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { PageConfig } from '../../shared/types/index';
 
@@ -33,26 +33,74 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function UnderlineBtn({
-  children, onClick, active, disabled, small,
+function PremiumUnderlineButton({
+  children,
+  onClick,
+  disabled,
+  active,
+  primary,
+  small,
+  fullWidth
 }: {
-  children: React.ReactNode; onClick: () => void; active?: boolean; disabled?: boolean; small?: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  primary?: boolean;
+  small?: boolean;
+  fullWidth?: boolean;
 }) {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
-        background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer',
-        padding: small ? '2px 0' : '4px 0',
-        fontSize: small ? '0.72rem' : '0.78rem', fontWeight: 500,
-        color: active ? '#f1f5f9' : 'rgba(241,245,249,0.35)',
-        borderBottom: active ? '1px solid rgba(241,245,249,0.6)' : '1px solid transparent',
-        transition: 'all .18s ease',
-        opacity: disabled ? 0.35 : 1,
+        background: 'none',
+        border: 'none',
+        padding: small ? '6px 4px' : '8px 4px',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontFamily: "var(--font-body, 'Inter', sans-serif)",
+        fontSize: small ? '0.7rem' : '0.78rem',
+        fontWeight: small ? 700 : 600,
+        color: disabled
+          ? 'rgba(255,255,255,0.15)'
+          : (isHovered || active) ? '#f1f5f9' : 'rgba(241,245,249,0.35)',
+        position: 'relative',
+        transition: 'color 0.25s ease',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: fullWidth ? 'center' : 'flex-start',
+        opacity: disabled ? 0.6 : 1,
+        width: fullWidth ? '100%' : 'auto',
+        gap: 8
       }}
     >
-      {children}
+      <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {children}
+        <motion.div
+          initial={false}
+          animate={{
+            scaleX: active ? 1 : (isHovered && !disabled ? 0.65 : 0),
+            opacity: active ? (disabled ? 0.2 : 1) : (isHovered && !disabled ? 0.5 : 0),
+            background: primary ? '#6366f1' : 'rgba(255,255,255,0.8)'
+          }}
+          transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+          style={{
+            position: 'absolute',
+            bottom: -4,
+            left: 0,
+            right: 0,
+            height: 2,
+            borderRadius: 2,
+            transformOrigin: 'left',
+          }}
+        />
+      </span>
     </button>
   );
 }
@@ -133,7 +181,7 @@ export default function StructureWizard({
                     <SectionLabel>Output Directory</SectionLabel>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <input type="text" value={outputPath} readOnly placeholder="Select target directory..." style={{ ...INPUT_STYLE, flex: 1, cursor: 'default' }} />
-                      <UnderlineBtn onClick={onBrowse}>Browse</UnderlineBtn>
+                      <PremiumUnderlineButton onClick={onBrowse}>Browse</PremiumUnderlineButton>
                     </div>
                   </div>
                 </div>
@@ -143,9 +191,9 @@ export default function StructureWizard({
                   <SectionLabel>Package Manager</SectionLabel>
                   <div style={{ display: 'flex', gap: 16 }}>
                     {PM_LIST.map(pm => (
-                      <UnderlineBtn key={pm} onClick={() => onPackageManagerChange(pm)} active={packageManager === pm} small>
+                      <PremiumUnderlineButton key={pm} onClick={() => onPackageManagerChange(pm)} active={packageManager === pm} small>
                         {pm}
-                      </UnderlineBtn>
+                      </PremiumUnderlineButton>
                     ))}
                   </div>
                 </div>
@@ -217,21 +265,15 @@ export default function StructureWizard({
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 14, marginTop: 4, paddingBottom: 6, justifyContent: 'flex-end' }}>
-                  <UnderlineBtn onClick={onClose}>Dismiss</UnderlineBtn>
-                  <button
+                  <PremiumUnderlineButton onClick={onClose}>Dismiss</PremiumUnderlineButton>
+                  <PremiumUnderlineButton
                     onClick={onConfirm}
                     disabled={!projectName || !outputPath}
-                    style={{
-                      padding: '7px 18px', borderRadius: 8, fontSize: '0.78rem', fontWeight: 600,
-                      background: !projectName || !outputPath ? 'rgba(99,102,241,0.3)' : '#6366f1',
-                      color: '#fff', border: 'none', cursor: !projectName || !outputPath ? 'not-allowed' : 'pointer',
-                      transition: 'all .2s ease', opacity: !projectName || !outputPath ? 0.5 : 1,
-                    }}
-                    onMouseEnter={e => { if (projectName && outputPath) (e.currentTarget as HTMLButtonElement).style.background = '#4f46e5'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = !projectName || !outputPath ? 'rgba(99,102,241,0.3)' : '#6366f1'; }}
+                    active
+                    primary
                   >
                     Initialize Structure
-                  </button>
+                  </PremiumUnderlineButton>
                 </div>
 
               </div>
