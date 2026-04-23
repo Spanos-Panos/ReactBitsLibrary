@@ -1,4 +1,5 @@
 import type { ComponentFile, ReactBitsItem, ProjectStructureOptions, StructureGenerateResult } from './index';
+import type { ClientBrief, DesignRules, StyleDirection, ComponentItem as BuilderComponentItem, ScrollbarStyle } from '../../features/project-builder/ProjectBuilderPanel';
 
 export interface ComponentContext {
   id: string;
@@ -50,9 +51,66 @@ export interface VisionReworkPayload {
   projectName: string;
   originalPreset: object;
   referenceImagePath: string;
-  screenshotPath?: string;
+  screenshotPath?: string | null;
   weaknessesMd: string;
   backupFirst: boolean;
+  taskId: string;
+}
+
+export interface EnhancePromptSystemContext {
+  framework?: string;
+  styling?: string;
+  icons?: string;
+  animations?: string[];
+  architectureRules?: string[];
+  designRules?: DesignRules;
+  responsiveDirective?: string;
+  styleDirection?: StyleDirection;
+  clientBrief?: ClientBrief;
+  layoutConfig?: unknown[] | null;
+  componentRoleContext?: Array<{ name: string; role: string; footprint: string; behaviors: string[] }>;
+}
+
+export interface EnhancePromptPayload {
+  rawPrompt: string;
+  selectedComponents: Array<BuilderComponentItem | ComponentContext | Pick<ComponentContext, 'id' | 'name' | 'category'>>;
+  systemContext?: EnhancePromptSystemContext;
+}
+
+export interface EnhancePromptResult {
+  success: boolean;
+  enhancedPrompt?: Record<string, unknown>;
+  savedPaths?: { original: string; enhanced: string };
+  error?: string;
+  stage?: string;
+}
+
+export interface GeneratePlaygroundOptions {
+  installMethod: 'cli' | 'manual';
+  packageManager: 'npm' | 'pnpm' | 'yarn' | 'bun';
+  installData: unknown;
+  projectName: string;
+  projectPath: string;
+  openWhenDone: boolean;
+  runWhenDone: boolean;
+  autoKillOnError: boolean;
+  layoutConfig?: unknown[] | null;
+  scrollbarStyle?: ScrollbarStyle | null;
+  polishPass?: boolean;
+}
+
+export interface GeneratePlaygroundPayload {
+  options: GeneratePlaygroundOptions;
+  selectedComponents: ComponentContext[];
+  enhancedPrompt?: Record<string, unknown> | null;
+}
+
+export interface GeneratePlaygroundLegacyArgs {
+  category: string;
+  name: string;
+  usageCode: string;
+  componentFiles: ComponentFile[];
+  options: GeneratePlaygroundOptions;
   taskId: string;
 }
 
@@ -69,7 +127,15 @@ export interface ReactBitsApi {
   getDiagnostics(): unknown;
   getComponentFiles(category: string, name: string): ComponentFile[];
   getComponentFullContext(category: string, name: string, id: string): Promise<ComponentContext>;
-  generatePlayground(...args: unknown[]): Promise<GenerateResult>;
+  generatePlayground(payload: GeneratePlaygroundPayload, _legacyPlaceholder: null, taskId: string): Promise<GenerateResult>;
+  generatePlayground(
+    category: string,
+    name: string,
+    usageCode: string,
+    componentFiles: ComponentFile[],
+    options: GeneratePlaygroundOptions,
+    taskId: string
+  ): Promise<GenerateResult>;
   onGenerateProgress(cb: (msg: string, taskId: string) => void): () => void;
   onGenerateLog(cb: (msg: string, taskId: string) => void): () => void;
   selectDirectory(): Promise<string | null>;
@@ -77,7 +143,7 @@ export interface ReactBitsApi {
   getHistory(): Promise<unknown>;
   clearHistory(): Promise<unknown>;
   openHistoryFolder(): Promise<unknown>;
-  enhancePrompt(payload: unknown): Promise<unknown>;
+  enhancePrompt(payload: EnhancePromptPayload): Promise<EnhancePromptResult>;
   terminateTask(taskId: string): Promise<{ success: boolean; error?: string }>;
   savePreset(preset: unknown): Promise<unknown>;
   listPresets(): Promise<unknown>;

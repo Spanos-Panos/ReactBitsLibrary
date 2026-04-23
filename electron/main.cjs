@@ -15,6 +15,7 @@ const isDev = process.env.NODE_ENV === "development";
 const activeProcesses = new Map(); // Map<taskId, { proc, fullPath }>
 const { exec, spawn, execSync } = require('child_process');
 let appIsQuitting = false; // Guards before-quit to prevent re-entrancy loops
+let mainWindow = null;
 
 // ─── Survivor Registry ────────────────────────────────────────────────────────
 // Writes every running dev-server PID + path to a temp JSON file so that
@@ -273,6 +274,15 @@ app.on("activate", () => {
 
 // Generator IPC Setup
 const fs = require("fs");
+const {
+  validationFailure,
+  shapeFailure,
+  runWithRetry,
+  validateEnhancePromptPayload,
+  validateGeneratePlaygroundArgs,
+  validateStructurePayload,
+  validateVisionReworkPayload,
+} = require("./ipcContracts.cjs");
 
 ipcMain.handle("select-directory", async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
@@ -334,22 +344,37 @@ const { captureAndSave } = require("./screenshotCapture.cjs");
 const { runVisionRework } = require("./visionRework.cjs");
 
 ipcMain.handle("generate-playground", async (event, ...args) => {
-  let result;
-  let taskId;
+  const validation = validateGeneratePlaygroundArgs(args);
+  if (validation.error) {
+    return validationFailure("validation", validation.error);
+  }
 
-  // Polymorphic Handler: Detects if first arg is the new Rich Payload
-  if (args.length === 3 && typeof args[0] === 'object' && args[0].options) {
-    const payload = args[0];
-    taskId = args[2];
-    result = await generatePlayground(payload, event, taskId);
-  } else {
-    // Legacy Positional Arguments (Single Component)
-    const [category, name, usageCode, componentFiles, options, tid] = args;
-    taskId = tid;
-    result = await generatePlayground({
-      category, name, usageCode, componentFiles, options,
-      selectedComponents: [{ category, name, files: componentFiles, usageMarkdown: usageCode }]
-    }, event, taskId);
+  const taskId = validation.taskId;
+  let result;
+  try {
+    result = await runWithRetry("generate-playground", async () => {
+      if (validation.isRichPayload) {
+        const payload = args[0];
+        return generatePlayground(payload, event, taskId);
+      }
+
+      // Legacy Positional Arguments (Single Component)
+      const [category, name, usageCode, componentFiles, options] = args;
+      return generatePlayground({
+        category, name, usageCode, componentFiles, options,
+        selectedComponents: [{ category, name, files: componentFiles, usageMarkdown: usageCode }]
+      }, event, taskId);
+    }, {
+      retries: 1,
+      timeoutMs: 20 * 60 * 1000,
+      shouldRetry: (msg) => /timeout|network|econn|etimedout|429/i.test(msg),
+      onRetry: (attempt, retries, message) => {
+        console.warn(`[Main] generate-playground retry ${attempt}/${retries}: ${message}`);
+        if (event?.sender) event.sender.send("generate-log", `[System] generate-playground retry ${attempt}/${retries}: ${message}\n`, taskId);
+      },
+    });
+  } catch (error) {
+    return shapeFailure("generate-playground", error);
   }
   
   // If a child process was started, track it in memory AND persist to the registry file.
@@ -363,7 +388,7 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
 
   // ── Auto Vision Rework: capture screenshot AFTER AI Build generation finishes ──
   // Only for AI Build tasks (rich payload with options.isAiBuild flag)
-  const isAiBuild = args.length === 3 && typeof args[0] === 'object' && args[0].options;
+  const isAiBuild = validation.isRichPayload;
   if (isAiBuild && result.path) {
     const snapshotPath = result.path;
     const snapshotTaskId = taskId;
@@ -402,9 +427,21 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
 });
 
 ipcMain.handle("generate-structure", async (event, options) => {
+  const validationError = validateStructurePayload(options);
+  if (validationError) return validationFailure("validation", validationError);
   const taskId = `structure-${Date.now()}`;
-  const result = await generateStructure(options, event, taskId);
-  return result;
+  try {
+    return await runWithRetry("generate-structure", () => generateStructure(options, event, taskId), {
+      retries: 1,
+      timeoutMs: 10 * 60 * 1000,
+      shouldRetry: (msg) => /timeout|network|econn|etimedout/i.test(msg),
+      onRetry: (attempt, retries, message) => {
+        if (event?.sender) event.sender.send("generate-log", `[System] generate-structure retry ${attempt}/${retries}: ${message}\n`, taskId);
+      },
+    });
+  } catch (error) {
+    return shapeFailure("generate-structure", error);
+  }
 });
 
 ipcMain.handle("terminate-task", async (event, taskId) => {
@@ -463,20 +500,29 @@ ipcMain.handle("capture-project-screenshot", async (event, projectPath) => {
 
 // Run the vision rework generation pass
 ipcMain.handle("run-vision-rework", async (event, payload) => {
+  const validationError = validateVisionReworkPayload(payload);
+  if (validationError) return validationFailure("validation", validationError);
   const win = BrowserWindow.fromWebContents(event.sender);
   const reworkTaskId = payload.taskId || `rework-${Date.now()}`;
   try {
-    await runVisionRework({
+    await runWithRetry("run-vision-rework", () => runVisionRework({
       ...payload,
       onProgress: (msg) => {
         if (win && !win.isDestroyed()) {
           win.webContents.send('vision-rework-progress', msg, reworkTaskId);
         }
       },
+    }), {
+      retries: 1,
+      timeoutMs: 15 * 60 * 1000,
+      shouldRetry: (msg) => /timeout|network|econn|etimedout|429/i.test(msg),
+      onRetry: (attempt, retries, message) => {
+        if (win && !win.isDestroyed()) win.webContents.send('vision-rework-progress', `[System] Retry ${attempt}/${retries}: ${message}`, reworkTaskId);
+      },
     });
     return { success: true, taskId: reworkTaskId };
   } catch (e) {
-    return { success: false, error: e.message, taskId: reworkTaskId };
+    return { ...shapeFailure("run-vision-rework", e), taskId: reworkTaskId };
   }
 });
 
@@ -522,7 +568,20 @@ ipcMain.handle("design-pick-images", async (event) => {
 });
 
 ipcMain.handle("enhance-prompt", async (event, payload) => {
-  return await enhancePrompt(payload);
+  const validationError = validateEnhancePromptPayload(payload);
+  if (validationError) return validationFailure("validation", validationError);
+  try {
+    return await runWithRetry("enhance-prompt", () => enhancePrompt(payload), {
+      retries: 2,
+      timeoutMs: 2 * 60 * 1000,
+      shouldRetry: (msg) => /timeout|network|econn|etimedout|429|rate limit|temporarily unavailable/i.test(msg),
+      onRetry: (attempt, retries, message) => {
+        if (event?.sender) event.sender.send("generate-log", `[System] enhance-prompt retry ${attempt}/${retries}: ${message}\n`, "enhance");
+      },
+    });
+  } catch (error) {
+    return shapeFailure("enhance-prompt", error);
+  }
 });
 
 

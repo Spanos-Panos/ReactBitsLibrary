@@ -69,7 +69,16 @@ export interface ProjectStructureOptions {
   navbarComponentId: string;
   projectName: string;
   outputPath: string;
-  packageManager: 'npm' | 'pnpm' | 'yarn';
+  packageManager: 'npm' | 'pnpm' | 'yarn' | 'bun';
+  openWhenDone?: boolean;
+  selectedComponents?: Array<{
+    id: string;
+    name: string;
+    category: string;
+    files?: ComponentFile[];
+    usage?: string;
+    install?: string;
+  }>;
   taskId?: string;
 }
 

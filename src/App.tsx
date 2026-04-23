@@ -21,7 +21,8 @@ import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
 import LayoutPreviewModal from "./features/project-builder/LayoutPreviewModal";
 import VisionReworkModal from "./features/generation/VisionReworkModal";
-import type { VisionReworkReadyData } from "./shared/types/api";
+import type { ComponentContext, EnhancePromptResult, VisionReworkPayload, VisionReworkReadyData } from "./shared/types/api";
+import type { ProjectStructureOptions } from "./shared/types";
 
 const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,
@@ -42,6 +43,22 @@ const CARD_NAV_ITEMS = [
   { label: 'Favorites',  bgColor: 'rgba(255,255,255,0.03)', textColor: '#64748b' },
   { label: 'Recent',     bgColor: 'rgba(255,255,255,0.03)', textColor: '#64748b' },
 ];
+
+type EnhancedPromptData = NonNullable<EnhancePromptResult["enhancedPrompt"]>;
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "Unknown error";
+}
+
+function getEnhancedProjectTitle(prompt: EnhancedPromptData | null, fallback: string): string {
+  if (!prompt || typeof prompt !== "object") return fallback;
+  const projectMeta = (prompt as { projectMeta?: unknown }).projectMeta;
+  if (!projectMeta || typeof projectMeta !== "object") return fallback;
+  const title = (projectMeta as { title?: unknown }).title;
+  return typeof title === "string" && title.trim() ? title : fallback;
+}
 
 function App() {
   // ── Hooks ─────────────────────────────────────────────────────────────────
@@ -91,7 +108,7 @@ function App() {
   const structureWizard = useStructureWizard();
   const [polishPass,           setPolishPass]           = useState(false);
 
-  const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<any>(null);
+  const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<EnhancedPromptData | null>(null);
   const [generateStatus,       setGenerateStatus]       = useState("");
   const [toastType,            setToastType]            = useState<"info" | "warning" | "success">("info");
 
@@ -118,11 +135,6 @@ function App() {
       .sort((a, b) => a.name.localeCompare(b.name)),
     [items, activeCategory]
   );
-
-  const displayedItems = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return q ? filtered.filter(i => i.name.toLowerCase().includes(q)) : filtered;
-  }, [filtered, searchQuery]);
 
   const selectedComponents = useMemo(
     () => selectedIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ReactBitsItem[],
@@ -189,6 +201,12 @@ function App() {
     setInstallTab('cli');
   };
 
+  const showStatus = (type: "info" | "warning" | "success", message: string, timeoutMs = 4000) => {
+    setToastType(type);
+    setGenerateStatus(message);
+    setTimeout(() => setGenerateStatus(""), timeoutMs);
+  };
+
   const handleGenerate = () => {
     if (selected) setProjectName(`${selected.name} Demo`);
     setShowGenerateWizard(true);
@@ -229,9 +247,7 @@ function App() {
     const isMasterBuild = !!lastEnhancedPrompt;
     if (!isMasterBuild && !selected) return;
     if (Object.values(tasks).filter(t => t.status === 'running').length >= 5) {
-      setToastType("warning");
-      setGenerateStatus("Task limit reached (max 5 running). Please wait for some to finish!");
-      setTimeout(() => setGenerateStatus(""), 4000);
+      showStatus("warning", "Task limit reached (max 5 running). Please wait for some to finish!");
       return;
     }
     const taskId = Date.now().toString();
@@ -240,7 +256,7 @@ function App() {
       ...prev,
       [taskId]: {
         id: taskId,
-        name: isMasterBuild ? (lastEnhancedPrompt.projectMeta?.title || "AI Project") : selected!.name,
+        name: isMasterBuild ? getEnhancedProjectTitle(lastEnhancedPrompt, "AI Project") : selected!.name,
         type: isMasterBuild ? 'web' : 'component',
         projectName: uniqueProjectName, progress: "Initializing project generation...",
         logs: ["Initializing Build Environment...\n"], status: 'running',
@@ -284,13 +300,14 @@ function App() {
           setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
         }
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = getErrorMessage(e);
       if (autoKillOnError) {
         await handleCloseTask(taskId);
-        setGenerateStatus(`Error and auto-cleared: ${e.message}`);
+        setGenerateStatus(`Error and auto-cleared: ${message}`);
       } else {
-        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: e.message, hasTerminalError: true } }));
-        setGenerateStatus(`Error: ${e.message}`);
+        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: message, hasTerminalError: true } }));
+        setGenerateStatus(`Error: ${message}`);
       }
     }
     setTimeout(() => setGenerateStatus(""), 8000);
@@ -306,9 +323,7 @@ function App() {
       const categoryCount = selectedIds.filter(sid => items.find(i => i.id === sid)?.category === item.category).length;
       const limit = CATEGORY_LIMITS[item.category] || 99;
       if (categoryCount >= limit) {
-        setToastType("warning");
-        setGenerateStatus(`Limit reached! You can only select up to ${limit} ${item.category}.`);
-        setTimeout(() => setGenerateStatus(""), 5000);
+        showStatus("warning", `Limit reached! You can only select up to ${limit} ${item.category}.`, 5000);
         return;
       }
       setSelectedIds(prev => [...prev, id]);
@@ -347,9 +362,7 @@ function App() {
     setClientBrief(preset.clientBrief ?? DEFAULT_CLIENT_BRIEF);
     // v4 field — fall back to a single Home page for old presets
     setPages(preset.pages ?? [{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
-    setToastType('success');
-    setGenerateStatus(`✓ Loaded "${preset.name}"`);
-    setTimeout(() => setGenerateStatus(''), 3000);
+    showStatus('success', `✓ Loaded "${preset.name}"`, 3000);
   };
 
   const handleDeletePreset = async (id: string) => { await window.reactBitsApi?.deletePreset?.(id); };
@@ -357,13 +370,11 @@ function App() {
   const handleBuilderGenerate = async () => {
     const runningTasksCount = Object.values(tasks).filter(t => t.status === 'running').length;
     if (runningTasksCount >= 5) {
-      setToastType("warning");
-      setGenerateStatus("Task limit reached (max 5 running). Please wait for some to finish!");
-      setTimeout(() => setGenerateStatus(""), 4000);
+      showStatus("warning", "Task limit reached (max 5 running). Please wait for some to finish!");
       return;
     }
-    if (!projectPrompt.trim()) { setToastType("warning"); setGenerateStatus("Please enter a prompt for your project!"); setTimeout(() => setGenerateStatus(""), 4000); return; }
-    if (selectedComponents.length === 0) { setToastType("warning"); setGenerateStatus("Please select at least one component!"); setTimeout(() => setGenerateStatus(""), 4000); return; }
+    if (!projectPrompt.trim()) { showStatus("warning", "Please enter a prompt for your project!"); return; }
+    if (selectedComponents.length === 0) { showStatus("warning", "Please select at least one component!"); return; }
     setGenerateStatus("Scavenging component source code...");
     try {
       const componentsWithContext = await Promise.all(
@@ -399,17 +410,26 @@ function App() {
         rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
         systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, responsiveDirective, styleDirection, clientBrief, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, componentRoleContext },
       });
-      const enhanceData = enhanceResult as any;
+      const enhanceData = enhanceResult as EnhancePromptResult;
       if (enhanceData.success) {
-        setGenerateStatus("Project Design Ready!"); setToastType("success");
-        setLastEnhancedPrompt(enhanceData.enhancedPrompt);
-        setProjectName(enhanceData.enhancedPrompt?.projectMeta?.title || "reactbits-ai-project");
+        const enhancedPrompt = enhanceData.enhancedPrompt ?? null;
+        if (!enhancedPrompt) {
+          showStatus("warning", "AI returned success without an enhanced prompt.");
+          return;
+        }
+        setToastType("success");
+        setGenerateStatus("Project Design Ready!");
+        setLastEnhancedPrompt(enhancedPrompt);
+        setProjectName(typeof enhancedPrompt.projectMeta === "object" && enhancedPrompt.projectMeta && "title" in enhancedPrompt.projectMeta
+          ? String((enhancedPrompt.projectMeta as { title?: string }).title || "reactbits-ai-project")
+          : "reactbits-ai-project");
         setShowGenerateWizard(true);
       } else {
-        setToastType("warning"); setGenerateStatus(`AI Error: ${enhanceData.error}`);
+        showStatus("warning", `AI Error: ${enhanceData.error ?? "Unknown error"}`, 5000);
       }
-    } catch (err: any) { setToastType("warning"); setGenerateStatus(`Error: ${err.message}`); }
-    setTimeout(() => setGenerateStatus(""), 5000);
+    } catch (err: unknown) {
+      showStatus("warning", `Error: ${getErrorMessage(err)}`, 5000);
+    }
   };
 
   const handleGenerateStructure = (pgs: PageConfig[], navbarId: string) => {
@@ -460,16 +480,17 @@ function App() {
       })
     );
 
-    const result = await window.reactBitsApi.generateStructure({
+    const structureOptions: ProjectStructureOptions = {
       pages: structureWizard.pages,
       navbarComponentId: structureWizard.navbarId,
       projectName: uniqueProjectName,
       outputPath: structureWizard.outputPath,
       packageManager: structureWizard.packageManager,
       openWhenDone: structureWizard.openWhenDone,
-      selectedComponents: componentsWithFiles as any,
+      selectedComponents: componentsWithFiles,
       taskId: taskId,
-    } as any);
+    };
+    const result = await window.reactBitsApi.generateStructure(structureOptions);
 
     const pageCount = structureWizard.pages.length;
     const successMsg = `${uniqueProjectName} — ${pageCount} page${pageCount !== 1 ? 's' : ''} ready`;
@@ -486,13 +507,9 @@ function App() {
     }));
 
     if (result.success) {
-      setToastType('success');
-      setGenerateStatus(successMsg);
-      setTimeout(() => setGenerateStatus(''), 6000);
+      showStatus('success', successMsg, 6000);
     } else {
-      setToastType('warning');
-      setGenerateStatus(`Structure generation failed: ${result.error ?? 'Unknown error'}`);
-      setTimeout(() => setGenerateStatus(''), 6000);
+      showStatus('warning', `Structure generation failed: ${result.error ?? 'Unknown error'}`, 6000);
     }
   };
 
@@ -532,11 +549,7 @@ function App() {
     setVisionReworkOpen(true);
   };
 
-  const handleVisionReworkConfirm = async (payload: {
-    projectPath: string; projectName: string; originalPreset: object;
-    referenceImagePath: string; screenshotPath?: string;
-    weaknessesMd: string; backupFirst: boolean; taskId: string;
-  }) => {
+  const handleVisionReworkConfirm = async (payload: VisionReworkPayload) => {
     setVisionReworkOpen(false);
     const reworkId = payload.taskId;
     setTasks(prev => ({
@@ -677,11 +690,10 @@ function App() {
               scrollbarStyle={scrollbarStyle}
               onScrollbarStyleChange={setScrollbarStyle}
               onOpenLayoutIntelligence={() => setShowLayoutIntelligence(true)}
-              onRestoreFromHistory={(p: string, sels: any[]) => {
+              onRestoreFromHistory={(p: string, sels: Array<{ id: string }>) => {
                 setProjectPrompt(p);
-                setSelectedIds(sels.map((s: any) => s.id));
-                setGenerateStatus("Restored project from history!");
-                setTimeout(() => setGenerateStatus(""), 3000);
+                setSelectedIds(sels.map((s: { id: string }) => s.id));
+                showStatus("success", "Restored project from history!", 3000);
               }}
               pages={pages}
               onPagesChange={setPages}
@@ -746,7 +758,7 @@ function App() {
         reworkData={visionReworkData}
         projectName={visionReworkTaskId ? (tasks[visionReworkTaskId]?.projectName ?? '') : ''}
         originalPreset={visionReworkTaskId ? (lastPresetByTaskId.current[visionReworkTaskId] ?? null) : null}
-        onConfirm={handleVisionReworkConfirm as any}
+        onConfirm={handleVisionReworkConfirm}
       />
 
       {activeTaskId && tasks[activeTaskId] && (

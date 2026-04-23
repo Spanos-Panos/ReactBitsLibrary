@@ -26,6 +26,12 @@ jobs:
       - name: Install dependencies 📦
         run: npm install
 
+      - name: Quality checks ✅
+        run: npm run check
+
+      - name: Smoke tests 🧪
+        run: npm run test:smoke
+
       - name: Build 🏗️
         run: npm run build
 

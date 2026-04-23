@@ -24,6 +24,12 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Run Quality Checks
+        run: npm run check
+
+      - name: Run Smoke Tests
+        run: npm run test:smoke
+
       - name: Build React App
         run: npm run build
 
