@@ -32,8 +32,7 @@ export interface DesignRules {
   fonts: FontEntry[];
   colors: ColorEntry[];
   sizes: { 
-    strategy: 'desktop' | 'mobile' | 'both' | ''; 
-    maxWidth: string;
+    optimizationTarget: 'mobile' | 'tablet' | 'desktop' | 'adaptive';
     spacingScale: 'compact' | 'comfortable' | 'spacious' | '';
     borderRadius: 'none' | 'small' | 'medium' | 'large' | 'pill' | '';
   };
@@ -82,6 +81,8 @@ export interface ProjectBuilderPanelProps {
   pages: PageConfig[];
   onPagesChange: (pages: PageConfig[]) => void;
   onGenerateStructure: (pages: PageConfig[], navbarComponentId: string) => void;
+  allComponents?: ComponentItem[];
+  onToggleComponent?: (id: string) => void;
 }
 
 export interface ClientBrief {
@@ -108,10 +109,9 @@ export const DEFAULT_DESIGN_RULES: DesignRules = {
   fonts: [],
   colors: [],
   sizes: { 
-    strategy: 'desktop', 
-    maxWidth: '1280px',
-    spacingScale: 'comfortable',
-    borderRadius: 'medium'
+    optimizationTarget: 'adaptive',
+    spacingScale: '',
+    borderRadius: ''
   },
   images: [],
 };
@@ -1160,40 +1160,39 @@ function SizesTab({ rules, onChange }: { rules: DesignRules; onChange: (r: Desig
   return (
     <div className="pbp-sizes-tab">
       
-      {/* Container Constraints */}
+      {/* Target Optimization */}
       <div className="pbp-rule-header">
-        <span className="pbp-rule-label">Container & Strategy</span>
+        <span className="pbp-rule-label">Target Optimization</span>
       </div>
-      <div className="pbp-sizes-grid">
-        <div className="pbp-sizes-field">
-          <span className="pbp-sizes-label">Max Width</span>
-          <div className="pbp-sizes-input-wrapper">
-            <input
-              type="text"
-              className="pbp-sizes-input"
-              value={rules.sizes.maxWidth}
-              onChange={e => set('maxWidth', e.target.value)}
-              placeholder="1280px"
-            />
-          </div>
-        </div>
-        <div className="pbp-sizes-field">
-          <span className="pbp-sizes-label">CSS Media Query</span>
-          <div className="pbp-sizes-select-wrapper">
-            <select
-              className="pbp-sizes-select"
-              value={rules.sizes.strategy}
-              onChange={e => set('strategy', e.target.value)}
+      <p className="pbp-empty-hint" style={{ marginTop: 0, marginBottom: '12px' }}>
+        Focus the AI on a specific device tier for better precision, or choose Adaptive for a fully responsive build.
+      </p>
+      <div className="pbp-sizes-chip-grid" style={{ gridTemplateColumns: '1fr 1fr', display: 'grid', gap: '8px' }}>
+        {(['mobile', 'tablet', 'desktop', 'adaptive'] as const).map(target => {
+          const labels = {
+            mobile: 'Mobile (0-480px)',
+            tablet: 'Tablet (768px-1024px)',
+            desktop: 'Desktop (1024px+)',
+            adaptive: 'Adaptive (All Devices)'
+          };
+          const icons = {
+            mobile: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/></svg>,
+            tablet: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M12 18h.01"/></svg>,
+            desktop: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>,
+            adaptive: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+          };
+          return (
+            <button
+              key={target}
+              className={`pbp-sizes-chip ${rules.sizes.optimizationTarget === target ? 'pbp-sizes-chip--active' : ''}`}
+              onClick={() => set('optimizationTarget', target)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '8px', padding: '10px' }}
             >
-              <option value="desktop">Desktop</option>
-              <option value="mobile">Mobile</option>
-              <option value="both">Adaptive (Both)</option>
-            </select>
-            <div className="pbp-sizes-select-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </div>
-          </div>
-        </div>
+              <span style={{ opacity: rules.sizes.optimizationTarget === target ? 1 : 0.6 }}>{icons[target]}</span>
+              <span>{labels[target]}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Spacing Scale */}
@@ -1606,16 +1605,19 @@ const DEFAULT_PAGE_TITLES: Record<PageType, string> = {
 };
 
 function PagesTab({
-  pages, onChange, selectedComponents,
+  pages, onChange, selectedComponents, allComponents = [], onToggleComponent,
 }: {
   pages: PageConfig[];
   onChange: (pages: PageConfig[]) => void;
   selectedComponents: ComponentItem[];
+  allComponents?: ComponentItem[];
+  onToggleComponent?: (id: string) => void;
 }) {
   const topRef = useRef<HTMLDivElement>(null);
   const [flashWarning, setFlashWarning] = useState(false);
 
   const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
+  const allSelectedNavbars = selectedComponents.filter(c => isNavbarComponent(c.name));
   const nonNavbarComponents = selectedComponents.filter(c => !isNavbarComponent(c.name));
 
   // Safety net — ensure there's always at least one page
@@ -1669,38 +1671,60 @@ function PagesTab({
       </div>
       
       {navbarComponent ? (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)', marginBottom: 20 }}
-        >
-          <span style={{ flex: 1, fontSize: '0.78rem', color: '#a5b4fc', fontWeight: 500 }}>
-            {navbarComponent.name}
-          </span>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-             <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </motion.div>
+        <div style={{ marginBottom: 20 }}>
+          <AnimatedSelect
+            value={navbarComponent.id}
+            onChange={(newId) => {
+              if (newId === 'none') {
+                allSelectedNavbars.forEach(c => onToggleComponent?.(c.id));
+              } else {
+                // Deselect all navbars except the new one
+                allSelectedNavbars.forEach(c => {
+                  if (c.id !== newId) onToggleComponent?.(c.id);
+                });
+                // If the new one isn't already selected, select it
+                if (!allSelectedNavbars.some(c => c.id === newId)) {
+                  onToggleComponent?.(newId);
+                }
+              }
+            }}
+            options={[
+              { label: '— None —', value: 'none' },
+              ...allComponents
+                .filter(c => isNavbarComponent(c.name))
+                .map(c => ({ label: c.name, value: c.id }))
+            ]}
+          />
+        </div>
       ) : (
-        <motion.div 
-          ref={topRef}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ 
-            opacity: 1, scale: 1,
-            x: flashWarning ? [0, -4, 4, -4, 4, 0] : 0
-          }}
-          transition={{ duration: flashWarning ? 0.4 : 0.3 }}
-          style={{ 
-            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, 
-            background: flashWarning ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.02)', 
-            border: `1px solid ${flashWarning ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.08)'}`, 
-            marginBottom: 20, transition: 'background 0.3s ease, border 0.3s ease' 
-          }}
-        >
-          <span style={{ fontSize: '0.72rem', color: flashWarning ? '#f87171' : 'rgba(255,255,255,0.5)' }}>
-            Please select at least one navigation component to use this feature.
-          </span>
-        </motion.div>
+        <div style={{ marginBottom: 20 }}>
+          <AnimatedSelect
+            value="none"
+            placeholder="Select a navigation component..."
+            onChange={(newId) => {
+              if (newId !== 'none') {
+                // In case any navbars are somehow selected but not identified as 'none'
+                allSelectedNavbars.forEach(c => onToggleComponent?.(c.id));
+                onToggleComponent?.(newId);
+              }
+            }}
+            options={[
+              { label: '— None —', value: 'none' },
+              ...allComponents
+                .filter(c => isNavbarComponent(c.name))
+                .map(c => ({ label: c.name, value: c.id }))
+            ]}
+          />
+          {!navbarComponent && flashWarning && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ color: '#f87171', fontSize: '0.65rem', marginTop: 6, marginLeft: 4, fontWeight: 500 }}
+            >
+              Please select at least one navigation component to use this feature.
+            </motion.div>
+          )}
+        </div>
       )}
 
       <div className="pbp-rule-header" style={{ marginBottom: 12 }}>
@@ -1871,6 +1895,8 @@ export default function ProjectBuilderPanel({
   pages,
   onPagesChange,
   onGenerateStructure,
+  allComponents,
+  onToggleComponent,
 }: ProjectBuilderPanelProps) {
   const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
@@ -2022,7 +2048,7 @@ export default function ProjectBuilderPanel({
                 {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} limits={IMG_LIMITS} />}
                 {activeTab === 'Output' && <OutputTab style={scrollbarStyle} onChange={onScrollbarStyleChange} />}
-                {activeTab === 'Pages' && <PagesTab pages={pages} onChange={onPagesChange} selectedComponents={selectedComponents} />}
+                {activeTab === 'Pages' && <PagesTab pages={pages} onChange={onPagesChange} selectedComponents={selectedComponents} allComponents={allComponents} onToggleComponent={onToggleComponent} />}
               </MotionDiv>
             </AnimatePresence>
           </div>

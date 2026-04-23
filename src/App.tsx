@@ -377,9 +377,27 @@ function App() {
         const role = getRoleData(c.name);
         return { name: c.name, role: role?.roles[0] ?? 'ui', footprint: role?.footprint ?? 'contained', behaviors: role?.behavior ?? [] };
       });
+      const responsiveDirective = (() => {
+        switch (designRules.sizes.optimizationTarget) {
+          case 'mobile':
+            return "CRITICAL: Design this EXCLUSIVELY for Mobile viewports (max-width: 480px). Assume the canvas is a phone screen. Use 100% width, large touch targets (min 44px), stacked `flex-col` layouts. DO NOT write media queries for larger screens. Use mobile typography (14px-18px).";
+          case 'tablet':
+            return "CRITICAL: Design this EXCLUSIVELY for medium screens (768px - 1024px). Balance grid layouts with touch-friendly spacing. DO NOT optimize for tiny phones or massive monitors.";
+          case 'desktop':
+            return "CRITICAL: Design this EXCLUSIVELY for large monitors (1024px+). Utilize advanced CSS grid (3-4 columns), sidebars, horizontal layouts, and complex hover states. Enforce a max-width container (e.g., `mx-auto max-w-7xl`). DO NOT add mobile media queries or stack layouts. Force a desktop-first structure.";
+          case 'adaptive':
+          default:
+            return `RESPONSIVE & LAYOUT RULES:
+- Mobile First Base (0-767px): 100% width, padding 12px-16px. Flex column layouts. Use font-size: clamp(14px, 4vw, 18px); for body. Spacing vars: --space-sm: 6px, --space-md: 12px, --space-lg: 20px.
+- Tablet (min-width: 768px): 2-column grids allowed. font-size: clamp(15px, 2.5vw, 20px);. Spacing vars: --space-sm: 8px, --space-md: 16px, --space-lg: 28px.
+- Monitor (min-width: 1024px): 3-4 column grids. Typography clamp(16px, 1.5vw, 22px);. Spacing vars: --space-sm: 10px, --space-md: 20px, --space-lg: 40px.
+- Container: Apply max-width: 1200px; margin: 0 auto; at the Monitor breakpoint. Use Tailwind responsive prefixes (md:, lg:) to enforce these rules.`;
+        }
+      })();
+
       const enhanceResult = await window.reactBitsApi.enhancePrompt({
         rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
-        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, styleDirection, clientBrief, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, componentRoleContext },
+        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Lucide React", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Use Lucide React for iconography."], designRules, responsiveDirective, styleDirection, clientBrief, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, componentRoleContext },
       });
       const enhanceData = enhanceResult as any;
       if (enhanceData.success) {
@@ -668,6 +686,8 @@ function App() {
               pages={pages}
               onPagesChange={setPages}
               onGenerateStructure={handleGenerateStructure}
+              allComponents={items}
+              onToggleComponent={(id) => toggleSelection(id, { stopPropagation: () => {} } as React.MouseEvent)}
             />
           </div>
         </section>
