@@ -174,6 +174,7 @@ async function runVisionRework(opts) {
     referenceImagePath,
     screenshotPath,
     weaknessesMd,
+    maxBudgetUsd = 1.0,
     backupFirst = true,
     onProgress,
   } = opts;
@@ -246,7 +247,7 @@ async function runVisionRework(opts) {
     '--output-format stream-json',
     '--include-partial-messages',
     '--model claude-sonnet-4-6',
-    '--max-budget-usd 1.00',   // rework is more complex than initial gen
+    `--max-budget-usd ${Math.min(1, Math.max(0.05, Number(maxBudgetUsd) || 1)).toFixed(2)}`,
     `"${safePrompt}"`,
   ].join(' ');
 

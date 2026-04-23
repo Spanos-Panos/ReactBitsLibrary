@@ -54,19 +54,13 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
 
     return { id, name, category, files, usage, install };
   },
-  generatePlayground(payloadOrCategory, name, usageCode, componentFiles, options, taskId) {
+  generatePlayground(...args) {
+    const [payloadOrCategory] = args;
     if (typeof payloadOrCategory === "object" && payloadOrCategory !== null && payloadOrCategory.options) {
-      return ipcRenderer.invoke("generate-playground", payloadOrCategory, null, taskId);
+      // For rich payload, we expect (payload, null, taskId)
+      return ipcRenderer.invoke("generate-playground", args[0], args[1], args[2]);
     }
-    return ipcRenderer.invoke(
-      "generate-playground",
-      payloadOrCategory,
-      name,
-      usageCode,
-      componentFiles,
-      options,
-      taskId
-    );
+    return ipcRenderer.invoke("generate-playground", ...args);
   },
   onGenerateProgress(callback) {
     const handler = (_event, message, taskId) => callback(message, taskId);

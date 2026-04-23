@@ -179,10 +179,10 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
     const currLoad = confirmLoadId;
     const currDelete = confirmDeleteId;
 
-    const isTogglingOff = (type === 'info' && currInfo === id) || 
-                          (type === 'load' && currLoad === id) || 
-                          (type === 'delete' && currDelete === id) ||
-                          id === null;
+    const isTogglingOff = (type === 'info' && currInfo === id) ||
+      (type === 'load' && currLoad === id) ||
+      (type === 'delete' && currDelete === id) ||
+      id === null;
 
     if (isTogglingOff) {
       setInfoId(null);
@@ -195,7 +195,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
       setInfoId(null);
       setConfirmLoadId(null);
       setConfirmDeleteId(null);
-      
+
       const delay = currInfo ? 360 : 320;
       setTimeout(() => {
         if (type === 'info') setInfoId(id);
@@ -238,10 +238,10 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
       {/* Overlay */}
       <AnimatePresence>
         {isOpen && (
-          <div className="wizard-overlay" style={{ zIndex: 99999, alignItems: 'flex-start', paddingTop: '10vh' }}>
+          <div className="wizard-overlay" style={{ zIndex: 99999, alignItems: 'center' }}>
             {/* outer row: main+confirm column | info column */}
             <motion.div
-              animate={{ x: infoPanelVisible ? -200 : 0 }}
+              animate={{ x: (infoPanelVisible || subPanelVisible) ? -200 : 0 }}
               transition={{ type: 'spring', damping: 32, stiffness: 360, mass: 0.9 }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}
               onClick={e => e.stopPropagation()}
@@ -254,14 +254,14 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                   initial={{ opacity: 0, scale: 0.94, y: 18 }}
                   animate={{
                     opacity: 1, scale: 1, y: 0,
-                    borderTopRightRadius: infoPanelVisible ? 0 : 18,
-                    borderBottomLeftRadius: subPanelVisible ? 0 : 18,
+                    borderTopRightRadius: (infoPanelVisible || subPanelVisible) ? 0 : 18,
                     borderBottomRightRadius: (subPanelVisible || infoPanelVisible) ? 0 : 18,
+                    borderBottomLeftRadius: 18,
                   }}
                   exit={{ opacity: 0, scale: 0.94, y: 18 }}
                   transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.9 }}
                   style={{
-                    width: 400, flexShrink: 0,
+                    width: 680, flexShrink: 0,
                     background: 'rgba(9, 12, 20, 0.78)',
                     backdropFilter: 'blur(40px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(40px) saturate(180%)',
@@ -285,8 +285,8 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                     }}>
                       Presets Intelligence
                     </span>
-                    <button 
-                      onClick={handleClose} 
+                    <button
+                      onClick={handleClose}
                       style={{
                         position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                         background: 'none', border: 'none', borderRadius: 6,
@@ -304,17 +304,16 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                       }}
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                       </svg>
                     </button>
                   </div>
 
-                  <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 22 }}>
-
+                  <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
                     {/* Section 1 — Create */}
                     <section>
                       <SectionLabel>Create Preset</SectionLabel>
-                      <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 10 }}>
                         <input
                           ref={inputRef} type="text" value={name}
                           onChange={e => setName(e.target.value)}
@@ -340,235 +339,227 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                       </div>
                     </section>
 
-                    {/* Divider */}
+                    {/* Horizontal Divider */}
                     <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)', margin: '0 -20px' }} />
 
-                    {/* Section 2 — Recent */}
-                    <section>
-                      <SectionLabel>Recent</SectionLabel>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          {recentPresets.length === 0 && (
-                            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                              style={{ padding: '20px 0', textAlign: 'center', color: 'rgba(255,255,255,0.15)', fontSize: '0.72rem', fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
-                              Double-click a preset in the browser below
-                            </motion.div>
-                          )}
-                          {recentPresets.map((preset, i) => {
-                            const isHov = hoveredId === preset.id;
-                            const isActive = infoId === preset.id || confirmLoadId === preset.id || confirmDeleteId === preset.id;
-                            const isDel = deletingId === preset.id;
-                            return (
-                              <motion.div
-                                key={preset.id}
-                                layout
-                                initial={{ opacity: 0, x: -8 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, x: -8 }}
-                                transition={{ delay: i * 0.03, duration: 0.22 }}
-                                onMouseEnter={() => setHoveredId(preset.id)}
-                                onMouseLeave={() => setHoveredId(null)}
-                                style={{
-                                  padding: '10px 12px', borderRadius: 10,
-                                  background: isActive ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
-                                  border: `1px solid ${isActive ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`,
-                                  display: 'flex', alignItems: 'center', gap: 10,
-                                  cursor: 'default', transition: 'background .18s, border-color .18s',
-                                }}
-                              >
-                                {/* preset name */}
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{
-                                    fontSize: '0.82rem', fontWeight: 600, color: 'rgba(255,255,255,0.88)',
-                                    fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                  }}>
-                                    {preset.name}
-                                  </div>
-                                  <div style={{
-                                    fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', marginTop: 2,
-                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                  }}>
-                                    {formatDate(preset.savedAt)}
-                                  </div>
-                                </div>
-
-                                {/* hover action buttons */}
-                                <motion.div
-                                  initial={false}
-                                  animate={{ opacity: isHov ? 1 : 0, x: isHov ? 0 : 8, pointerEvents: isHov ? 'auto' as const : 'none' as const }}
-                                  transition={{ duration: 0.15 }}
-                                  style={{ display: 'flex', gap: 4, flexShrink: 0 }}
-                                >
-                                  {/* Info */}
-                                  <MiniBtn
-                                    title="Info"
-                                    active={infoId === preset.id}
-                                    onClick={() => triggerSubPanel('info', infoId === preset.id ? null : preset.id)}
-                                  >
-                                    <span style={{ fontSize: 11, fontWeight: 900, lineHeight: 1 }}>!</span>
-                                  </MiniBtn>
-
-                                  {/* Delete */}
-                                  <MiniBtn
-                                    title="Delete"
-                                    active={confirmDeleteId === preset.id}
-                                    onClick={() => triggerSubPanel('delete', confirmDeleteId === preset.id ? null : preset.id)}
-                                    danger
-                                  >
-                                    {isDel
-                                      ? <span style={{ fontSize: 10 }}>…</span>
-                                      : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                    }
-                                  </MiniBtn>
-
-                                  {/* Load */}
-                                  <MiniBtn
-                                    title="Load"
-                                    accent
-                                    active={confirmLoadId === preset.id}
-                                    onClick={() => triggerSubPanel('load', confirmLoadId === preset.id ? null : preset.id)}
-                                  >
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                  </MiniBtn>
-                                </motion.div>
+                    {/* Two-Column Grid for Recent and Browser */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+                      {/* Section 2 — Recent */}
+                      <section>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 26, marginBottom: 14 }}>
+                          <SectionLabel style={{ marginBottom: 0 }}>Recent Intelligence</SectionLabel>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
+                          <AnimatePresence mode="popLayout" initial={false}>
+                            {recentPresets.length === 0 && (
+                              <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                style={{ padding: '20px 0', textAlign: 'center', color: 'rgba(255,255,255,0.15)', fontSize: '0.72rem', fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
+                                Double-click a preset in the browser
                               </motion.div>
-                            );
-                          })}
-                        </AnimatePresence>
-                      </div>
-                    </section>
-
-                    {/* Divider */}
-                    <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)', margin: '0 -20px' }} />
-
-                    {/* Section 3 — Browser */}
-                    <section>
-                      <SectionLabel>Browser · {presets.length}</SectionLabel>
-
-                      {/* Import button + folder link row */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                        <button
-                          onClick={handleImport}
-                          style={{
-                            flex: 1, padding: '8px 0', borderRadius: 8,
-                            background: importStatus === 'ok' ? 'rgba(74,222,128,0.06)' : importStatus === 'err' ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.02)',
-                            border: `1px dashed ${importStatus === 'ok' ? 'rgba(74,222,128,0.3)' : importStatus === 'err' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                            color: importStatus === 'ok' ? '#4ade80' : importStatus === 'err' ? '#f87171' : 'rgba(255,255,255,0.35)',
-                            fontSize: '0.64rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                            transition: 'background .18s, color .18s, border-color .18s',
-                          }}
-                          onMouseEnter={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; } }}
-                          onMouseLeave={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; } }}
-                        >
-                          {importStatus === 'ok' ? (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                          ) : importStatus === 'err' ? (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                          ) : (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                          )}
-                          {importStatus === 'ok' ? 'Imported!' : importStatus === 'err' ? 'Invalid File' : 'Import Preset File'}
-                        </button>
-                        <button
-                          onClick={() => api()?.openPresetsFolder?.()}
-                          title="Open presets folder"
-                          style={{
-                            flexShrink: 0, padding: '8px 10px', borderRadius: 8,
-                            background: 'none', border: '1px solid rgba(255,255,255,0.04)',
-                            color: 'rgba(255,255,255,0.2)', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'color .15s, border-color .15s',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.2)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                        </button>
-                      </div>
-
-                      {/* hint */}
-                      {presets.length > 0 && (
-                        <div style={{ fontSize: '0.56rem', color: 'rgba(255,255,255,0.18)', marginBottom: 6, fontFamily: "var(--font-body, 'Satoshi', sans-serif)", letterSpacing: '0.02em' }}>
-                          Double-click any preset to pin it to Recent
-                        </div>
-                      )}
-
-                      {/* Scrollable preset list */}
-                      {presets.length === 0 ? (
-                        <div style={{ padding: '16px 0', textAlign: 'center', color: 'rgba(255,255,255,0.12)', fontSize: '0.72rem', fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
-                          No presets found — import one above
-                        </div>
-                      ) : (
-                        <div style={{
-                          maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4,
-                          scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent',
-                        }}>
-                          {presets.map(preset => {
-                            const isPinned = pinnedId === preset.id;
-                            const isRecent = recentIds.includes(preset.id);
-                            return (
-                              <div
-                                key={preset.id}
-                                onDoubleClick={() => {
-                                  pushRecent(preset.id);
-                                  setPinnedId(preset.id);
-                                  setTimeout(() => setPinnedId(null), 900);
-                                }}
-                                title="Double-click to pin to Recent"
-                                style={{
-                                  padding: '10px 12px', borderRadius: 10,
-                                  background: isPinned ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
-                                  border: `1px solid ${isPinned ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`,
-                                  display: 'flex', alignItems: 'center', gap: 10,
-                                  cursor: 'default', userSelect: 'none',
-                                  transition: 'background .18s, border-color .18s',
-                                }}
-                              >
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{
-                                    fontSize: '0.82rem', fontWeight: 600,
-                                    color: isPinned ? '#a5b4fc' : 'rgba(255,255,255,0.88)',
-                                    fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                    transition: 'color .15s',
-                                  }}>
-                                    {preset.name}
+                            )}
+                            {recentPresets.map((preset, i) => {
+                              const isHov = hoveredId === preset.id;
+                              const isActive = infoId === preset.id || confirmLoadId === preset.id || confirmDeleteId === preset.id;
+                              const isDel = deletingId === preset.id;
+                              return (
+                                <motion.div
+                                  key={preset.id}
+                                  layout
+                                  initial={{ opacity: 0, x: -8 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95, x: -8 }}
+                                  transition={{ delay: i * 0.03, duration: 0.22 }}
+                                  onMouseEnter={() => setHoveredId(preset.id)}
+                                  onMouseLeave={() => setHoveredId(null)}
+                                  style={{
+                                    padding: '10px 12px', borderRadius: 10,
+                                    background: isActive ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
+                                    border: `1px solid ${isActive ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`,
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    cursor: 'default', transition: 'background .18s, border-color .18s',
+                                  }}
+                                >
+                                  {/* preset name */}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                      fontSize: '0.82rem', fontWeight: 600, color: 'rgba(255,255,255,0.88)',
+                                      fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                    }}>
+                                      {preset.name}
+                                    </div>
+                                    <div style={{
+                                      fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', marginTop: 2,
+                                      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                    }}>
+                                      {formatDate(preset.savedAt)}
+                                    </div>
                                   </div>
-                                  <div style={{
-                                    fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', marginTop: 2,
-                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                  }}>
-                                    {formatDate(preset.savedAt)}
+
+                                  {/* hover action buttons */}
+                                  <motion.div
+                                    initial={false}
+                                    animate={{ opacity: isHov ? 1 : 0, x: isHov ? 0 : 8, pointerEvents: isHov ? 'auto' as const : 'none' as const }}
+                                    transition={{ duration: 0.15 }}
+                                    style={{ display: 'flex', gap: 4, flexShrink: 0 }}
+                                  >
+                                    <MiniBtn
+                                      title="Info"
+                                      active={infoId === preset.id}
+                                      onClick={() => triggerSubPanel('info', infoId === preset.id ? null : preset.id)}
+                                    >
+                                      <span style={{ fontSize: 11, fontWeight: 900, lineHeight: 1 }}>!</span>
+                                    </MiniBtn>
+
+                                    <MiniBtn
+                                      title="Delete"
+                                      active={confirmDeleteId === preset.id}
+                                      onClick={() => triggerSubPanel('delete', confirmDeleteId === preset.id ? null : preset.id)}
+                                      danger
+                                    >
+                                      {isDel
+                                        ? <span style={{ fontSize: 10 }}>…</span>
+                                        : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                      }
+                                    </MiniBtn>
+
+                                    <MiniBtn
+                                      title="Load"
+                                      accent
+                                      active={confirmLoadId === preset.id}
+                                      onClick={() => triggerSubPanel('load', confirmLoadId === preset.id ? null : preset.id)}
+                                    >
+                                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                    </MiniBtn>
+                                  </motion.div>
+                                </motion.div>
+                              );
+                            })}
+                          </AnimatePresence>
+                        </div>
+                      </section>
+
+                      {/* Section 3 — Browser */}
+                      <section>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 26, marginBottom: 14 }}>
+                          <SectionLabel style={{ marginBottom: 0 }}>Global Browser · {presets.length}</SectionLabel>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              onClick={handleImport}
+                              title="Import Preset"
+                              style={{
+                                padding: '4px 8px', borderRadius: 6,
+                                background: importStatus === 'ok' ? 'rgba(74,222,128,0.06)' : importStatus === 'err' ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.03)',
+                                border: `1px solid ${importStatus === 'ok' ? 'rgba(74,222,128,0.3)' : importStatus === 'err' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                color: importStatus === 'ok' ? '#4ade80' : importStatus === 'err' ? '#f87171' : 'rgba(255,255,255,0.25)',
+                                fontSize: '0.52rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                                transition: 'all .18s ease',
+                              }}
+                              onMouseEnter={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; } }}
+                              onMouseLeave={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'rgba(255,255,255,0.25)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; } }}
+                            >
+                              {importStatus === 'ok' ? (
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                              ) : importStatus === 'err' ? (
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                              ) : (
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                              )}
+                              {importStatus === 'ok' ? 'Done' : importStatus === 'err' ? 'Err' : 'Import'}
+                            </button>
+                            <button
+                              onClick={() => api()?.openPresetsFolder?.()}
+                              title="Open presets folder"
+                              style={{
+                                flexShrink: 0, padding: '4px 6px', borderRadius: 6,
+                                background: 'none', border: '1px solid rgba(255,255,255,0.04)',
+                                color: 'rgba(255,255,255,0.15)', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                transition: 'all .15s ease',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; e.currentTarget.style.background = 'none'; }}
+                            >
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Scrollable preset list */}
+                        {presets.length === 0 ? (
+                          <div style={{ padding: '16px 0', textAlign: 'center', color: 'rgba(255,255,255,0.12)', fontSize: '0.72rem', fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
+                            No presets
+                          </div>
+                        ) : (
+                          <div style={{
+                            maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4,
+                            scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent',
+                            paddingRight: 4,
+                          }}>
+                            {presets.map(preset => {
+                              const isPinned = pinnedId === preset.id;
+                              return (
+                                <div
+                                  key={preset.id}
+                                  onDoubleClick={() => {
+                                    pushRecent(preset.id);
+                                    setPinnedId(preset.id);
+                                    setTimeout(() => setPinnedId(null), 900);
+                                  }}
+                                  title="Double-click to pin to Recent"
+                                  style={{
+                                    padding: '10px 12px', borderRadius: 10,
+                                    background: isPinned ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
+                                    border: `1px solid ${isPinned ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`,
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    cursor: 'default', userSelect: 'none',
+                                    transition: 'background .18s, border-color .18s',
+                                  }}
+                                >
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                      fontSize: '0.82rem', fontWeight: 600,
+                                      color: isPinned ? '#a5b4fc' : 'rgba(255,255,255,0.88)',
+                                      fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                      transition: 'color .15s',
+                                    }}>
+                                      {preset.name}
+                                    </div>
+                                    <div style={{
+                                      fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', marginTop: 2,
+                                      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                    }}>
+                                      {formatDate(preset.savedAt)}
+                                    </div>
                                   </div>
+                                  {isPinned && (
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  )}
                                 </div>
-                                {isPinned && (
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                                    <polyline points="20 6 9 17 4 12" />
-                                  </svg>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </section>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </section>
+                    </div>
                   </div>
                 </motion.div>
 
-                {/* ═══ INFO PANEL (matched to Main Panel height) ═══ */}
                 <AnimatePresence initial={false}>
-                  {infoId && infoPreset && (
+                  {(infoId || confirmLoadId || confirmDeleteId) && (
                     <motion.div
-                      key="pm-info"
+                      key="pm-side-panel"
                       initial={{ width: 0, opacity: 0 }}
                       animate={{ width: 400, opacity: 1 }}
                       exit={{ width: 0, opacity: 0 }}
                       transition={{ type: 'spring', damping: 32, stiffness: 360, mass: 0.9 }}
                       style={{
-                        position: 'absolute', top: 0, bottom: 0, left: 400,
+                        position: 'absolute', top: 0, bottom: 0, left: 680,
                         width: 400, flexShrink: 0, overflow: 'hidden',
                         background: 'rgba(9, 12, 20, 0.78)',
                         backdropFilter: 'blur(40px) saturate(180%)',
@@ -582,73 +573,48 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                       }}
                     >
                       <div style={{ width: 400, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <InfoPanelContent preset={infoPreset} onClose={() => setInfoId(null)} />
+                        {infoId && infoPreset && <InfoPanelContent preset={infoPreset} onClose={() => setInfoId(null)} />}
+
+                        {confirmLoadId && confirmLoadPreset && (
+                          <div style={{ padding: '24px 20px', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                              <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(165, 180, 252, 0.45)' }}>Load Confirmation</span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 6 }}>Switch to this preset?</div>
+                            <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.45, marginBottom: 20 }}>
+                              Current configuration will be replaced with <strong style={{ color: '#818cf8' }}>{confirmLoadPreset.name}</strong>.
+                            </div>
+                            <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
+                              <PremiumUnderlineButton onClick={() => setConfirmLoadId(null)}>Cancel</PremiumUnderlineButton>
+                              <PremiumUnderlineButton onClick={() => handleLoadConfirmed(confirmLoadPreset)} active primary>Yes, Load</PremiumUnderlineButton>
+                            </div>
+                          </div>
+                        )}
+
+                        {confirmDeleteId && confirmDeletePreset && (
+                          <div style={{ padding: '24px 20px', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                              <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(248, 113, 113, 0.45)' }}>Delete Safety</span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 6 }}>Remove this preset?</div>
+                            <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.45, marginBottom: 20 }}>
+                              Preset <strong style={{ color: '#fca5a5' }}>{confirmDeletePreset.name}</strong> will be permanently deleted.
+                            </div>
+                            <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
+                              <PremiumUnderlineButton onClick={() => setConfirmDeleteId(null)}>Keep it</PremiumUnderlineButton>
+                              <PremiumUnderlineButton onClick={() => handleDeleteConfirmed(confirmDeletePreset.id)} disabled={!!deletingId} active danger>
+                                {deletingId ? 'Deleting...' : 'Yes, Delete'}
+                              </PremiumUnderlineButton>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-              {/* ═══ CONFIRM SUB-PANELS (strictly below Main Panel width) ═══ */}
-              <AnimatePresence initial={false}>
-                {(confirmLoadId || confirmDeleteId) && (
-                  <motion.div
-                    key="pm-confirm"
-                    initial={{ opacity: 0, height: 0, y: -20, scale: 0.98 }}
-                    animate={{ opacity: 1, height: 'auto', y: -1, scale: 1 }}
-                    exit={{ opacity: 0, height: 0, y: -20, scale: 0.98 }}
-                    transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                    style={{
-                      width: 400, flexShrink: 0, overflow: 'hidden',
-                      background: 'rgba(9, 12, 20, 0.88)',
-                      backdropFilter: 'blur(50px) saturate(200%)',
-                      borderLeft: '1px solid rgba(255,255,255,0.08)',
-                      borderRight: '1px solid rgba(255,255,255,0.08)',
-                      borderBottom: '1px solid rgba(255,255,255,0.08)',
-                      borderTop: '1px solid rgba(255,255,255,0.03)',
-                      borderRadius: '0 0 18px 18px',
-                      boxShadow: '0 30px 60px rgba(0,0,0,0.5)',
-                      zIndex: 1,
-                    }}
-                  >
-                    {/* CONFIRM LOAD */}
-                    {confirmLoadId && confirmLoadPreset && (
-                      <div style={{ padding: '24px 20px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                          <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(165, 180, 252, 0.45)' }}>Load Confirmation</span>
-                        </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 6 }}>Switch to this preset?</div>
-                        <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.45, marginBottom: 20 }}>
-                          Current active configuration will be replaced with <strong style={{ color: '#818cf8' }}>{confirmLoadPreset.name}</strong>.
-                        </div>
-                        <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
-                          <PremiumUnderlineButton onClick={() => setConfirmLoadId(null)}>Cancel</PremiumUnderlineButton>
-                          <PremiumUnderlineButton onClick={() => handleLoadConfirmed(confirmLoadPreset)} active primary>Yes, Load</PremiumUnderlineButton>
-                        </div>
-                      </div>
-                    )}
 
-                    {/* CONFIRM DELETE */}
-                    {confirmDeleteId && confirmDeletePreset && (
-                      <div style={{ padding: '24px 20px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                          <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(248, 113, 113, 0.45)' }}>Delete Safety</span>
-                        </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 6 }}>Remove this preset?</div>
-                        <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.45, marginBottom: 20 }}>
-                          Preset <strong style={{ color: '#fca5a5' }}>{confirmDeletePreset.name}</strong> will be permanently deleted from disk.
-                        </div>
-                        <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
-                          <PremiumUnderlineButton onClick={() => setConfirmDeleteId(null)}>Keep it</PremiumUnderlineButton>
-                          <PremiumUnderlineButton onClick={() => handleDeleteConfirmed(confirmDeletePreset.id)} disabled={!!deletingId} active danger>
-                            {deletingId ? 'Deleting...' : 'Yes, Delete'}
-                          </PremiumUnderlineButton>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </motion.div>{/* end outer row */}
           </div>
         )}
@@ -731,12 +697,13 @@ function PremiumUnderlineButton({
 
 /* ── tiny sub-components ───────────────────────────────────────────────── */
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div style={{
       fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
       fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
       color: 'rgba(241, 245, 249, 0.42)', marginBottom: 8,
+      ...style
     }}>
       {children}
     </div>
@@ -824,7 +791,7 @@ function InfoPanelContent({ preset, onClose }: { preset: SavedPreset; onClose: (
           onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.25)'; }}
         >
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
       </div>
@@ -832,143 +799,143 @@ function InfoPanelContent({ preset, onClose }: { preset: SavedPreset; onClose: (
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Project Name */}
-      {preset.projectName && (
-        <InfoBlock label="Project Tracking">
-          <span style={{ fontSize: '0.88rem', color: '#f1f5f9', fontWeight: 600, fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
-            {preset.projectName || 'Untitled Project'}
-          </span>
-        </InfoBlock>
-      )}
-
-      {/* Prompt */}
-      {preset.projectPrompt && (
-        <InfoBlock label="Logical Prompt">
-          <div style={{
-            fontSize: '0.68rem', lineHeight: 1.5, color: 'rgba(165,180,252,0.7)',
-            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-            background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(99,102,241,0.1)',
-            borderRadius: 8, padding: '10px 12px',
-            maxHeight: promptExpanded ? 300 : 52, overflowY: promptExpanded ? 'auto' : 'hidden',
-            transition: 'max-height .3s ease',
-            position: 'relative',
-          }}>
-            {promptExpanded ? preset.projectPrompt : promptPreview + (hasLongPrompt ? '…' : '')}
-          </div>
-          {hasLongPrompt && (
-            <button
-              onClick={() => setPromptExpanded(!promptExpanded)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0 0',
-                fontSize: '0.56rem', fontWeight: 700, color: '#818cf8', letterSpacing: '0.03em',
-                textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4,
-              }}
-            >
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: promptExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-              {promptExpanded ? 'Collapse Full View' : 'View Full Prompt'}
-            </button>
-          )}
-        </InfoBlock>
-      )}
-
-      {/* Components — listed by category */}
-      <InfoBlock label={`Component Inventory · ${componentNames.length}`}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {Object.entries(componentsByCategory).map(([cat, names]) => (
-            <div key={cat}>
-              <div style={{
-                fontSize: '0.54rem', fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase',
-                letterSpacing: '0.04em', marginBottom: 6,
-              }}>
-                {cat}
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {names.map(n => (
-                  <span key={n} style={{
-                    fontSize: '0.64rem', fontWeight: 600, padding: '4px 10px',
-                    borderRadius: 6, color: 'rgba(241,245,249,0.7)',
-                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
-                  }}>
-                    {n}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-          {componentNames.length === 0 && (
-            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>No components registered</span>
-          )}
-        </div>
-      </InfoBlock>
-
-      {/* Badges / Payload */}
-      {badges.length > 0 && (
-        <InfoBlock label="Payload Signature">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {badges.map((b, i) => (
-              <span key={i} style={{
-                fontSize: '0.58rem', fontWeight: 700, padding: '4px 9px',
-                borderRadius: 6, color: b.color,
-                background: `${b.color}18`, border: `1px solid ${b.color}35`,
-              }}>
-                {b.label}
-              </span>
-            ))}
-          </div>
-        </InfoBlock>
-      )}
-
-      {/* Design Rules Summary */}
-      {preset.designRules && (
-        <InfoBlock label="Design Tokens">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {preset.designRules.fonts?.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: '0.54rem', color: 'rgba(255,255,255,0.2)', fontWeight: 700, width: 42, flexShrink: 0, textTransform: 'uppercase' }}>Fonts</span>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {preset.designRules.fonts.map((f: any, i: number) => (
-                    <span key={i} style={{ fontSize: '0.62rem', color: '#a78bfa', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{f.value}{i < preset.designRules.fonts.length - 1 ? ',' : ''}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {preset.designRules.colors?.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: '0.54rem', color: 'rgba(255,255,255,0.2)', fontWeight: 700, width: 42, flexShrink: 0, textTransform: 'uppercase' }}>Colors</span>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {preset.designRules.colors.slice(0, 8).map((c: any, i: number) => (
-                    <div key={i} style={{
-                      width: 16, height: 16, borderRadius: 4, background: c.value,
-                      border: '1px solid rgba(255,255,255,0.15)',
-                    }} title={c.value} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </InfoBlock>
-      )}
-
-      {/* Footer Meta */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <span style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.15)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
-            SCHEMA_v{preset.schemaVersion ?? 1}
-          </span>
-          {preset.packageManager && (
-            <span style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.15)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
-              PKM_{preset.packageManager.toUpperCase()}
+        {/* Project Name */}
+        {preset.projectName && (
+          <InfoBlock label="Project Tracking">
+            <span style={{ fontSize: '0.88rem', color: '#f1f5f9', fontWeight: 600, fontFamily: "var(--font-body, 'Satoshi', sans-serif)" }}>
+              {preset.projectName || 'Untitled Project'}
             </span>
-          )}
+          </InfoBlock>
+        )}
+
+        {/* Prompt */}
+        {preset.projectPrompt && (
+          <InfoBlock label="Logical Prompt">
+            <div style={{
+              fontSize: '0.68rem', lineHeight: 1.5, color: 'rgba(165,180,252,0.7)',
+              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(99,102,241,0.1)',
+              borderRadius: 8, padding: '10px 12px',
+              maxHeight: promptExpanded ? 300 : 52, overflowY: promptExpanded ? 'auto' : 'hidden',
+              transition: 'max-height .3s ease',
+              position: 'relative',
+            }}>
+              {promptExpanded ? preset.projectPrompt : promptPreview + (hasLongPrompt ? '…' : '')}
+            </div>
+            {hasLongPrompt && (
+              <button
+                onClick={() => setPromptExpanded(!promptExpanded)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0 0',
+                  fontSize: '0.56rem', fontWeight: 700, color: '#818cf8', letterSpacing: '0.03em',
+                  textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4,
+                }}
+              >
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: promptExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+                {promptExpanded ? 'Collapse Full View' : 'View Full Prompt'}
+              </button>
+            )}
+          </InfoBlock>
+        )}
+
+        {/* Components — listed by category */}
+        <InfoBlock label={`Component Inventory · ${componentNames.length}`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {Object.entries(componentsByCategory).map(([cat, names]) => (
+              <div key={cat}>
+                <div style={{
+                  fontSize: '0.54rem', fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase',
+                  letterSpacing: '0.04em', marginBottom: 6,
+                }}>
+                  {cat}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {names.map(n => (
+                    <span key={n} style={{
+                      fontSize: '0.64rem', fontWeight: 600, padding: '4px 10px',
+                      borderRadius: 6, color: 'rgba(241,245,249,0.7)',
+                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
+                    }}>
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {componentNames.length === 0 && (
+              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>No components registered</span>
+            )}
+          </div>
+        </InfoBlock>
+
+        {/* Badges / Payload */}
+        {badges.length > 0 && (
+          <InfoBlock label="Payload Signature">
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {badges.map((b, i) => (
+                <span key={i} style={{
+                  fontSize: '0.58rem', fontWeight: 700, padding: '4px 9px',
+                  borderRadius: 6, color: b.color,
+                  background: `${b.color}18`, border: `1px solid ${b.color}35`,
+                }}>
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          </InfoBlock>
+        )}
+
+        {/* Design Rules Summary */}
+        {preset.designRules && (
+          <InfoBlock label="Design Tokens">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {preset.designRules.fonts?.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '0.54rem', color: 'rgba(255,255,255,0.2)', fontWeight: 700, width: 42, flexShrink: 0, textTransform: 'uppercase' }}>Fonts</span>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {preset.designRules.fonts.map((f: any, i: number) => (
+                      <span key={i} style={{ fontSize: '0.62rem', color: '#a78bfa', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>{f.value}{i < preset.designRules.fonts.length - 1 ? ',' : ''}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {preset.designRules.colors?.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '0.54rem', color: 'rgba(255,255,255,0.2)', fontWeight: 700, width: 42, flexShrink: 0, textTransform: 'uppercase' }}>Colors</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {preset.designRules.colors.slice(0, 8).map((c: any, i: number) => (
+                      <div key={i} style={{
+                        width: 16, height: 16, borderRadius: 4, background: c.value,
+                        border: '1px solid rgba(255,255,255,0.15)',
+                      }} title={c.value} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </InfoBlock>
+        )}
+
+        {/* Footer Meta */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <span style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.15)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+              SCHEMA_v{preset.schemaVersion ?? 1}
+            </span>
+            {preset.packageManager && (
+              <span style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.15)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                PKM_{preset.packageManager.toUpperCase()}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.25)', fontFamily: "'JetBrains Mono', monospace" }}>
+            REGISTERED: {formatDate(preset.savedAt)}
+          </span>
         </div>
-        <span style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.25)', fontFamily: "'JetBrains Mono', monospace" }}>
-          REGISTERED: {formatDate(preset.savedAt)}
-        </span>
-      </div>
 
       </div>
     </div>

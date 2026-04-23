@@ -1593,7 +1593,8 @@ function IdleConfigState() {
 // ── Output Tab (scrollbar + future output settings) ───────────────────────────
 
 // ── Navbar detection ──────────────────────────────────────────────────────────
-function isNavbarComponent(name: string): boolean {
+function isNavbarComponent(name: string | undefined): boolean {
+  if (!name) return false;
   const n = name.toLowerCase();
   return n.includes('nav') || n.includes('menu') || n.includes('header');
 }
@@ -1616,16 +1617,19 @@ function PagesTab({
   const topRef = useRef<HTMLDivElement>(null);
   const [flashWarning, setFlashWarning] = useState(false);
 
-  const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
-  const allSelectedNavbars = selectedComponents.filter(c => isNavbarComponent(c.name));
-  const nonNavbarComponents = selectedComponents.filter(c => !isNavbarComponent(c.name));
+  // Safety: Ensure pages is always an array
+  const safePages = Array.isArray(pages) ? pages : [];
+
+  const navbarComponent = selectedComponents.find(c => isNavbarComponent(c?.name));
+  const allSelectedNavbars = selectedComponents.filter(c => isNavbarComponent(c?.name));
+  const nonNavbarComponents = selectedComponents.filter(c => !isNavbarComponent(c?.name));
 
   // Safety net — ensure there's always at least one page
   useEffect(() => {
-    if (pages.length === 0) {
+    if (safePages.length === 0) {
       onChange([{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
     }
-  }, [pages.length, onChange]);
+  }, [safePages.length, onChange]);
 
   const handleLockedClick = () => {
     if (!navbarComponent) {
@@ -1636,24 +1640,25 @@ function PagesTab({
   };
 
   const addPage = () => {
-    if (pages.length >= 4) return;
+    if (safePages.length >= 4) return;
     const id = `page-${Date.now()}`;
     const type: PageType = 'custom';
-    onChange([...pages, { id, title: `Page ${pages.length + 1}`, type, componentIds: [] }]);
+    onChange([...safePages, { id, title: `Page ${safePages.length + 1}`, type, componentIds: [] }]);
   };
 
   const removePage = () => {
-    if (pages.length <= 1) return;
-    onChange(pages.slice(0, -1));
+    if (safePages.length <= 1) return;
+    onChange(safePages.slice(0, -1));
   };
 
   const updatePage = (idx: number, patch: Partial<PageConfig>) => {
-    const next = pages.map((p, i) => i === idx ? { ...p, ...patch } : p);
+    const next = safePages.map((p, i) => i === idx ? { ...p, ...patch } : p);
     onChange(next);
   };
 
   const toggleComponentOnPage = (pageIdx: number, compId: string) => {
-    const page = pages[pageIdx];
+    const page = safePages[pageIdx];
+    if (!page) return;
     const ids = page.componentIds.includes(compId)
       ? page.componentIds.filter(id => id !== compId)
       : [...page.componentIds, compId];
@@ -1691,8 +1696,8 @@ function PagesTab({
             options={[
               { label: '— None —', value: 'none' },
               ...allComponents
-                .filter(c => isNavbarComponent(c.name))
-                .map(c => ({ label: c.name, value: c.id }))
+                .filter(c => isNavbarComponent(c?.name))
+                .map(c => ({ label: c?.name || 'Unnamed', value: c?.id }))
             ]}
           />
         </div>
@@ -1711,8 +1716,8 @@ function PagesTab({
             options={[
               { label: '— None —', value: 'none' },
               ...allComponents
-                .filter(c => isNavbarComponent(c.name))
-                .map(c => ({ label: c.name, value: c.id }))
+                .filter(c => isNavbarComponent(c?.name))
+                .map(c => ({ label: c?.name || 'Unnamed', value: c?.id }))
             ]}
           />
           {!navbarComponent && flashWarning && (
@@ -1738,12 +1743,12 @@ function PagesTab({
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: navbarComponent ? 1 : 0.4 }}>
-          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(165,180,252,0.3)', fontFamily: 'var(--font-mono)' }}>{pages.length} / 4</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(165,180,252,0.3)', fontFamily: 'var(--font-mono)' }}>{safePages.length} / 4</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <PremiumUnderlineButton onClick={removePage} disabled={!navbarComponent || pages.length <= 1} small>
+            <PremiumUnderlineButton onClick={removePage} disabled={!navbarComponent || safePages.length <= 1} small>
                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </PremiumUnderlineButton>
-            <PremiumUnderlineButton onClick={addPage} disabled={!navbarComponent || pages.length >= 4} small primary>
+            <PremiumUnderlineButton onClick={addPage} disabled={!navbarComponent || safePages.length >= 4} small primary>
                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </PremiumUnderlineButton>
           </div>
@@ -1760,16 +1765,16 @@ function PagesTab({
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, opacity: navbarComponent ? 1 : 0.35, pointerEvents: navbarComponent ? 'auto' : 'none', filter: navbarComponent ? 'none' : 'grayscale(100%)', transition: 'all 0.3s ease' }}>
           <AnimatePresence initial={false}>
-            {pages.map((page, idx) => (
+            {safePages.map((page, idx) => (
               <motion.div 
-                key={page.id}
+                key={page?.id || idx}
                 initial={{ opacity: 0, height: 0, y: 10 }}
                 animate={{ opacity: 1, height: 'auto', y: 0 }}
                 exit={{ opacity: 0, height: 0, y: -10 }}
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 style={{ overflow: 'hidden' }}
               >
-                <div style={{ borderBottom: idx < pages.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none', paddingBottom: 20 }}>
+                <div style={{ borderBottom: idx < safePages.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none', paddingBottom: 20 }}>
                   <div className="pbp-brief-grid" style={{ marginBottom: 12 }}>
                     <div className="pbp-brief-field">
                       <span className="pbp-brief-label">Page Title</span>

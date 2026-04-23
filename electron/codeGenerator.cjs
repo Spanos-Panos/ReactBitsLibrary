@@ -51,7 +51,7 @@ function formatStreamMessage(msg) {
  *
  * @param {{ projectPath: string, onProgress: (msg: string) => void }} options
  */
-async function generateCode({ projectPath, onProgress, prompt: customPrompt }, _attempt = 0) {
+async function generateCode({ projectPath, onProgress, prompt: customPrompt, maxBudgetUsd }, _attempt = 0) {
   const notify = (msg) => { if (onProgress) onProgress(msg); };
   notify('[Generator] Starting Claude Code agent...');
 
@@ -75,7 +75,7 @@ async function generateCode({ projectPath, onProgress, prompt: customPrompt }, _
       '--output-format stream-json',
       '--include-partial-messages',
       `--model claude-sonnet-4-6`,
-      '--max-budget-usd 0.60',
+      `--max-budget-usd ${(Number.isFinite(maxBudgetUsd) ? Math.min(1, Math.max(0.05, maxBudgetUsd)) : 0.6).toFixed(2)}`,
       `"${safePrompt}"`,
     ].join(' ');
 

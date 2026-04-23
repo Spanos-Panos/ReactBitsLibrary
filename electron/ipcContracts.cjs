@@ -125,6 +125,14 @@ function validateVisionReworkPayload(payload) {
   }
   if (!isPlainObject(payload.originalPreset)) return "originalPreset must be an object.";
   if (typeof payload.backupFirst !== "boolean") return "backupFirst must be a boolean.";
+  if (payload.maxBudgetUsd !== undefined) {
+    if (typeof payload.maxBudgetUsd !== "number" || Number.isNaN(payload.maxBudgetUsd)) {
+      return "maxBudgetUsd must be a number when provided.";
+    }
+    if (payload.maxBudgetUsd <= 0 || payload.maxBudgetUsd > 1) {
+      return "maxBudgetUsd must be > 0 and <= 1.";
+    }
+  }
   return null;
 }
 

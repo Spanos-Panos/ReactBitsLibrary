@@ -416,6 +416,65 @@ function buildScrollbarCSS(scrollbarStyle) {
 * { scrollbar-width: thin; scrollbar-color: ${thumb} ${track}; }`;
 }
 
+function validateGeneratedLayout({ appTsx, selectedComponents, layoutConfig }) {
+  const issues = [];
+  if (!appTsx || typeof appTsx !== 'string') {
+    return { ok: false, issues: ['src/App.tsx could not be read for validation.'] };
+  }
+
+  if (appTsx.includes('/* FILL:')) {
+    issues.push('App.tsx still contains scaffold placeholders (/* FILL */).');
+  }
+
+  const inFlowComponents = (selectedComponents || []).filter(c => {
+    const lc = layoutConfig || [];
+    if (lc.length > 0) {
+      const entry = lc.find(i => i.componentName === c.name);
+      return entry ? entry.position === 'in-flow' : true;
+    }
+    return c.category !== 'Backgrounds' && !['BlobCursor', 'Crosshair', 'ImageTrail', 'PixelTrail', 'SplashCursor', 'TargetCursor'].includes(c.name);
+  });
+
+  const fixedComponents = (selectedComponents || []).filter(c => {
+    const lc = layoutConfig || [];
+    if (lc.length > 0) {
+      const entry = lc.find(i => i.componentName === c.name);
+      return entry ? entry.position === 'fixed' : c.category === 'Backgrounds';
+    }
+    return c.category === 'Backgrounds';
+  });
+
+  const missingInFlow = inFlowComponents
+    .map(c => c.name)
+    .filter(name => !appTsx.includes(`<${name}`));
+  if (missingInFlow.length > 0) {
+    issues.push(`Missing required in-flow components: ${missingInFlow.join(', ')}`);
+  }
+
+  const sectionCount = (appTsx.match(/<section|<motion\.section/g) || []).length;
+  if (sectionCount < Math.max(1, inFlowComponents.length)) {
+    issues.push(`Expected at least ${inFlowComponents.length} sections, found ${sectionCount}.`);
+  }
+
+  const minHeightCount = (appTsx.match(/minHeight:/g) || []).length;
+  if (minHeightCount < Math.max(1, inFlowComponents.length)) {
+    issues.push('Section minHeight constraints appear to be missing.');
+  }
+
+  for (const comp of fixedComponents) {
+    const fixedRegex = new RegExp(`<${comp.name}[^>]*style=\\{\\{[^}]*position:\\s*'fixed'`, 'm');
+    if (!fixedRegex.test(appTsx)) {
+      issues.push(`Fixed layer missing or not fixed-positioned: ${comp.name}`);
+    }
+  }
+
+  if (!/--color-primary|var\(--color-primary\)/.test(appTsx) && !/var\(--color-primary\)/.test(appTsx)) {
+    issues.push('App.tsx appears not to use CSS token variables for key styling.');
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
 async function generateViteReact(options) {
   const { targetDir, projectName, componentCategory, componentName, componentFiles, usageCode, selectedComponents, enhancedPrompt, packageManager, installData, onProgress, onLog } = options;
   const notify = (msg) => { if (onProgress) onProgress(msg); };
@@ -776,6 +835,7 @@ You are a senior React + TypeScript developer and UI designer. Build a complete,
 
 - **Editable files**: \`src/App.tsx\`, \`src/index.css\`, \`index.html\` — do not create other source files
 - **App.tsx is pre-scaffolded**: section structure, heights, z-indices, and entrance animations are already written. Fill in component props and content — do NOT restructure or reorder
+- **Layout is locked**: section order, fixed-layer semantics, and min-heights are strict constraints
 - **Stack**: Vite + React 18 (TypeScript) + Tailwind CSS v4
 - **Stop condition**: when \`npx tsc --noEmit\` passes with zero errors, output the word **DONE** and stop
 
@@ -801,6 +861,7 @@ You must produce something visually distinctive — not generic AI output. Befor
 - Write copy that is specific to the project's actual theme and purpose
 - NEVER use phrases like: "Unleash Your Creativity", "Cutting-Edge Solutions", "Transform Your Business", "Elevate Your Experience", "Revolutionary Platform", "Seamlessly Integrated"
 - Write real, contextual content: named features, realistic taglines, specific benefit statements tied to the actual product/topic
+- Never leave sections visually empty. Each section must include either component visuals, image/media, or intentional design content.
 
 **Interactions**
 - Preserve every component's native animations and interaction behavior exactly as designed
@@ -853,7 +914,7 @@ ${layoutPersonalityBlock}
 - Read the component's \`.tsx\` source to verify exact prop names before using them
 - Use \`string\` color values (hex literals) for WebGL/canvas components — not CSS variables
 - TextAnimation components must have explicit color props set (WCAG AA contrast ≥ 4.5:1)
-- **Icons**: Do NOT import from any icon library (\`lucide-react\`, \`react-icons\`, etc.) in \`App.tsx\`. Icon exports are inconsistent across versions and TypeScript will not always catch bad names. Use Unicode symbols (\`→ ← ✕ ☰ ✓ ●\`) or a simple inline \`<svg>\` instead. ReactBits components that already import icons internally will work fine.
+- **Icons**: Do NOT add new icon-library imports in \`App.tsx\`. Use inline SVG or Unicode symbols unless an imported ReactBits component already provides icons internally.
 - **Placeholder images**: For any component prop that expects an image path (\`src\`, \`icon\`, \`image\`, \`imageSrc\`, \`avatar\`, \`backgroundImage\`, etc.), use one of these pre-installed files — they are already in \`public/\` and served at root:
   - Square / profile → \`/joker-square.jpg\`
   - Portrait / tall → \`/joker-portrait.jpg\`
@@ -895,7 +956,8 @@ ${cssFundamentals}
 7. **Verify the MANDATORY COMPONENTS checklist above — every component must appear in JSX**
 8. Run: \`npx tsc --noEmit\`
 9. If errors → fix them and re-run \`tsc\`
-10. When \`tsc\` is clean AND all mandatory components are in JSX → output **DONE** and stop
+10. Verify that no scaffold placeholders remain and layout constraints are preserved
+11. When checks are clean → output **DONE** and stop
 `;
 
     await fs.writeFile(path.join(targetDir, 'CLAUDE.md'), claudeMdContent, 'utf-8');
@@ -953,29 +1015,30 @@ ${cssFundamentals}
     await generateCode({
       projectPath: targetDir,
       onProgress: notify,
+      maxBudgetUsd: options.aiBudgetUsd,
     });
 
-    // Post-generation: verify all selected components appear in App.tsx
-    const inFlowComponents = (selectedComponents || []).filter(c => {
-      const lc = options.layoutConfig || [];
-      if (lc.length > 0) {
-        const entry = lc.find(i => i.componentName === c.name);
-        return entry ? entry.position === 'in-flow' : true;
-      }
-      return c.category !== 'Backgrounds' && !['BlobCursor','Crosshair','ImageTrail','PixelTrail','SplashCursor','TargetCursor'].includes(c.name);
-    });
+    // Post-generation: verify component presence + locked layout constraints
     try {
       const appTsx = require('fs').readFileSync(path.join(targetDir, 'src', 'App.tsx'), 'utf-8');
-      const missingComponents = inFlowComponents
-        .map(c => c.name)
-        .filter(name => !appTsx.includes(`<${name}`));
-      if (missingComponents.length > 0) {
-        notify(`[Validator] ⚠️ Missing components: ${missingComponents.join(', ')} — running correction pass...`);
-        const correctionPrompt = `src/App.tsx is missing these required components: ${missingComponents.join(', ')}. Open src/App.tsx and add each missing component to the JSX inside an appropriate section. Import it if not imported. Do not remove anything existing. Output DONE when finished.`;
-        await generateCode({ projectPath: targetDir, onProgress: notify, prompt: correctionPrompt });
+      const validation = validateGeneratedLayout({
+        appTsx,
+        selectedComponents,
+        layoutConfig: options.layoutConfig || null,
+      });
+
+      if (!validation.ok) {
+        notify(`[Validator] ⚠️ Layout/style issues detected — running correction pass...`);
+        const correctionPrompt = `Fix these issues in src/App.tsx while preserving all existing design intent:\n- ${validation.issues.join('\n- ')}\n\nRules:\n- Keep the existing section order.\n- Keep fixed layers as fixed-position with correct z-index semantics.\n- Ensure all required components are present.\n- Remove any remaining scaffold placeholders.\nOutput DONE when finished.`;
+        await generateCode({
+          projectPath: targetDir,
+          onProgress: notify,
+          prompt: correctionPrompt,
+          maxBudgetUsd: Math.min(0.2, Number(options.aiBudgetUsd || 0.2)),
+        });
         notify(`[Validator] Correction pass complete.`);
       } else {
-        notify(`[Validator] ✓ All ${inFlowComponents.length} component(s) present in App.tsx.`);
+        notify(`[Validator] ✓ Layout and component validation passed.`);
       }
     } catch (e) {
       log(`[Validator] Warning: Could not verify App.tsx — ${e.message}\n`);

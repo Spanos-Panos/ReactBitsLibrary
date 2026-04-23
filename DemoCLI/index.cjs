@@ -42,6 +42,9 @@ async function generatePlayground(payload, event, taskId) {
       usageCode,
       packageManager: options.packageManager || 'npm',
       installData: options.installData,
+      layoutConfig: options.layoutConfig || null,
+      scrollbarStyle: options.scrollbarStyle || null,
+      polishPass: !!options.polishPass,
       onProgress,
       onLog,
       runWhenDone: options.runWhenDone

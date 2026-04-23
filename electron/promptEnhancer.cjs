@@ -5,11 +5,14 @@ const { app } = require("electron");
 
 // ─── Path config ──────────────────────────────────────────────────────────────
 
-const DOCUMENTS_PATH = app.getPath('documents');
+const DOCUMENTS_PATH = app && typeof app.getPath === "function"
+  ? app.getPath('documents')
+  : require('os').homedir();
 const BASE_DIR = path.join(DOCUMENTS_PATH, ".reactBitsExplorer", "prompts");
 
 const ORIGINAL_DIR = path.join(BASE_DIR, "originalPrompts");
 const ENHANCED_DIR = path.join(BASE_DIR, "enhancedPrompts");
+const QUALITY_ATTEMPTS = 2;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +38,108 @@ function saveFile(dir, filename, content) {
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, JSON.stringify(content, null, 2), "utf-8");
   return filePath;
+}
+
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateEnhancedPromptShape(prompt, selectedComponents) {
+  const issues = [];
+  if (!isPlainObject(prompt)) {
+    return { ok: false, issues: ["Top-level response is not a JSON object."] };
+  }
+
+  if (!isPlainObject(prompt.projectMeta)) issues.push("Missing or invalid projectMeta object.");
+  if (!isPlainObject(prompt.designTokens)) issues.push("Missing or invalid designTokens object.");
+  if (!isPlainObject(prompt.siteArchitecture)) issues.push("Missing or invalid siteArchitecture object.");
+  if (!isPlainObject(prompt.technicalRequirements)) issues.push("Missing or invalid technicalRequirements object.");
+  if (!Array.isArray(prompt.generatorSteps) || prompt.generatorSteps.length < 4) {
+    issues.push("generatorSteps must contain at least 4 items.");
+  }
+
+  const sections = prompt.siteArchitecture?.sections;
+  if (!Array.isArray(sections) || sections.length === 0) {
+    issues.push("siteArchitecture.sections must be a non-empty array.");
+  } else {
+    for (const section of sections) {
+      if (!isPlainObject(section)) {
+        issues.push("Every section must be an object.");
+        break;
+      }
+      if (typeof section.id !== "string" || !section.id.trim()) issues.push("Every section must have a non-empty id.");
+      if (typeof section.componentRef !== "string" || !section.componentRef.trim()) issues.push("Every section must have a non-empty componentRef.");
+    }
+  }
+
+  const dependencies = prompt.technicalRequirements?.dependencies;
+  if (!Array.isArray(dependencies) || dependencies.length === 0) {
+    issues.push("technicalRequirements.dependencies must be a non-empty array.");
+  }
+  if (typeof prompt.technicalRequirements?.layoutStrategy !== "string" || !prompt.technicalRequirements.layoutStrategy.trim()) {
+    issues.push("technicalRequirements.layoutStrategy must be a non-empty string.");
+  }
+
+  const selectedNames = new Set((selectedComponents || []).map(c => String(c.name || "").toLowerCase()).filter(Boolean));
+  const sectionRefs = new Set((sections || []).map(s => String(s.componentRef || "").toLowerCase()));
+  for (const name of selectedNames) {
+    const matched = Array.from(sectionRefs).some(ref => ref === name || ref.includes(name));
+    if (!matched) issues.push(`Missing selected component in sections: ${name}`);
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
+function scoreEnhancedPromptQuality(prompt) {
+  const penalties = [];
+  const slopPhrases = [
+    "welcome to",
+    "transform your",
+    "unleash your",
+    "elevate your",
+    "revolutionary platform",
+    "cutting-edge solutions",
+    "seamlessly integrated",
+  ];
+
+  let score = 100;
+  const sections = Array.isArray(prompt?.siteArchitecture?.sections) ? prompt.siteArchitecture.sections : [];
+  const generatorSteps = Array.isArray(prompt?.generatorSteps) ? prompt.generatorSteps : [];
+
+  const texts = [];
+  for (const section of sections) {
+    const content = section?.content;
+    if (isPlainObject(content)) {
+      for (const value of Object.values(content)) {
+        if (typeof value === "string" && value.trim()) texts.push(value.toLowerCase());
+      }
+    }
+  }
+
+  if (sections.length < 3) {
+    score -= 18;
+    penalties.push("Too few sections (<3), likely under-structured layout.");
+  }
+
+  if (generatorSteps.length < 6) {
+    score -= 10;
+    penalties.push("Too few generator steps (<6), instruction detail is weak.");
+  }
+
+  const hasRoleSpecificContent = texts.some(t => t.length > 40 && /\b(benefit|service|product|audience|contact|cta|offer)\b/.test(t));
+  if (!hasRoleSpecificContent) {
+    score -= 10;
+    penalties.push("Content appears generic and not domain-specific enough.");
+  }
+
+  for (const phrase of slopPhrases) {
+    if (texts.some(t => t.includes(phrase))) {
+      score -= 8;
+      penalties.push(`Contains banned generic copy phrase: "${phrase}"`);
+    }
+  }
+
+  return { score: Math.max(0, score), penalties };
 }
 
 // ─── Skill content ────────────────────────────────────────────────────────────
@@ -161,6 +266,17 @@ async function enhancePrompt(options) {
         lines.push('Sizes:');
         lines.push(`  - Responsive strategy: ${dr.sizes.strategy}`);
         if (dr.sizes.maxWidth) lines.push(`  - Max container width: ${dr.sizes.maxWidth}`);
+      }
+
+      if (dr.images) {
+        lines.push('Image strategy:');
+        if (dr.images.style) lines.push(`  - Visual style: ${dr.images.style}`);
+        if (dr.images.direction) lines.push(`  - Direction: ${dr.images.direction}`);
+        if (dr.images.composition) lines.push(`  - Composition: ${dr.images.composition}`);
+        if (dr.images.subject) lines.push(`  - Subject: ${dr.images.subject}`);
+        if (dr.images.mood) lines.push(`  - Mood: ${dr.images.mood}`);
+        if (dr.images.lighting) lines.push(`  - Lighting: ${dr.images.lighting}`);
+        if (dr.images.texture) lines.push(`  - Texture: ${dr.images.texture}`);
       }
 
       if (lines.length > 0) {
@@ -328,9 +444,7 @@ async function enhancePrompt(options) {
       "claude-sonnet-4-6",
     ];
 
-    let message = null;
     let successfulModel = "";
-    let lastError = null;
 
     // Strip full source files — enhancer only needs usage docs to understand component API.
     // Source code is for Claude Code to read from disk, not for the enhancer.
@@ -345,96 +459,112 @@ async function enhancePrompt(options) {
       "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object."
     ].filter(Boolean).join('');
 
-    for (const modelId of candidateModels) {
-      try {
-        console.log(`[Claude Enhancer] Attempting enhancement with: ${modelId}...`);
-        message = await anthropic.messages.create({
-          model: modelId,
-          max_tokens: 4096,
-          temperature: 0,
-          system: [
-            { type: "text", text: PROMPT_ENHANCER_SKILL, cache_control: { type: "ephemeral" } },
-            { type: "text", text: dynamicSystemBlock },
-          ],
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `USER PROMPT: "${rawPrompt}"\n\nCOMPONENT CONTEXT:\n${JSON.stringify(strippedComponents, null, 2)}`
-                }
-              ]
-            }
-          ]
-        });
-        successfulModel = modelId;
-        break; 
-      } catch (e) {
-        lastError = e;
-        console.warn(`[Claude Enhancer] Model ${modelId} failed: ${e.message}`);
-        // If it's a 404, we continue. Otherwise (auth/billing), we stop.
-        if (!e.message.toLowerCase().includes("not found") && !e.message.toLowerCase().includes("not_found")) break;
-      }
-    }
+    let enhancedPrompt = null;
+    let qualityReport = null;
+    let qualityFeedback = "";
 
-    if (!message) {
-      throw new Error(`All Claude models failed. Last error: ${lastError.message}`);
-    }
+    for (let qualityAttempt = 1; qualityAttempt <= QUALITY_ATTEMPTS; qualityAttempt++) {
+      let message = null;
+      let lastError = null;
+      successfulModel = "";
 
-    console.log(`[Claude Enhancer] Successfully used: ${successfulModel}`);
-    const responseText = message.content[0].text;
-    
-    // ─── Robust JSON Extraction ───────────────────────────────────────────
-    let enhancedPrompt;
-    try {
-      // Find the first '{' and the last '}'
-      const startIdx = responseText.indexOf('{');
-      const endIdx = responseText.lastIndexOf('}');
-      if (startIdx === -1 || endIdx === -1) throw new Error("No JSON object found in response");
-
-      let jsonCandidate = responseText.substring(startIdx, endIdx + 1);
-
-      // Strip lines containing JS function/JSX values that would break JSON.parse.
-      // e.g. `"onClick": () => alert('x')` → removed entirely (trailing comma handled too)
-      jsonCandidate = jsonCandidate
-        .replace(/^\s*"[^"]+"\s*:\s*(?:\([^)]*\)\s*=>|function\s*\()[^\n]*,?\n/gm, '')
-        .replace(/^\s*"[^"]+"\s*:\s*<[A-Z][^>]*\/>\s*,?\n/gm, '');   // strip JSX values
-
-      // Sanitize literal control characters inside JSON string values.
-      // Claude sometimes embeds raw newlines/tabs inside string fields which breaks JSON.parse.
-      // We scan char-by-char so we only touch characters inside string values.
-      {
-        let sanitized = '';
-        let inString = false;
-        let i = 0;
-        while (i < jsonCandidate.length) {
-          const ch = jsonCandidate[i];
-          if (inString) {
-            if (ch === '\\') {
-              // Already-escaped sequence — copy both characters as-is
-              sanitized += ch + (jsonCandidate[i + 1] || '');
-              i += 2;
-              continue;
-            }
-            if (ch === '"') { inString = false; sanitized += ch; }
-            else if (ch === '\n') { sanitized += '\\n'; }
-            else if (ch === '\r') { sanitized += '\\r'; }
-            else if (ch === '\t') { sanitized += '\\t'; }
-            else { sanitized += ch; }
-          } else {
-            if (ch === '"') inString = true;
-            sanitized += ch;
-          }
-          i++;
+      for (const modelId of candidateModels) {
+        try {
+          console.log(`[Claude Enhancer] Attempting enhancement with: ${modelId}...`);
+          message = await anthropic.messages.create({
+            model: modelId,
+            max_tokens: 4096,
+            temperature: 0,
+            system: [
+              { type: "text", text: PROMPT_ENHANCER_SKILL, cache_control: { type: "ephemeral" } },
+              { type: "text", text: `${dynamicSystemBlock}${qualityFeedback}` },
+            ],
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `USER PROMPT: "${rawPrompt}"\n\nCOMPONENT CONTEXT:\n${JSON.stringify(strippedComponents, null, 2)}`
+                  }
+                ]
+              }
+            ]
+          });
+          successfulModel = modelId;
+          break;
+        } catch (e) {
+          lastError = e;
+          console.warn(`[Claude Enhancer] Model ${modelId} failed: ${e.message}`);
+          if (!e.message.toLowerCase().includes("not found") && !e.message.toLowerCase().includes("not_found")) break;
         }
-        jsonCandidate = sanitized;
       }
 
-      enhancedPrompt = JSON.parse(jsonCandidate);
-    } catch (parseErr) {
-      console.error("[Claude Enhancer] JSON Parse Failed. Raw text was:", responseText);
-      throw new Error(`Claude returned invalid JSON: ${parseErr.message}`);
+      if (!message) {
+        throw new Error(`All Claude models failed. Last error: ${lastError?.message || "Unknown error"}`);
+      }
+
+      console.log(`[Claude Enhancer] Successfully used: ${successfulModel}`);
+      const responseText = message.content[0].text;
+
+      try {
+        const startIdx = responseText.indexOf('{');
+        const endIdx = responseText.lastIndexOf('}');
+        if (startIdx === -1 || endIdx === -1) throw new Error("No JSON object found in response");
+        let jsonCandidate = responseText.substring(startIdx, endIdx + 1);
+        jsonCandidate = jsonCandidate
+          .replace(/^\s*"[^"]+"\s*:\s*(?:\([^)]*\)\s*=>|function\s*\()[^\n]*,?\n/gm, '')
+          .replace(/^\s*"[^"]+"\s*:\s*<[A-Z][^>]*\/>\s*,?\n/gm, '');
+        {
+          let sanitized = '';
+          let inString = false;
+          let i = 0;
+          while (i < jsonCandidate.length) {
+            const ch = jsonCandidate[i];
+            if (inString) {
+              if (ch === '\\') {
+                sanitized += ch + (jsonCandidate[i + 1] || '');
+                i += 2;
+                continue;
+              }
+              if (ch === '"') { inString = false; sanitized += ch; }
+              else if (ch === '\n') { sanitized += '\\n'; }
+              else if (ch === '\r') { sanitized += '\\r'; }
+              else if (ch === '\t') { sanitized += '\\t'; }
+              else { sanitized += ch; }
+            } else {
+              if (ch === '"') inString = true;
+              sanitized += ch;
+            }
+            i++;
+          }
+          jsonCandidate = sanitized;
+        }
+        enhancedPrompt = JSON.parse(jsonCandidate);
+      } catch (parseErr) {
+        console.error("[Claude Enhancer] JSON Parse Failed. Raw text was:", responseText);
+        throw new Error(`Claude returned invalid JSON: ${parseErr.message}`);
+      }
+
+      const shape = validateEnhancedPromptShape(enhancedPrompt, strippedComponents);
+      const quality = scoreEnhancedPromptQuality(enhancedPrompt);
+      qualityReport = {
+        attempt: qualityAttempt,
+        shapeOk: shape.ok,
+        shapeIssues: shape.issues,
+        qualityScore: quality.score,
+        qualityPenalties: quality.penalties,
+      };
+
+      const qualityFailed = !shape.ok || quality.score < 78;
+      if (!qualityFailed) {
+        break;
+      }
+      if (qualityAttempt >= QUALITY_ATTEMPTS) {
+        throw new Error(`Enhanced prompt quality gate failed: ${(shape.issues || []).concat(quality.penalties || []).join(" | ")}`);
+      }
+      qualityFeedback = `\n\n## QUALITY FEEDBACK FROM PREVIOUS ATTEMPT\nYou must fix the following issues in your next JSON response:\n- ${(shape.issues || []).concat(quality.penalties || []).join('\n- ')}`;
+      console.warn(`[Claude Enhancer] Quality gate failed on attempt ${qualityAttempt}. Retrying...`);
     }
 
     // ─── Post-parse: guarantee every selected component is in sections ─────────
@@ -557,6 +687,7 @@ async function enhancePrompt(options) {
     return {
       success: true,
       enhancedPrompt,
+      qualityReport,
       savedPaths: {
         original: originalPath,
         enhanced: enhancedPath,
@@ -568,4 +699,10 @@ async function enhancePrompt(options) {
   }
 }
 
-module.exports = { enhancePrompt };
+module.exports = {
+  enhancePrompt,
+  _internals: {
+    validateEnhancedPromptShape,
+    scoreEnhancedPromptQuality,
+  },
+};

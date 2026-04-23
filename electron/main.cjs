@@ -211,6 +211,8 @@ function createWindow() {
 }
 
 const { autoUpdater } = require("electron-updater");
+const { buildBudgetPlan, clampStageBudget, GLOBAL_TASK_CAP_USD } = require("./budgetPolicy.cjs");
+const taskBudgetLedger = new Map(); // key: projectPath -> budget metadata
 
 app.whenReady().then(() => {
   cleanupSurvivorsFromRegistry(); // Kill any orphans from the previous session first
@@ -352,6 +354,27 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
   const taskId = validation.taskId;
   let result;
   try {
+    if (validation.isRichPayload) {
+      const payload = args[0];
+      const budgetPlan = buildBudgetPlan({
+        selectedComponents: payload.selectedComponents || [],
+        layoutConfig: payload.options?.layoutConfig || [],
+        pages: payload.options?.pages || [],
+      });
+      payload.options = {
+        ...payload.options,
+        budgetPlan,
+        aiBudgetUsd: clampStageBudget(budgetPlan.generationCapUsd, 0.6),
+      };
+      if (event?.sender) {
+        event.sender.send(
+          "generate-log",
+          `[Budget] Global cap: $${GLOBAL_TASK_CAP_USD.toFixed(2)} | Enhance reserve: $${budgetPlan.enhanceReserveUsd.toFixed(2)} | Generation cap: $${payload.options.aiBudgetUsd.toFixed(2)} | Rework reserve: $${budgetPlan.reworkCapUsd.toFixed(2)}\n`,
+          taskId
+        );
+      }
+    }
+
     result = await runWithRetry("generate-playground", async () => {
       if (validation.isRichPayload) {
         const payload = args[0];
@@ -384,6 +407,18 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
     registryAdd(taskId, result.childProcess.pid, result.path);
     // CRITICAL: Must delete this before returning to renderer to avoid 'An object could not be cloned' error
     delete result.childProcess;
+  }
+
+  if (validation.isRichPayload && result.success && result.path) {
+    const budgetPlan = args[0]?.options?.budgetPlan;
+    const generationCap = clampStageBudget(args[0]?.options?.aiBudgetUsd ?? budgetPlan?.generationCapUsd, 0.6);
+    const reworkReserve = clampStageBudget(budgetPlan?.reworkCapUsd, 0.3);
+    taskBudgetLedger.set(result.path, {
+      globalCapUsd: GLOBAL_TASK_CAP_USD,
+      generationCapUsd: generationCap,
+      reworkRemainingUsd: reworkReserve,
+      createdAt: Date.now(),
+    });
   }
 
   // ── Auto Vision Rework: capture screenshot AFTER AI Build generation finishes ──
@@ -504,9 +539,18 @@ ipcMain.handle("run-vision-rework", async (event, payload) => {
   if (validationError) return validationFailure("validation", validationError);
   const win = BrowserWindow.fromWebContents(event.sender);
   const reworkTaskId = payload.taskId || `rework-${Date.now()}`;
+  const budgetEntry = payload.projectPath ? taskBudgetLedger.get(payload.projectPath) : null;
+  const computedReworkCap = clampStageBudget(
+    budgetEntry?.reworkRemainingUsd ?? payload.maxBudgetUsd ?? 0.35,
+    0.35
+  );
+  const effectivePayload = { ...payload, maxBudgetUsd: computedReworkCap };
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('vision-rework-progress', `[Budget] Rework cap: $${computedReworkCap.toFixed(2)} (global task cap $${GLOBAL_TASK_CAP_USD.toFixed(2)})`, reworkTaskId);
+  }
   try {
     await runWithRetry("run-vision-rework", () => runVisionRework({
-      ...payload,
+      ...effectivePayload,
       onProgress: (msg) => {
         if (win && !win.isDestroyed()) {
           win.webContents.send('vision-rework-progress', msg, reworkTaskId);
@@ -514,7 +558,7 @@ ipcMain.handle("run-vision-rework", async (event, payload) => {
       },
     }), {
       retries: 1,
-      timeoutMs: 15 * 60 * 1000,
+      timeoutMs: 20 * 60 * 1000,
       shouldRetry: (msg) => /timeout|network|econn|etimedout|429/i.test(msg),
       onRetry: (attempt, retries, message) => {
         if (win && !win.isDestroyed()) win.webContents.send('vision-rework-progress', `[System] Retry ${attempt}/${retries}: ${message}`, reworkTaskId);

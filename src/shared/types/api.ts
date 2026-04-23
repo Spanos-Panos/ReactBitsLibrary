@@ -55,6 +55,7 @@ export interface VisionReworkPayload {
   weaknessesMd: string;
   backupFirst: boolean;
   taskId: string;
+  maxBudgetUsd?: number;
 }
 
 export interface EnhancePromptSystemContext {
@@ -81,6 +82,13 @@ export interface EnhancePromptResult {
   success: boolean;
   enhancedPrompt?: Record<string, unknown>;
   savedPaths?: { original: string; enhanced: string };
+  qualityReport?: {
+    attempt: number;
+    shapeOk: boolean;
+    shapeIssues: string[];
+    qualityScore: number;
+    qualityPenalties: string[];
+  };
   error?: string;
   stage?: string;
 }
