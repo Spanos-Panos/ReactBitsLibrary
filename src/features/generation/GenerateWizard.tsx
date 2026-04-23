@@ -43,6 +43,18 @@ export default function GenerateWizard({
   const titleText = isAiBuild ? "Generate AI Master Project" : "Generate Demo Project";
   const shouldShow = open && (selected || lastEnhancedPrompt);
 
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  React.useEffect(() => {
+    if (open) setIsConfirming(false);
+  }, [open]);
+
+  const handleConfirm = () => {
+    if (isConfirming) return;
+    setIsConfirming(true);
+    onConfirm();
+  };
+
   return (
     <AnimatePresence mode="wait">
       {shouldShow && (
@@ -235,8 +247,8 @@ export default function GenerateWizard({
                 <div style={{ display: 'flex', gap: 14, marginTop: 12, paddingBottom: 6, justifyContent: 'flex-end' }}>
                   <PremiumUnderlineButton onClick={onClose}>Dismiss</PremiumUnderlineButton>
                   <PremiumUnderlineButton
-                    onClick={onConfirm}
-                    disabled={!projectName || !projectPath}
+                    onClick={handleConfirm}
+                    disabled={!projectName || !projectPath || isConfirming}
                     active
                     primary
                   >

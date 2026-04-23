@@ -134,6 +134,9 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   openPath(path) {
     return ipcRenderer.invoke("shell-open-path", path);
   },
+  checkDirectoryExists(path) {
+    return ipcRenderer.invoke("check-directory-exists", path);
+  },
   openInVSCode(path) {
     return ipcRenderer.invoke("open-in-vscode", path);
   },

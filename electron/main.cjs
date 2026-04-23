@@ -288,11 +288,43 @@ ipcMain.handle("shell-open-path", async (event, folderPath) => {
   require('electron').shell.openPath(folderPath);
 });
 
+ipcMain.handle("check-directory-exists", async (event, folderPath) => {
+  if (!folderPath) return false;
+  try {
+    return require('fs').existsSync(folderPath);
+  } catch {
+    return false;
+  }
+});
+
 ipcMain.handle("open-in-vscode", async (event, folderPath) => {
   if (!folderPath) return;
   const { exec } = require('child_process');
-  exec(`code "${folderPath}"`, (err) => {
-    if (err) console.error("[Main] Failed to open in VS Code:", err);
+  const path = require('node:path');
+  
+  // Ensure we have an absolute, platform-specific path
+  const absolutePath = path.resolve(folderPath);
+  
+  console.log(`[Main] Opening in VS Code: ${absolutePath}`);
+  
+  // On Windows, 'code "path"' is the most reliable way to open a folder.
+  // We avoid the double-exec pattern which was causing two windows to open.
+  exec(`code "${absolutePath}"`, (err) => {
+    if (err) {
+      console.error(`[Main] Primary VS Code open failed for "${absolutePath}":`, err.message);
+      
+      // Fallback: try 'code .' with cwd as a last resort
+      console.log(`[Main] Attempting fallback with cwd...`);
+      exec(`code .`, { cwd: absolutePath }, (err2) => {
+        if (err2) {
+          console.error(`[Main] Fallback VS Code open also failed for "${absolutePath}":`, err2.message);
+        } else {
+          console.log(`[Main] Fallback open succeeded.`);
+        }
+      });
+    } else {
+      console.log(`[Main] VS Code opened successfully.`);
+    }
   });
 });
 

@@ -326,7 +326,8 @@ async function generateStructure(payload, event, taskId) {
 
     // ── Step 3: Install ──────────────────────────────────────────────────────
     notify(`Installing dependencies via ${packageManager}...`);
-    await runCommand(`${packageManager} install`, [], targetDir, log);
+    const installCmd = packageManager === 'npm' ? 'install --no-audit --no-fund' : 'install';
+    await runCommand(`${packageManager} ${installCmd}`, [], targetDir, log);
 
     // ── Step 4: Inject component files ──────────────────────────────────────
     notify(`Injecting ${selectedComponents.length} component file(s)...`);

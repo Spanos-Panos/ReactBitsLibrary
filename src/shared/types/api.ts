@@ -93,6 +93,7 @@ export interface ReactBitsApi {
   onVisionReworkProgress(cb: (msg: string, taskId: string) => void): () => void;
   generateStructure(options: ProjectStructureOptions): Promise<StructureGenerateResult>;
   openPath(path: string): Promise<void>;
+  checkDirectoryExists(path: string): Promise<boolean>;
   openInVSCode(path: string): Promise<void>;
 }
 

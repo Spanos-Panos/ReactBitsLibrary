@@ -225,10 +225,15 @@ export default function StructureWizard({
 }: StructureWizardProps) {
   const [isStrategiesExpanded, setIsStrategiesExpanded] = useState(false);
   const [activeStrategy, setActiveStrategy] = useState<'scaffold' | 'ai' | 'hybrid'>('scaffold');
+  const [isConfirming, setIsConfirming] = useState(false);
 
-
+  React.useEffect(() => {
+    if (open) setIsConfirming(false);
+  }, [open]);
 
   const handleConfirm = () => {
+    if (isConfirming) return;
+    setIsConfirming(true);
     setIsStrategiesExpanded(false);
     setTimeout(() => {
       onConfirm();
@@ -423,7 +428,7 @@ export default function StructureWizard({
                   <PremiumUnderlineButton onClick={handleClose}>Dismiss</PremiumUnderlineButton>
                   <PremiumUnderlineButton
                     onClick={handleConfirm}
-                    disabled={!projectName || !outputPath}
+                    disabled={!projectName || !outputPath || isConfirming}
                     primary
                   >
                     Initialize Synthesis

@@ -479,11 +479,13 @@ async function generateViteReact(options) {
     log(`[DemoCLI] Warning: Could not patch package.json, falling back to separate install: ${e.message}\n`);
     // Fallback: install extras separately as before
     const depList = Array.from(discoveredDeps).join(' ');
-    if (depList) await runCommand(`${packageManager} ${packageManager === 'npm' ? 'install' : 'add'} ${depList}`, [], targetDir, log);
+    const installCmd = packageManager === 'npm' ? 'install --no-audit --no-fund' : 'add';
+    if (depList) await runCommand(`${packageManager} ${installCmd} ${depList}`, [], targetDir, log);
   }
 
   notify(`Installing all dependencies via ${packageManager}...`);
-  await runCommand(`${packageManager} install`, [], targetDir, log);
+  const allInstallCmd = packageManager === 'npm' ? 'install --no-audit --no-fund' : 'install';
+  await runCommand(`${packageManager} ${allInstallCmd}`, [], targetDir, log);
 
   // 3. Inject Component Files
   notify(`Injecting custom component files...`);

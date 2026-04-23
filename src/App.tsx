@@ -106,6 +106,8 @@ function App() {
   const [reworkReadyTaskIds,   setReworkReadyTaskIds]   = useState<Set<string>>(new Set());
   // Store the last enhanced prompt used per task so rework can reference original preset
   const lastPresetByTaskId = useRef<Record<string, object>>({});
+  // Track reserved names during the current JS tick to prevent races
+  const pendingProjectNamesRef = useRef<Set<string>>(new Set());
 
   // ── Derived state ─────────────────────────────────────────────────────────
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
@@ -140,7 +142,47 @@ function App() {
     });
   }, [selectedComponents]);
 
-  // ── Callbacks ─────────────────────────────────────────────────────────────
+  // ── Helper: Unique Project Name Resolution ───────────────────────────────
+  const getUniqueProjectName = async (baseName: string, targetFolder: string) => {
+    let currentName = baseName;
+    let counter = 1;
+    let isUnique = false;
+
+    while (!isUnique) {
+      const fullPath = `${targetFolder}\\${currentName}`;
+
+      // 1. Check synchronous pending ref to prevent rapid click races
+      if (pendingProjectNamesRef.current.has(fullPath)) {
+        currentName = `${baseName}-${counter}`;
+        counter++;
+        continue;
+      }
+
+      // 2. Check currently active tasks
+      const inUseByTasks = Object.values(tasks).some(t => 
+        (t.status === 'running' || t.status === 'success') && 
+        t.projectName === currentName && 
+        (t.path === targetFolder || t.path?.includes(targetFolder))
+      );
+      
+      // 3. Check filesystem
+      let inUseByFS = false;
+      if (window.reactBitsApi?.checkDirectoryExists) {
+        inUseByFS = await window.reactBitsApi.checkDirectoryExists(fullPath);
+      }
+
+      if (!inUseByTasks && !inUseByFS) {
+        isUnique = true;
+        pendingProjectNamesRef.current.add(fullPath); // Reserve it immediately!
+      } else {
+        currentName = `${baseName}-${counter}`;
+        counter++;
+      }
+    }
+    return currentName;
+  };
+
+  // ── Event Handlers ────────────────────────────────────────────────────────
   const handleSelectComponent = (id: string) => {
     setSelectedId(id);
     setGenerateStatus("");
@@ -148,7 +190,7 @@ function App() {
   };
 
   const handleGenerate = () => {
-    if (selected) setProjectName(`rb-demo-${selected.name.toLowerCase().replace(/\s+/g, '-')}`);
+    if (selected) setProjectName(`${selected.name} Demo`);
     setShowGenerateWizard(true);
   };
 
@@ -186,20 +228,21 @@ function App() {
     if (!projectPath || !window.reactBitsApi?.generatePlayground) return;
     const isMasterBuild = !!lastEnhancedPrompt;
     if (!isMasterBuild && !selected) return;
-    if (Object.keys(tasks).length >= 5) {
+    if (Object.values(tasks).filter(t => t.status === 'running').length >= 5) {
       setToastType("warning");
-      setGenerateStatus("Task limit reached (max 5). Please close completed tasks first!");
+      setGenerateStatus("Task limit reached (max 5 running). Please wait for some to finish!");
       setTimeout(() => setGenerateStatus(""), 4000);
       return;
     }
     const taskId = Date.now().toString();
+    const uniqueProjectName = await getUniqueProjectName(projectName, projectPath);
     setTasks(prev => ({
       ...prev,
       [taskId]: {
         id: taskId,
         name: isMasterBuild ? (lastEnhancedPrompt.projectMeta?.title || "AI Project") : selected!.name,
         type: isMasterBuild ? 'web' : 'component',
-        projectName, progress: "Initializing project generation...",
+        projectName: uniqueProjectName, progress: "Initializing project generation...",
         logs: ["Initializing Build Environment...\n"], status: 'running',
         runWhenDoneUsed: runWhenDone,
         autoKillOnErrorUsed: autoKillOnError,
@@ -213,14 +256,14 @@ function App() {
       let result;
       if (isMasterBuild) {
         result = await window.reactBitsApi.generatePlayground({
-          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, scrollbarStyle: scrollbarStyle.mode !== 'default' ? scrollbarStyle : null, polishPass },
+          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone, autoKillOnError, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, scrollbarStyle: scrollbarStyle.mode !== 'default' ? scrollbarStyle : null, polishPass },
           selectedComponents: await Promise.all(selectedComponents.map(c => window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
           enhancedPrompt: lastEnhancedPrompt,
         }, null, taskId);
       } else {
         result = await window.reactBitsApi.generatePlayground(
           selected!.category, selected!.name, selected!.usageMarkdown, componentFiles,
-          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
+          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
           taskId
         );
       }
@@ -312,6 +355,13 @@ function App() {
   const handleDeletePreset = async (id: string) => { await window.reactBitsApi?.deletePreset?.(id); };
 
   const handleBuilderGenerate = async () => {
+    const runningTasksCount = Object.values(tasks).filter(t => t.status === 'running').length;
+    if (runningTasksCount >= 5) {
+      setToastType("warning");
+      setGenerateStatus("Task limit reached (max 5 running). Please wait for some to finish!");
+      setTimeout(() => setGenerateStatus(""), 4000);
+      return;
+    }
     if (!projectPrompt.trim()) { setToastType("warning"); setGenerateStatus("Please enter a prompt for your project!"); setTimeout(() => setGenerateStatus(""), 4000); return; }
     if (selectedComponents.length === 0) { setToastType("warning"); setGenerateStatus("Please select at least one component!"); setTimeout(() => setGenerateStatus(""), 4000); return; }
     setGenerateStatus("Scavenging component source code...");
@@ -345,25 +395,38 @@ function App() {
   };
 
   const handleGenerateStructure = (pgs: PageConfig[], navbarId: string) => {
-    structureWizard.open(pgs, navbarId, projectName || 'my-site');
+    let defaultName = 'Project Structure';
+    if (navbarId) {
+      const navComp = items.find(i => i.id === navbarId);
+      if (navComp) defaultName = `${navComp.name} Structure`;
+    }
+    structureWizard.open(pgs, navbarId, defaultName);
   };
 
   const handleStructureConfirm = async () => {
+    const runningTasksCount = Object.values(tasks).filter(t => t.status === 'running').length;
+    if (runningTasksCount >= 5) {
+      setToastType("warning");
+      setGenerateStatus("Task limit reached (max 5 running). Please wait for some to finish!");
+      setTimeout(() => setGenerateStatus(""), 4000);
+      return;
+    }
+    const uniqueProjectName = await getUniqueProjectName(structureWizard.projectName, structureWizard.outputPath);
     const taskId = `structure-${Date.now()}`;
     const task = { 
       id: taskId, 
       name: 'Structure', 
-      projectName: structureWizard.projectName, 
+      projectName: uniqueProjectName, 
       progress: 'Starting...', 
       logs: [
-        `[System] Initializing structure synthesis for ${structureWizard.projectName}...\n`,
+        `[System] Initializing structure synthesis for ${uniqueProjectName}...\n`,
         `[System] Target Directory: ${structureWizard.outputPath}\n`,
         `[System] Pages to generate: ${structureWizard.pages.length}\n`,
         `[System] Package Manager: ${structureWizard.packageManager}\n`
       ], 
       status: 'running' as const, 
       type: 'structure' as const, 
-      path: structureWizard.outputPath,
+      path: `${structureWizard.outputPath}/${uniqueProjectName}`,
       runWhenDoneUsed: false, 
       autoKillOnErrorUsed: false, 
       hasTerminalError: false,
@@ -382,7 +445,7 @@ function App() {
     const result = await window.reactBitsApi.generateStructure({
       pages: structureWizard.pages,
       navbarComponentId: structureWizard.navbarId,
-      projectName: structureWizard.projectName,
+      projectName: uniqueProjectName,
       outputPath: structureWizard.outputPath,
       packageManager: structureWizard.packageManager,
       openWhenDone: structureWizard.openWhenDone,
@@ -391,7 +454,7 @@ function App() {
     } as any);
 
     const pageCount = structureWizard.pages.length;
-    const successMsg = `${structureWizard.projectName} — ${pageCount} page${pageCount !== 1 ? 's' : ''} ready`;
+    const successMsg = `${uniqueProjectName} — ${pageCount} page${pageCount !== 1 ? 's' : ''} ready`;
 
     setTasks(prev => ({
       ...prev,
@@ -399,7 +462,7 @@ function App() {
         ...prev[taskId], 
         status: result.success ? 'success' : 'error', 
         progress: result.success ? successMsg : (result.error ?? 'Failed'), 
-        path: result.success ? structureWizard.outputPath : prev[taskId].path,
+        path: result.success ? (result.path || `${structureWizard.outputPath}/${uniqueProjectName}`) : prev[taskId].path,
         hasTerminalError: !result.success 
       },
     }));
