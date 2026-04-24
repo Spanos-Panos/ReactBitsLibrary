@@ -10,6 +10,15 @@ Do not ask questions — implement everything directly.
 Keep all ReactBits component imports intact.
 Focus on: typography scale, color palette, layout structure, spacing rhythm, and section variety.`;
 
+const CLAUDE_DESIGN_PROMPT =
+`I have a ReactBits web project. Attached:
+• bitforge-preset.json — the design brief (mood, palette, components, layout)
+• screenshot — the current generated output
+
+Please provide:
+1. A redesigned hi-fi mockup image that improves on the current screenshot, following the preset's mood, colors, typography, and aesthetic intent.
+2. A weakness report in markdown format (.md) listing the main visual issues to fix.`;
+
 const DEVICE_VIEWPORT_LABELS: Record<string, string> = {
   mobile:   'Mobile · 390px',
   tablet:   'Tablet · 768px',
@@ -49,6 +58,9 @@ export default function VisionReworkModal({
   const [screenshotPath, setScreenshotPath] = useState<string | null>(reworkData?.screenshotPath ?? null);
   const [screenshotB64, setScreenshotB64]   = useState<string | null>(null);
   const [userPrompt, setUserPrompt]         = useState(DEFAULT_REWORK_PROMPT);
+  const [copiedImage, setCopiedImage]       = useState(false);
+  const [copiedPrompt, setCopiedPrompt]     = useState(false);
+  const [copiedDesign, setCopiedDesign]     = useState(false);
 
   // Sync screenshotPath when reworkData changes (e.g. modal re-opened for a different task)
   React.useEffect(() => {
@@ -112,11 +124,32 @@ export default function VisionReworkModal({
     }
   }, [reworkData]);
 
-  const handleCopyPresetPath = useCallback(() => {
-    const pathToCopy = reworkData?.presetJsonPath || reworkData?.projectPath;
-    if (!pathToCopy) return;
-    navigator.clipboard.writeText(pathToCopy).catch(() => {});
+  const handleOpenFolder = useCallback(() => {
+    const p = reworkData?.presetJsonPath || reworkData?.projectPath;
+    if (!p) return;
+    window.reactBitsApi.showItemInFolder(p);
   }, [reworkData]);
+
+  const handleCopyImage = useCallback(async () => {
+    if (!screenshotPath) return;
+    const result = await window.reactBitsApi.copyImageToClipboard(screenshotPath);
+    if (result?.success) {
+      setCopiedImage(true);
+      setTimeout(() => setCopiedImage(false), 2000);
+    }
+  }, [screenshotPath]);
+
+  const handleCopyPrompt = useCallback(() => {
+    navigator.clipboard.writeText(userPrompt).catch(() => {});
+    setCopiedPrompt(true);
+    setTimeout(() => setCopiedPrompt(false), 2000);
+  }, [userPrompt]);
+
+  const handleCopyDesignPrompt = useCallback(() => {
+    navigator.clipboard.writeText(CLAUDE_DESIGN_PROMPT).catch(() => {});
+    setCopiedDesign(true);
+    setTimeout(() => setCopiedDesign(false), 2000);
+  }, []);
 
   const canSubmit = !!referenceImage && !!weaknessMd && !!reworkData;
 
@@ -220,9 +253,14 @@ export default function VisionReworkModal({
                       </span>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <PillButton onClick={handleCopyPresetPath} title={reworkData?.presetJsonPath ? 'Copy path to bitforge-preset.json' : 'Copy project path'}>
-                      Copy Preset Path
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {shotSrc && (
+                      <PillButton onClick={handleCopyImage} title="Copy screenshot to clipboard">
+                        {copiedImage ? '✓ Copied' : 'Copy Image'}
+                      </PillButton>
+                    )}
+                    <PillButton onClick={handleOpenFolder} title="Reveal in Explorer">
+                      Open Folder
                     </PillButton>
                     <PillButton onClick={handleRecapture} disabled={recapturing}>
                       {recapturing ? 'Capturing…' : 'Re-capture'}
@@ -270,6 +308,35 @@ export default function VisionReworkModal({
                   Upload this screenshot + the preset JSON to{' '}
                   <span style={{ color: 'rgba(165,180,252,0.6)', fontWeight: 600 }}>claude.ai/design</span>
                   {' '}to get the design reference &amp; weakness report.
+                </div>
+
+                {/* Claude Design Prompt */}
+                <div style={{
+                  marginTop: 10, background: 'rgba(0,0,0,0.2)', borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  }}>
+                    <span style={{
+                      fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
+                      fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.04em',
+                      textTransform: 'uppercase', color: 'rgba(165,180,252,0.5)',
+                    }}>
+                      Prompt for Claude Design
+                    </span>
+                    <PillButton onClick={handleCopyDesignPrompt}>
+                      {copiedDesign ? '✓ Copied' : 'Copy'}
+                    </PillButton>
+                  </div>
+                  <div style={{
+                    padding: '8px 12px', fontSize: '0.6rem',
+                    color: 'rgba(255,255,255,0.28)', lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap', userSelect: 'text',
+                  }}>
+                    {CLAUDE_DESIGN_PROMPT}
+                  </div>
                 </div>
               </div>
 
@@ -342,7 +409,18 @@ export default function VisionReworkModal({
 
               {/* Rework guidance prompt */}
               <div>
-                <SectionLabel>Rework Guidance</SectionLabel>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{
+                    fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
+                    fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
+                    color: 'rgba(241, 245, 249, 0.42)',
+                  }}>
+                    Rework Guidance
+                  </div>
+                  <PillButton onClick={handleCopyPrompt}>
+                    {copiedPrompt ? '✓ Copied' : 'Copy'}
+                  </PillButton>
+                </div>
                 <textarea
                   value={userPrompt}
                   onChange={e => setUserPrompt(e.target.value)}

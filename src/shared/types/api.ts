@@ -172,6 +172,8 @@ export interface ReactBitsApi {
   openPath(path: string): Promise<void>;
   checkDirectoryExists(path: string): Promise<boolean>;
   openInVSCode(path: string): Promise<void>;
+  showItemInFolder(filePath: string): Promise<void>;
+  copyImageToClipboard(filePath: string): Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {

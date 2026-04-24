@@ -139,6 +139,12 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   openPath(path) {
     return ipcRenderer.invoke("shell-open-path", path);
   },
+  showItemInFolder(filePath) {
+    return ipcRenderer.invoke("show-item-in-folder", filePath);
+  },
+  copyImageToClipboard(filePath) {
+    return ipcRenderer.invoke("copy-image-to-clipboard", filePath);
+  },
   checkDirectoryExists(path) {
     return ipcRenderer.invoke("check-directory-exists", path);
   },

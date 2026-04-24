@@ -300,6 +300,24 @@ ipcMain.handle("shell-open-path", async (event, folderPath) => {
   require('electron').shell.openPath(folderPath);
 });
 
+ipcMain.handle("show-item-in-folder", async (event, filePath) => {
+  if (!filePath) return;
+  require('electron').shell.showItemInFolder(filePath);
+});
+
+ipcMain.handle("copy-image-to-clipboard", async (event, filePath) => {
+  if (!filePath) return { success: false, error: 'No path provided' };
+  try {
+    const { clipboard, nativeImage } = require('electron');
+    const image = nativeImage.createFromPath(filePath);
+    if (image.isEmpty()) return { success: false, error: 'Could not load image' };
+    clipboard.writeImage(image);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
 ipcMain.handle("check-directory-exists", async (event, folderPath) => {
   if (!folderPath) return false;
   try {
