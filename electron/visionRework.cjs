@@ -67,65 +67,140 @@ function formatStreamMessage(msg) {
   return null;
 }
 
-/** Build a compact summary of the original preset for the brief */
-function summarisePreset(preset) {
+/** Convert the full preset object to a rich human-readable Markdown block */
+function presetToMarkdown(preset) {
   try {
     const meta   = preset?.projectMeta   || preset?.meta   || {};
     const design = preset?.designTokens  || preset?.design || {};
+    const rules  = preset?.designRules   || {};
     const comps  = preset?.components    || preset?.selectedComponents || [];
+    const layout = preset?.layout        || rules?.layoutConfig || [];
+    const sizes  = rules?.sizes          || {};
 
-    const compNames = Array.isArray(comps)
-      ? comps.map(c => c.name || c.component || '').filter(Boolean).join(', ')
-      : '(none listed)';
+    const compList = Array.isArray(comps) && comps.length
+      ? comps.map(c => `- ${c.name || c.component || '?'}`).join('\n')
+      : '- (none listed)';
 
-    return [
-      `Project: ${meta.title || preset?.projectName || 'Unknown'}`,
-      `Mood / Style: ${meta.mood || design?.aesthetic || 'Not specified'}`,
-      `Primary colour: ${design?.primaryColor || design?.primary || 'Not specified'}`,
-      `Font: ${design?.fontFamily || design?.font || 'Not specified'}`,
-      `ReactBits components used: ${compNames || '(none listed)'}`,
-    ].join('\n');
+    const colorList = [
+      design?.primaryColor    && `- Primary: ${design.primaryColor}`,
+      design?.secondaryColor  && `- Secondary: ${design.secondaryColor}`,
+      design?.backgroundColor && `- Background: ${design.backgroundColor}`,
+      design?.textColor       && `- Text: ${design.textColor}`,
+      ...(rules?.colors || []).map(c => `- ${c}`),
+    ].filter(Boolean).join('\n') || '- (not specified)';
+
+    const fontList = [
+      design?.fontFamily  && `- Body: ${design.fontFamily}`,
+      design?.displayFont && `- Display: ${design.displayFont}`,
+      ...(rules?.fonts || []).map(f => `- ${f}`),
+    ].filter(Boolean).join('\n') || '- (not specified)';
+
+    const zoneList = Array.isArray(layout) && layout.length
+      ? layout.map(z => `- ${z.label || z.name || z.type || JSON.stringify(z)}`).join('\n')
+      : '- (not specified)';
+
+    const deviceLabel = {
+      mobile:   'Mobile (0–480px)',
+      tablet:   'Tablet (768–1024px)',
+      desktop:  'Desktop (1024px+)',
+      adaptive: 'Adaptive (all sizes)',
+    };
+
+    return `## Original Project Brief
+
+**Project name:** ${meta.title || preset?.projectName || 'Unknown'}
+**Mood / Style:** ${meta.mood || design?.aesthetic || rules?.styleDirection || 'Not specified'}
+**Target device:** ${deviceLabel[sizes.optimizationTarget] || 'Adaptive (all sizes)'}
+**Spacing scale:** ${sizes.spacingScale || 'default'}
+**Border radius:** ${sizes.borderRadius || 'default'}
+
+### Colors
+${colorList}
+
+### Typography
+${fontList}
+
+### Layout Zones
+${zoneList}
+
+### ReactBits Components Used
+${compList}${preset?.projectPrompt ? `\n\n### Original User Prompt\n> ${preset.projectPrompt}` : ''}`;
   } catch {
-    return '(preset summary unavailable)';
+    return '## Original Project Brief\n(preset data unavailable)';
   }
+}
+
+/** Detect the navbar component name from the preset component list */
+function detectNavbarComponent(preset) {
+  const comps = preset?.components || preset?.selectedComponents || [];
+  if (!Array.isArray(comps)) return null;
+  const navComp = comps.find(c => {
+    const n = (c.name || c.component || '').toLowerCase();
+    return n.includes('nav') || n.includes('menu') || n.includes('header');
+  });
+  return navComp ? (navComp.name || navComp.component) : null;
 }
 
 /** Build the VISION_REWORK.md instruction document */
 function buildReworkBrief(opts) {
   const {
-    presetSummary,
+    presetMarkdown,
     weaknessesMd,
     referenceImageFilename,
     screenshotFilename,
+    userPrompt,
+    deviceTarget = 'adaptive',
+    navbarComponentName,
   } = opts;
+
+  const deviceLabel = {
+    mobile:   'Mobile (0–480px) — design for 390px wide viewport',
+    tablet:   'Tablet (768–1024px) — design for 768px wide viewport',
+    desktop:  'Desktop (1024px+) — design for 1440px wide viewport',
+    adaptive: 'Adaptive — fully responsive across all screen sizes',
+  };
+  const deviceDirective = deviceLabel[deviceTarget] || deviceLabel.adaptive;
+
+  const navbarSection = navbarComponentName
+    ? `\n## Navbar Component\n\nThe navbar component is **${navbarComponentName}**. Read its source in \`src/components/\` when adjusting navigation layout, link colours, or background styling.\n`
+    : '';
+
+  const userGuidanceSection = userPrompt && userPrompt.trim()
+    ? `\n## User Guidance\n\n${userPrompt.trim()}\n`
+    : '';
 
   return `# VISION_REWORK — Instructions for Claude Code
 
 You are reworking an existing Vite + React website. **Do NOT create a new project. Edit the existing source files only.**
+**Do not ask questions. Do not request clarification. Implement everything directly.**
 
 ---
 
-## Original Project Context
-
-${presetSummary}
+${presetMarkdown}
 
 ---
 
+## Target Device
+
+${deviceDirective}
+
+---
+${navbarSection}
 ## Design Reference Image
 
-A reference image showing the TARGET appearance is saved in this project directory as:
+The target appearance is saved as:
   \`${referenceImageFilename}\`
 
-Read that image. Your rework must visually match it as closely as possible using the existing React + CSS codebase.
+Read that image. Your rework must visually match it as closely as possible.
 
 ---
 
 ## Before Screenshot
 
-The current state of the project (what was generated initially) is saved as:
+The current state (generated output) is saved as:
   \`${screenshotFilename}\`
 
-Use this to understand what currently exists and what must be changed.
+Use this to understand what currently exists and what must change.
 
 ---
 
@@ -134,22 +209,23 @@ Use this to understand what currently exists and what must be changed.
 ${weaknessesMd}
 
 ---
-
+${userGuidanceSection}
 ## Your Task
 
 Rework the existing source files (primarily \`src/App.tsx\`, \`src/index.css\`, and any component files) to:
 
-1. **Fix desktop layout** — The page must use the full viewport width (≥1280px). Use CSS Grid or Flexbox with a 12-column maximum constraint. No narrow single-column layouts clinging to the left edge.
-2. **Match the reference image** — Layout, colour palette, typography scale, section order, and imagery placement should all match \`${referenceImageFilename}\`.
-3. **Address every critique above** — Work through the weakness report item by item.
-4. **Keep ReactBits component imports intact** — You may restructure how and where they are used, but keep all \`import\` statements valid.
-5. **Typography hierarchy** — Hero numerals and display headings must be at poster scale (≥140px at desktop). Eyebrow labels, body, and captions must each occupy a distinct size tier.
-6. **Imagery** — Every major section must reference an image, use a CSS gradient placeholder, or use intentional negative space with monospace annotation. Never leave a section visually empty.
+1. **Match the reference image** — Layout, colour palette, typography scale, section order, and imagery placement must match \`${referenceImageFilename}\`.
+2. **Address every critique above** — Work through the weakness report item by item.
+3. **Target device: ${deviceTarget}** — ${deviceDirective}.
+4. **Keep ReactBits component imports intact** — Restructure usage but keep all \`import\` statements valid.
+5. **Typography hierarchy** — Hero/display headings at poster scale (≥120px desktop). Distinct size tiers for eyebrow labels, body, and captions.
+6. **Imagery** — Every major section has an image, CSS gradient placeholder, or intentional negative space. Never leave a section visually empty.
 7. **Anti-patterns to avoid:**
    - DO NOT default to a centred narrow column
    - DO NOT make every section look identical
-   - DO NOT use placeholder.com or similar — use CSS gradients as placeholders if no real images exist
+   - DO NOT use placeholder.com — use CSS gradients if no real images exist
    - DO NOT rewrite \`package.json\` or change dependencies
+   - DO NOT ask questions — implement directly
 
 When finished, output: **REWORK DONE**
 `;
@@ -174,6 +250,8 @@ async function runVisionRework(opts) {
     referenceImagePath,
     screenshotPath,
     weaknessesMd,
+    userPrompt,
+    deviceTarget = 'adaptive',
     maxBudgetUsd = 1.0,
     backupFirst = true,
     onProgress,
@@ -215,13 +293,17 @@ async function runVisionRework(opts) {
 
   // ── 3. Write VISION_REWORK.md instruction doc ───────────────────────────────
   const reworkMdPath = path.join(projectPath, 'VISION_REWORK.md');
-  const presetSummary = summarisePreset(originalPreset);
+  const presetMarkdown = presetToMarkdown(originalPreset);
+  const navbarComponentName = detectNavbarComponent(originalPreset);
 
   const brief = buildReworkBrief({
-    presetSummary,
+    presetMarkdown,
     weaknessesMd: weaknessesMd || '(no critique provided)',
     referenceImageFilename: REF_FILENAME,
     screenshotFilename: SHOT_FILENAME,
+    userPrompt,
+    deviceTarget,
+    navbarComponentName,
   });
 
   try {
@@ -247,7 +329,7 @@ async function runVisionRework(opts) {
     '--output-format stream-json',
     '--include-partial-messages',
     '--model claude-sonnet-4-6',
-    `--max-budget-usd ${Math.min(1, Math.max(0.05, Number(maxBudgetUsd) || 1)).toFixed(2)}`,
+    `--max-budget-usd ${Math.min(5, Math.max(0.05, Number(maxBudgetUsd) || 1.5)).toFixed(2)}`,
     `"${safePrompt}"`,
   ].join(' ');
 

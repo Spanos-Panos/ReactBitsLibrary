@@ -3,6 +3,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './VisionReworkModal.css';
 import type { VisionReworkReadyData } from '../../shared/types/api';
 
+const DEFAULT_REWORK_PROMPT =
+`Based on the design reference provided, improve this project's visual design.
+Fix every issue listed in the weakness report. Match the reference image as closely as possible.
+Do not ask questions — implement everything directly.
+Keep all ReactBits component imports intact.
+Focus on: typography scale, color palette, layout structure, spacing rhythm, and section variety.`;
+
+const DEVICE_VIEWPORT_LABELS: Record<string, string> = {
+  mobile:   'Mobile · 390px',
+  tablet:   'Tablet · 768px',
+  desktop:  'Desktop · 1440px',
+  adaptive: 'Adaptive',
+};
+
 interface VisionReworkModalProps {
   open: boolean;
   onClose: () => void;
@@ -16,6 +30,8 @@ interface VisionReworkModalProps {
     referenceImagePath: string;
     screenshotPath: string | null;
     weaknessesMd: string;
+    userPrompt: string;
+    deviceTarget: string;
     backupFirst: boolean;
     taskId: string;
   }) => void;
@@ -32,6 +48,7 @@ export default function VisionReworkModal({
   const [captureStatus, setCaptureStatus]   = useState<{ type: 'idle' | 'capturing' | 'success' | 'error'; msg?: string }>({ type: 'idle' });
   const [screenshotPath, setScreenshotPath] = useState<string | null>(reworkData?.screenshotPath ?? null);
   const [screenshotB64, setScreenshotB64]   = useState<string | null>(null);
+  const [userPrompt, setUserPrompt]         = useState(DEFAULT_REWORK_PROMPT);
 
   // Sync screenshotPath when reworkData changes (e.g. modal re-opened for a different task)
   React.useEffect(() => {
@@ -82,7 +99,10 @@ export default function VisionReworkModal({
     setRecapturing(true);
     setCaptureStatus({ type: 'capturing', msg: 'Building + screenshot…' });
     setScreenshotB64(null);
-    const result = await window.reactBitsApi.captureProjectScreenshot(reworkData.projectPath);
+    const result = await window.reactBitsApi.captureProjectScreenshot({
+      projectPath: reworkData.projectPath,
+      deviceTarget: reworkData.deviceTarget ?? 'adaptive',
+    });
     setRecapturing(false);
     if (result.success && result.screenshotPath) {
       setScreenshotPath(result.screenshotPath);
@@ -109,10 +129,12 @@ export default function VisionReworkModal({
       referenceImagePath: referenceImage.path,
       screenshotPath:     screenshotPath,
       weaknessesMd:       weaknessMd.content,
+      userPrompt,
+      deviceTarget:       reworkData.deviceTarget ?? 'adaptive',
       backupFirst,
       taskId: `rework-${Date.now()}`,
     });
-  }, [canSubmit, reworkData, referenceImage, weaknessMd, originalPreset, projectName, screenshotPath, backupFirst, onConfirm]);
+  }, [canSubmit, reworkData, referenceImage, weaknessMd, originalPreset, projectName, screenshotPath, userPrompt, backupFirst, onConfirm]);
 
   if (!open) return null;
 
@@ -183,7 +205,21 @@ export default function VisionReworkModal({
               {/* Auto-captured screenshot */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <SectionLabel>Generated Output Screenshot</SectionLabel>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <SectionLabel>Generated Output Screenshot</SectionLabel>
+                    {reworkData?.deviceTarget && (
+                      <span style={{
+                        fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.04em',
+                        padding: '2px 7px', borderRadius: 4,
+                        border: '1px solid rgba(165,180,252,0.25)',
+                        background: 'rgba(99,102,241,0.08)',
+                        color: 'rgba(165,180,252,0.7)',
+                        marginBottom: 8, flexShrink: 0,
+                      }}>
+                        {DEVICE_VIEWPORT_LABELS[reworkData.deviceTarget] ?? reworkData.deviceTarget}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <PillButton onClick={handleCopyPresetPath} title={reworkData?.presetJsonPath ? 'Copy path to bitforge-preset.json' : 'Copy project path'}>
                       Copy Preset Path
@@ -302,6 +338,27 @@ export default function VisionReworkModal({
                   </div>
 
                 </div>
+              </div>
+
+              {/* Rework guidance prompt */}
+              <div>
+                <SectionLabel>Rework Guidance</SectionLabel>
+                <textarea
+                  value={userPrompt}
+                  onChange={e => setUserPrompt(e.target.value)}
+                  rows={5}
+                  style={{
+                    width: '100%', background: 'rgba(0,0,0,0.28)',
+                    border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
+                    padding: '12px 14px', color: '#f1f5f9', fontSize: '0.75rem',
+                    fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                    lineHeight: 1.6, outline: 'none', resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                  placeholder="Describe what you want Claude to focus on..."
+                />
               </div>
 
               {/* Options */}

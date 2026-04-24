@@ -356,15 +356,11 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
   try {
     if (validation.isRichPayload) {
       const payload = args[0];
-      const budgetPlan = buildBudgetPlan({
-        selectedComponents: payload.selectedComponents || [],
-        layoutConfig: payload.options?.layoutConfig || [],
-        pages: payload.options?.pages || [],
-      });
+      const budgetPlan = buildBudgetPlan();
       payload.options = {
         ...payload.options,
         budgetPlan,
-        aiBudgetUsd: clampStageBudget(budgetPlan.generationCapUsd, 0.6),
+        aiBudgetUsd: clampStageBudget(budgetPlan.generationCapUsd),
       };
       if (event?.sender) {
         event.sender.send(
@@ -411,8 +407,8 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
 
   if (validation.isRichPayload && result.success && result.path) {
     const budgetPlan = args[0]?.options?.budgetPlan;
-    const generationCap = clampStageBudget(args[0]?.options?.aiBudgetUsd ?? budgetPlan?.generationCapUsd, 0.6);
-    const reworkReserve = clampStageBudget(budgetPlan?.reworkCapUsd, 0.3);
+    const generationCap = clampStageBudget(args[0]?.options?.aiBudgetUsd ?? budgetPlan?.generationCapUsd);
+    const reworkReserve = clampStageBudget(budgetPlan?.reworkCapUsd);
     taskBudgetLedger.set(result.path, {
       globalCapUsd: GLOBAL_TASK_CAP_USD,
       generationCapUsd: generationCap,
@@ -441,11 +437,12 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
           require('fs').writeFileSync(presetJsonPath, JSON.stringify(enhancedPrompt, null, 2), 'utf-8');
         } catch { presetJsonPath = null; }
       }
+      const deviceTarget = enhancedPrompt?.designRules?.sizes?.optimizationTarget ?? 'adaptive';
       const capture = await captureAndSave(snapshotPath, (msg) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('vision-rework-progress', msg, snapshotTaskId);
         }
-      });
+      }, deviceTarget);
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('vision-rework-ready', {
           taskId: snapshotTaskId,
@@ -453,6 +450,7 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
           screenshotPath: capture.success ? capture.screenshotPath : null,
           screenshotError: capture.success ? null : capture.error,
           presetJsonPath,
+          deviceTarget,
         });
       }
     });
@@ -526,11 +524,11 @@ ipcMain.handle("preset-import", async (event) => {
 // ── Vision Rework IPC Handlers ───────────────────────────────────────────────
 
 // Manual screenshot capture (e.g. re-capture button in modal)
-ipcMain.handle("capture-project-screenshot", async (event, projectPath) => {
+ipcMain.handle("capture-project-screenshot", async (event, { projectPath, deviceTarget = 'adaptive' } = {}) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   return captureAndSave(projectPath, (msg) => {
     if (win && !win.isDestroyed()) win.webContents.send('vision-rework-progress', msg, 'manual-capture');
-  });
+  }, deviceTarget);
 });
 
 // Run the vision rework generation pass

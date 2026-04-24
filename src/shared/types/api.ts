@@ -53,6 +53,8 @@ export interface VisionReworkPayload {
   referenceImagePath: string;
   screenshotPath?: string | null;
   weaknessesMd: string;
+  userPrompt: string;
+  deviceTarget?: string;
   backupFirst: boolean;
   taskId: string;
   maxBudgetUsd?: number;
@@ -128,6 +130,7 @@ export interface VisionReworkReadyData {
   screenshotPath: string | null;
   screenshotError: string | null;
   presetJsonPath: string | null;
+  deviceTarget?: string;
 }
 
 export interface ReactBitsApi {
@@ -160,7 +163,7 @@ export interface ReactBitsApi {
   importPreset(): Promise<{ success?: boolean; preset?: unknown; canceled?: boolean; error?: string }>;
   addComponent(payload: NewComponentPayload): Promise<AddComponentResult>;
   pickDesignImages(): Promise<Array<{ name: string; path: string; base64: string }>>;
-  captureProjectScreenshot(projectPath: string): Promise<ScreenshotResult>;
+  captureProjectScreenshot(opts: { projectPath: string; deviceTarget?: string }): Promise<ScreenshotResult>;
   runVisionRework(payload: VisionReworkPayload): Promise<{ success: boolean; taskId?: string; error?: string }>;
   pickSingleFile(filters: Array<{ name: string; extensions: string[] }>): Promise<PickFileResult | null>;
   onVisionReworkReady(cb: (data: VisionReworkReadyData) => void): () => void;

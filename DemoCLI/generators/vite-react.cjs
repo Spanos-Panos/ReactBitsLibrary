@@ -1048,10 +1048,21 @@ ${cssFundamentals}
     if (options.polishPass) {
       try {
         const { runPolishPass } = require('../../electron/polishPass.cjs');
+        const polishMood = (enhancedPrompt?.projectMeta?.mood || '').toLowerCase();
+        const polishAesthetics = [
+          polishMood.includes('brutal') && 'brutalist',
+          polishMood.includes('editorial') && 'editorial',
+          (polishMood.includes('futuristic') || polishMood.includes('cyber') || polishMood.includes('neo')) && 'futuristic',
+          (polishMood.includes('minimal') || polishMood.includes('clean')) && 'minimal',
+          (polishMood.includes('organic') || polishMood.includes('natural') || polishMood.includes('earthy')) && 'organic',
+          (polishMood.includes('playful') || polishMood.includes('fun') || polishMood.includes('vibrant')) && 'playful',
+          (polishMood.includes('luxury') || polishMood.includes('premium') || polishMood.includes('elegant')) && 'luxury',
+          (polishMood.includes('corporate') || polishMood.includes('professional') || polishMood.includes('business')) && 'corporate',
+        ].filter(Boolean);
         await runPolishPass({
           projectPath: targetDir,
           enhancedPrompt,
-          aesthetics,
+          aesthetics: polishAesthetics,
           onLog: log,
         });
       } catch (ppErr) {

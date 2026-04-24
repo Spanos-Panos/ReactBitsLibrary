@@ -114,8 +114,8 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   pickDesignImages() {
     return ipcRenderer.invoke("design-pick-images");
   },
-  captureProjectScreenshot(projectPath) {
-    return ipcRenderer.invoke("capture-project-screenshot", projectPath);
+  captureProjectScreenshot({ projectPath, deviceTarget } = {}) {
+    return ipcRenderer.invoke("capture-project-screenshot", { projectPath, deviceTarget });
   },
   runVisionRework(payload) {
     return ipcRenderer.invoke("run-vision-rework", payload);
