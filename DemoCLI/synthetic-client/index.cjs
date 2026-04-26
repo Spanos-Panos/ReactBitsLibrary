@@ -18,9 +18,10 @@
 require('dotenv').config();
 const fs   = require('fs/promises');
 const path = require('path');
-const archetypesMod = require('./archetypes.cjs');
-const generator     = require('./generator.cjs');
-const formatter     = require('./formatter.cjs');
+const archetypesMod   = require('./archetypes.cjs');
+const generator       = require('./generator.cjs');
+const localGenerator  = require('./local-generator.cjs');
+const formatter       = require('./formatter.cjs');
 
 // ─────────────────────────────────────────────────────────────
 // Argument parsing
@@ -35,6 +36,7 @@ function parseArgs(argv) {
     listMode: false,
     previewMode: false,
     helpMode: false,
+    localMode: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -54,6 +56,9 @@ function parseArgs(argv) {
         break;
       case '--preview':
         opts.previewMode = true;
+        break;
+      case '--local':
+        opts.localMode = true;
         break;
       case '--help':
       case '-h':
@@ -138,7 +143,9 @@ function printHelp() {
 
   OPTIONS
   ───────
-  (no flags)              Generate 1 random client brief
+  (no flags)              Generate 1 random client brief (uses Claude API)
+  --local                 Generate without Claude API — free, instant, no API key needed
+                          Uses curated data tables + free contact API. Same output format.
   --count N               Generate N clients in one run (sequential)
   --archetype KEYWORD     Pick a specific archetype by keyword
                           (matches name, aesthetic, site type, or industry)
@@ -152,6 +159,12 @@ function printHelp() {
   ────────
   # Generate one random client (most common workflow)
   node DemoCLI/synthetic-client/index.cjs
+
+  # Free mode — no API cost, instant, no key needed
+  node DemoCLI/synthetic-client/index.cjs --local
+  node DemoCLI/synthetic-client/index.cjs --local --archetype luxury
+  node DemoCLI/synthetic-client/index.cjs --local --count 5
+  node DemoCLI/synthetic-client/index.cjs --local --archetype futuristic --preview
 
   # Generate 3 clients, each from a different random archetype
   node DemoCLI/synthetic-client/index.cjs --count 3
@@ -228,10 +241,11 @@ async function main() {
 ║             BitForge — Synthetic Client Generator            ║
 ╚══════════════════════════════════════════════════════════════╝`);
   console.log(`  Generating ${opts.count} client${opts.count > 1 ? 's' : ''}${opts.archetypeKeyword ? ` (filter: "${opts.archetypeKeyword}")` : ' (random)'}`);
+  console.log(`  Mode: ${opts.localMode ? 'local (free, no API)' : 'Claude AI'}`);
   if (!opts.previewMode) {
     console.log(`  Output: ${path.relative(process.cwd(), opts.outputDir) || opts.outputDir}/`);
   } else {
-    console.log(`  Mode: preview only — no files written`);
+    console.log(`  Preview: no files written`);
   }
   console.log(`  Tip: run --help for full documentation\n`);
 
@@ -241,10 +255,16 @@ async function main() {
       : archetypesMod.getRandomArchetype();
 
     console.log(`[${i + 1}/${opts.count}] ${archetype.name}  (${archetype.aesthetic} × ${archetype.siteType})`);
-    console.log(`       Calling Claude...`);
+    if (opts.localMode) {
+      console.log(`       Generating (local)...`);
+    } else {
+      console.log(`       Calling Claude...`);
+    }
 
     try {
-      const claudeOutput = await generator.generateClient(archetype);
+      const claudeOutput = opts.localMode
+        ? await localGenerator.generateClient(archetype)
+        : await generator.generateClient(archetype);
       const preset = formatter.buildPresetJson(claudeOutput, archetype.name);
 
       if (opts.previewMode) {

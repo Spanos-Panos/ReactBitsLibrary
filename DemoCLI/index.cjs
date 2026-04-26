@@ -44,7 +44,11 @@ async function generatePlayground(payload, event, taskId) {
       || enhancedPrompt?.projectMeta?.title
       || (name ? `demo-${name.toLowerCase()}` : 'ai-demo');
     const safeProjectName = baseProjectName.replace(/[^a-z0-9-_]/gi, '-');
-    const parentDir = path.resolve(options.projectPath);
+    const selectedDir = path.resolve(options.projectPath);
+    // If user picked the client folder itself (e.g. output/origin-coffee/) avoid double-nesting
+    const parentDir = path.basename(selectedDir).toLowerCase() === safeProjectName.toLowerCase()
+      ? path.dirname(selectedDir)
+      : selectedDir;
     const fullPath  = path.join(parentDir, safeProjectName);
 
     const onProgress = (msg) => {

@@ -14,10 +14,15 @@ This folder contains the CLI tools that support BitForge's project generation pi
 Run from the project root:
 
 ```bash
-# Generate one random client
+# Generate one random client (uses Claude API — requires ANTHROPIC_API_KEY)
 node DemoCLI/synthetic-client/index.cjs
 
-# Generate a specific type of client
+# Free mode — no API, no key, instant
+node DemoCLI/synthetic-client/index.cjs --local
+node DemoCLI/synthetic-client/index.cjs --local --archetype luxury
+node DemoCLI/synthetic-client/index.cjs --local --count 5
+
+# Generate a specific type of client (Claude mode)
 node DemoCLI/synthetic-client/index.cjs --archetype luxury
 node DemoCLI/synthetic-client/index.cjs --archetype futuristic
 node DemoCLI/synthetic-client/index.cjs --archetype minimal
@@ -37,15 +42,26 @@ node DemoCLI/synthetic-client/index.cjs --help
 
 ### All Options
 
-| Flag | Description |
-|---|---|
-| *(no flags)* | Generate 1 random client |
-| `--count N` | Generate N clients sequentially |
-| `--archetype KEYWORD` | Pick archetype by keyword (partial match, case-insensitive) |
-| `--list` | Show all 20 archetypes and exit |
-| `--preview` | Print brief to terminal, don't write files |
-| `--output DIR` | Write to a custom directory (default: `DemoCLI/synthetic-client/output/`) |
-| `--help` | Show full documentation |
+| Flag                  | Description                                                                |
+|-----------------------|----------------------------------------------------------------------------|
+| *(no flags)*          | Generate 1 random client (Claude API)                                      |
+| `--local`             | Generate free, instant, offline-capable (no API key needed)                |
+| `--count N`           | Generate N clients sequentially                                            |
+| `--archetype KEYWORD` | Pick archetype by keyword (partial match, case-insensitive)                |
+| `--list`              | Show all 20 archetypes and exit                                            |
+| `--preview`           | Print brief to terminal, don't write files                                 |
+| `--output DIR`        | Write to a custom directory (default: `DemoCLI/synthetic-client/output/`)  |
+| `--help`              | Show full documentation                                                    |
+
+### Claude vs Local Mode
+
+| | Claude mode | `--local` mode |
+|---|---|---|
+| Cost | ~$0.002 per client | Free |
+| Speed | 10–20 seconds | Instant |
+| API key | Required | Not needed |
+| Variety | High (AI improvises) | Medium (curated pools) |
+| Output format | Same `preset.json` + `brief.md` | Identical |
 
 ### Archetype Keywords
 

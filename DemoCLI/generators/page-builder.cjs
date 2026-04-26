@@ -516,7 +516,7 @@ function buildPageFile(pageName, sectionTypes, content, styleDirection, selected
  */
 function assignComponentsToPages(pagesConfig, selectedNames) {
   const PAGE_TYPE_TO_SITE_TYPE = {
-    home: 'Landing', about: 'Portfolio', services: 'Agency', contact: 'Agency', custom: 'Landing',
+    home: 'Landing', about: 'Portfolio', services: 'Agency', contact: 'Portfolio', custom: 'Landing',
   };
 
   const available = new Set(selectedNames);
@@ -562,7 +562,7 @@ async function writePageFiles({ pagesConfig, content, styleDirection, selectedCo
   await fs.mkdir(pagesDir, { recursive: true });
 
   const PAGE_TYPE_TO_SITE_TYPE = {
-    home: 'Landing', about: 'Portfolio', services: 'Agency', contact: 'Agency', custom: 'Landing',
+    home: 'Landing', about: 'Portfolio', services: 'Agency', contact: 'Portfolio', custom: 'Landing',
   };
 
   // Distribute components across pages so each only appears once

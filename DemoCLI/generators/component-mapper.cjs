@@ -26,7 +26,7 @@ const CURSOR_NAMES = new Set([
  */
 // Nav component names — rendered as fixed overlays in App.tsx, never as in-flow sections
 const NAV_COMPONENT_NAMES = new Set([
-  'StaggeredMenu', 'GooeyNav', 'CardNav',
+  'StaggeredMenu', 'GooeyNav', 'CardNav', 'Dock',
 ]);
 
 function isNavComponent(name) {
@@ -183,17 +183,6 @@ const COMPONENT_JSX_OVERRIDES = {
   <RippleGrid enableRainbow={true} rippleColor={[0.3, 0.6, 1]} />
 </div>`,
 
-  GridMotion: `<div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.15 }}>
-  <GridMotion
-    items={[
-      '/joker-square.jpg', '/joker-portrait.jpg', '/joker-landscape.jpg',
-      '/joker-square.jpg', '/joker-portrait.jpg', '/joker-landscape.jpg',
-      '/joker-square.jpg', '/joker-portrait.jpg', '/joker-landscape.jpg',
-      '/joker-square.jpg', '/joker-portrait.jpg', '/joker-landscape.jpg',
-    ]}
-  />
-</div>`,
-
   Folder: `<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
   <Folder
     items={[
@@ -203,6 +192,28 @@ const COMPONENT_JSX_OVERRIDES = {
     ]}
   />
 </div>`,
+
+  ScrollVelocity: `<div style={{ overflowX: 'hidden' }}>
+  <div style={{ height: '16vh' }} />
+  <ScrollVelocity
+    texts={['React Bits', 'Open Source', 'Beautiful UI', 'Ship Faster']}
+    velocity={100}
+    className="custom-scroll-text"
+  />
+  <div style={{ height: '16vh' }} />
+</div>`,
+
+  // ClickSpark: usageMarkdown has `{/* Your content here */}` as children — an invisible wrapper.
+  // Override wraps a real CTA button so the spark effect is visible and interactive.
+  ClickSpark: `<ClickSpark
+  sparkColor="var(--color-accent)"
+  sparkSize={10}
+  sparkRadius={15}
+  sparkCount={8}
+  duration={400}
+>
+  <button style={{ padding: '1em 3em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', letterSpacing: '0.05em' }}>Get Started</button>
+</ClickSpark>`,
 
   Counter: `<Counter
   value={2500}
@@ -220,6 +231,32 @@ const COMPONENT_JSX_OVERRIDES = {
   <Crosshair color="var(--color-accent)" />
   <p style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: 'var(--color-text)', opacity: 0.4, fontSize: '0.9rem', pointerEvents: 'none' }}>Move cursor here</p>
 </div>`,
+
+  // ScrollReveal: usageMarkdown wraps content in `background:'#000'` which creates a black box on
+  // light-mode pages. Override uses CSS vars and reduced spacer height so it fits any palette.
+  ScrollReveal: `<div style={{ overflowX: 'hidden' }}>
+  <div style={{ height: '16vh' }} />
+  <ScrollReveal
+    baseOpacity={0}
+    enableBlur={true}
+    baseRotation={5}
+    blurStrength={10}
+  >
+    Every great journey begins with a single step. The vision you carry today shapes the world you build tomorrow — every decision, every detail, every moment of effort compounding into something worth remembering.
+  </ScrollReveal>
+  <div style={{ height: '16vh' }} />
+</div>`,
+
+  // ScrambleText: usageMarkdown has `scrambleChars={.:}` which is invalid JSX (unquoted non-identifier).
+  // Override uses correct string prop syntax.
+  ScrambleText: `<ScrambleText
+  className="scrambled-text-demo"
+  radius={100}
+  duration={1.2}
+  speed={0.5}
+  scrambleChars=".:!">
+  Lorem ipsum dolor sit amet consectetur adipisicing elit.
+</ScrambleText>`,
 };
 
 // Image replacements: swap picsum/external URLs with local joker assets
@@ -258,23 +295,50 @@ function extractComponentData(entry) {
   const isFixed = isBackground || isCursor;
   const zIndex = isBackground ? 0 : isCursor ? 9999 : category === 'Components' ? 10 : 5;
 
-  const importLine = `import ${name} from './components/${category}/${name}/${name}';`;
+  const baseImportLine = `import ${name} from './components/${category}/${name}/${name}';`;
 
   // Use hand-crafted override if available
   if (COMPONENT_JSX_OVERRIDES[name]) {
-    return { name, category, importLine, jsx: COMPONENT_JSX_OVERRIDES[name], isFixed, zIndex };
+    return { name, category, importLine: baseImportLine, jsx: COMPONENT_JSX_OVERRIDES[name], isFixed, zIndex };
   }
 
   if (!usageMarkdown || !usageMarkdown.trim()) {
     return {
-      name, category, importLine,
+      name, category, importLine: baseImportLine,
       jsx: buildPlaceholder(name, isFixed, zIndex),
       isFixed, zIndex,
     };
   }
 
+  // Parse named imports from usageMarkdown before JSX extraction.
+  // These get stripped from the import lines but may survive as JSX tags (e.g. <ScrollStackItem>).
+  // The regex looks for `{...}` anywhere on an import line to handle both
+  // `import { X }` and `import Default, { X }` forms.
+  const namedImports = new Set();
+  for (const line of usageMarkdown.split('\n')) {
+    const t = line.trim();
+    if (!t.startsWith('import ') || t.startsWith('import type')) continue;
+    const namedMatch = t.match(/\{([^}]+)\}/);
+    if (namedMatch) {
+      namedMatch[1].split(',').forEach(n => {
+        const clean = n.trim().split(/\s+as\s+/).pop().trim();
+        if (/^[a-zA-Z_$]\w*$/.test(clean)) namedImports.add(clean);
+      });
+    }
+  }
+
   const raw = usageMarkdown.replace(/\r\n/g, '\n').trim();
   const jsx = buildCleanJsx(name, category, raw, isFixed, zIndex, isCursor);
+
+  // Detect which named sub-components appear as JSX tags in the extracted output.
+  // They were stripped from the import line but must be re-included.
+  const neededSubs = [...namedImports].filter(n =>
+    n !== name && new RegExp(`<${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s/>]`).test(jsx)
+  );
+
+  const importLine = neededSubs.length > 0
+    ? `import ${name}, { ${neededSubs.join(', ')} } from './components/${category}/${name}/${name}';`
+    : baseImportLine;
 
   return { name, category, importLine, jsx, isFixed, zIndex };
 }
@@ -309,8 +373,21 @@ function buildCleanJsx(name, category, raw, isFixed, zIndex, isCursor) {
   // Strip import lines
   const nonImport = lines.filter(l => !l.trim().startsWith('import '));
 
-  // Remove export default function App() wrapper if present
   let content = nonImport.join('\n').trim();
+
+  // Collect variable declarations from inside the function body BEFORE stripping the wrapper.
+  // stripAppWrapper extracts only the return() content, so any `const foo = ...` declared
+  // in the function body above the return would be lost — but JSX props like foo={foo}
+  // would remain, causing ReferenceError at runtime.
+  const funcBodyMatch = content.match(/\{([\s\S]*?)return\s*\(/);
+  if (funcBodyMatch) {
+    for (const line of funcBodyMatch[1].split('\n')) {
+      const m = line.trim().match(/^(?:const|let|var)\s+([a-zA-Z_$]\w*)/);
+      if (m) strippedImportNames.add(m[1]);
+    }
+  }
+
+  // Remove export default function App() wrapper if present
   content = stripAppWrapper(content);
 
   // Remove outer wrapping divs that are purely for demo sizing (100vw/100vh containers)

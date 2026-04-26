@@ -105,7 +105,7 @@ ${sections.join('\n')}
 /**
  * Generates src/App.tsx for a multi-page site using react-router-dom.
  */
-async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo }) {
+async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief = {} }) {
   const { fixed, navs } = classifyComponents(selectedComponents);
 
   const hasNav = navs.length > 0;
@@ -149,11 +149,31 @@ async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo }) {
     .map(c => getComponent(c.name).importLine)
     .join('\n');
 
-  const wrapperStyle = hasNav
-    ? `position: 'relative', minHeight: '100vh', paddingTop: '4.5rem'`
+  // When no nav component is selected, auto-generate a minimal Link-based navbar.
+  // Without this, multi-page sites have routes but no way to navigate between them.
+  const needsAutoNav = !hasNav && uniquePages.length > 1;
+  const brandName = clientBrief.brandName || 'Brand';
+  const autoNavLinks = uniquePages.map((p, i) => {
+    const href = i === 0 ? '/' : p.path;
+    return `        <Link to="${href}" style={{ color: 'var(--color-text)', textDecoration: 'none', fontSize: '0.9rem', opacity: 0.75, fontWeight: 500 }}>${p.pageName}</Link>`;
+  }).join('\n');
+  const autoNavJsx = needsAutoNav ? `        {/* Auto-generated nav — no nav component was selected */}
+        <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 clamp(1rem, 4vw, 3rem)', height: '3.5rem' }}>
+          <span style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: '1rem' }}>${brandName}</span>
+          <div style={{ display: 'flex', gap: '1.5rem' }}>
+${autoNavLinks}
+          </div>
+        </nav>` : '';
+
+  const routerImport = needsAutoNav
+    ? `import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';`
+    : `import { BrowserRouter, Routes, Route } from 'react-router-dom';`;
+
+  const wrapperStyle = (hasNav || needsAutoNav)
+    ? `position: 'relative', minHeight: '100vh', paddingTop: '3.5rem'`
     : `position: 'relative', minHeight: '100vh'`;
 
-  const appContent = `import { BrowserRouter, Routes, Route } from 'react-router-dom';
+  const appContent = `${routerImport}
 ${fixedImports}
 ${navImports}
 ${pageImports}
@@ -162,7 +182,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <div style={{ ${wrapperStyle} }}>
-${fixedLayers ? `        {/* Fixed ambient layers */}\n${fixedLayers}\n` : ''}${navLayers ? `        {/* Navigation */}\n${navLayers}\n` : ''}
+${fixedLayers ? `        {/* Fixed ambient layers */}\n${fixedLayers}\n` : ''}${autoNavJsx ? `${autoNavJsx}\n` : ''}${navLayers ? `        {/* Navigation */}\n${navLayers}\n` : ''}
         <Routes>
 ${routeElements}
         </Routes>
@@ -329,7 +349,7 @@ async function buildApp({ targetDir, selectedComponents, styleDirection, designR
       targetDir,
     });
 
-    await buildMultiPageApp({ targetDir, selectedComponents, pageInfo });
+    await buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief });
   } else {
     await buildSinglePageApp({ targetDir, selectedComponents, content, styleDirection });
   }
