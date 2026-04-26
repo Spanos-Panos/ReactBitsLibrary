@@ -9,7 +9,6 @@ release/
 
 # Environment variables
 .env*
-!.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -31,3 +30,9 @@ pnpm-debug.log*
 *.sln
 *.sw?
 .DS_Store
+
+# Synthetic Client System output
+DemoCLI/synthetic-client/output/
+
+# Generated test projects
+test-*/
