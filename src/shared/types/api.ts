@@ -40,23 +40,6 @@ export interface PickFileResult {
   content?: string;  // for text/md files
 }
 
-export interface ScreenshotResult {
-  success: boolean;
-  screenshotPath?: string;
-  error?: string;
-}
-
-export interface VisionReworkPayload {
-  projectPath: string;
-  projectName: string;
-  originalPreset: object;
-  referenceImagePath: string;
-  screenshotPath?: string | null;
-  weaknessesMd: string;
-  backupFirst: boolean;
-  taskId: string;
-  maxBudgetUsd?: number;
-}
 
 export interface EnhancePromptSystemContext {
   framework?: string;
@@ -68,7 +51,7 @@ export interface EnhancePromptSystemContext {
   responsiveDirective?: string;
   styleDirection?: StyleDirection;
   clientBrief?: ClientBrief;
-  layoutConfig?: unknown[] | null;
+
   componentRoleContext?: Array<{ name: string; role: string; footprint: string; behaviors: string[] }>;
 }
 
@@ -101,10 +84,14 @@ export interface GeneratePlaygroundOptions {
   projectPath: string;
   openWhenDone: boolean;
   runWhenDone: boolean;
-  autoKillOnError: boolean;
-  layoutConfig?: unknown[] | null;
+
   scrollbarStyle?: ScrollbarStyle | null;
-  polishPass?: boolean;
+  aiSupport?: boolean;
+  pages?: import('./index').PageConfig[];
+  styleDirection?: StyleDirection;
+  designRules?: DesignRules;
+  clientBrief?: ClientBrief;
+  presetName?: string;
 }
 
 export interface GeneratePlaygroundPayload {
@@ -122,13 +109,7 @@ export interface GeneratePlaygroundLegacyArgs {
   taskId: string;
 }
 
-export interface VisionReworkReadyData {
-  taskId: string;
-  projectPath: string;
-  screenshotPath: string | null;
-  screenshotError: string | null;
-  presetJsonPath: string | null;
-}
+
 
 export interface ReactBitsApi {
   getItems(): ReactBitsItem[];
@@ -160,11 +141,7 @@ export interface ReactBitsApi {
   importPreset(): Promise<{ success?: boolean; preset?: unknown; canceled?: boolean; error?: string }>;
   addComponent(payload: NewComponentPayload): Promise<AddComponentResult>;
   pickDesignImages(): Promise<Array<{ name: string; path: string; base64: string }>>;
-  captureProjectScreenshot(projectPath: string): Promise<ScreenshotResult>;
-  runVisionRework(payload: VisionReworkPayload): Promise<{ success: boolean; taskId?: string; error?: string }>;
   pickSingleFile(filters: Array<{ name: string; extensions: string[] }>): Promise<PickFileResult | null>;
-  onVisionReworkReady(cb: (data: VisionReworkReadyData) => void): () => void;
-  onVisionReworkProgress(cb: (msg: string, taskId: string) => void): () => void;
   generateStructure(options: ProjectStructureOptions): Promise<StructureGenerateResult>;
   openPath(path: string): Promise<void>;
   checkDirectoryExists(path: string): Promise<boolean>;

@@ -283,7 +283,6 @@ const {
   validateEnhancePromptPayload,
   validateGeneratePlaygroundArgs,
   validateStructurePayload,
-  validateVisionReworkPayload,
 } = require("./ipcContracts.cjs");
 
 ipcMain.handle("select-directory", async () => {
@@ -342,8 +341,6 @@ ipcMain.handle("open-in-vscode", async (event, folderPath) => {
 
 const { generatePlayground, generateStructure } = require("../DemoCLI/index.cjs");
 const { savePrompt, getHistory, clearHistory, openHistoryFolder, openPresetsFolder, savePreset, listPresets, deletePreset, importPresetFromFile } = require("./storage.cjs");
-const { captureAndSave } = require("./screenshotCapture.cjs");
-const { runVisionRework } = require("./visionRework.cjs");
 
 ipcMain.handle("generate-playground", async (event, ...args) => {
   const validation = validateGeneratePlaygroundArgs(args);
@@ -358,7 +355,6 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
       const payload = args[0];
       const budgetPlan = buildBudgetPlan({
         selectedComponents: payload.selectedComponents || [],
-        layoutConfig: payload.options?.layoutConfig || [],
         pages: payload.options?.pages || [],
       });
       payload.options = {
@@ -412,51 +408,14 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
   if (validation.isRichPayload && result.success && result.path) {
     const budgetPlan = args[0]?.options?.budgetPlan;
     const generationCap = clampStageBudget(args[0]?.options?.aiBudgetUsd ?? budgetPlan?.generationCapUsd, 0.6);
-    const reworkReserve = clampStageBudget(budgetPlan?.reworkCapUsd, 0.3);
     taskBudgetLedger.set(result.path, {
       globalCapUsd: GLOBAL_TASK_CAP_USD,
       generationCapUsd: generationCap,
-      reworkRemainingUsd: reworkReserve,
       createdAt: Date.now(),
     });
   }
 
-  // ── Auto Vision Rework: capture screenshot AFTER AI Build generation finishes ──
-  // Only for AI Build tasks (rich payload with options.isAiBuild flag)
-  const isAiBuild = validation.isRichPayload;
-  if (isAiBuild && result.path) {
-    const snapshotPath = result.path;
-    const snapshotTaskId = taskId;
-    const enhancedPrompt = args[0]?.enhancedPrompt || null;
-    // Run in background — don't await so we return to renderer immediately
-    setImmediate(async () => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('vision-rework-progress', '[Screenshot] Starting auto-capture after generation...', snapshotTaskId);
-      }
-      // Save preset JSON alongside the project so user can upload it to claude.ai/design
-      let presetJsonPath = null;
-      if (enhancedPrompt) {
-        try {
-          presetJsonPath = require('path').join(snapshotPath, 'bitforge-preset.json');
-          require('fs').writeFileSync(presetJsonPath, JSON.stringify(enhancedPrompt, null, 2), 'utf-8');
-        } catch { presetJsonPath = null; }
-      }
-      const capture = await captureAndSave(snapshotPath, (msg) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('vision-rework-progress', msg, snapshotTaskId);
-        }
-      });
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('vision-rework-ready', {
-          taskId: snapshotTaskId,
-          projectPath: snapshotPath,
-          screenshotPath: capture.success ? capture.screenshotPath : null,
-          screenshotError: capture.success ? null : capture.error,
-          presetJsonPath,
-        });
-      }
-    });
-  }
+
 
   return result;
 });
@@ -523,54 +482,9 @@ ipcMain.handle("preset-import", async (event) => {
   return importPresetFromFile(filePaths[0]);
 });
 
-// ── Vision Rework IPC Handlers ───────────────────────────────────────────────
 
-// Manual screenshot capture (e.g. re-capture button in modal)
-ipcMain.handle("capture-project-screenshot", async (event, projectPath) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  return captureAndSave(projectPath, (msg) => {
-    if (win && !win.isDestroyed()) win.webContents.send('vision-rework-progress', msg, 'manual-capture');
-  });
-});
 
-// Run the vision rework generation pass
-ipcMain.handle("run-vision-rework", async (event, payload) => {
-  const validationError = validateVisionReworkPayload(payload);
-  if (validationError) return validationFailure("validation", validationError);
-  const win = BrowserWindow.fromWebContents(event.sender);
-  const reworkTaskId = payload.taskId || `rework-${Date.now()}`;
-  const budgetEntry = payload.projectPath ? taskBudgetLedger.get(payload.projectPath) : null;
-  const computedReworkCap = clampStageBudget(
-    budgetEntry?.reworkRemainingUsd ?? payload.maxBudgetUsd ?? 0.35,
-    0.35
-  );
-  const effectivePayload = { ...payload, maxBudgetUsd: computedReworkCap };
-  if (win && !win.isDestroyed()) {
-    win.webContents.send('vision-rework-progress', `[Budget] Rework cap: $${computedReworkCap.toFixed(2)} (global task cap $${GLOBAL_TASK_CAP_USD.toFixed(2)})`, reworkTaskId);
-  }
-  try {
-    await runWithRetry("run-vision-rework", () => runVisionRework({
-      ...effectivePayload,
-      onProgress: (msg) => {
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('vision-rework-progress', msg, reworkTaskId);
-        }
-      },
-    }), {
-      retries: 1,
-      timeoutMs: 20 * 60 * 1000,
-      shouldRetry: (msg) => /timeout|network|econn|etimedout|429/i.test(msg),
-      onRetry: (attempt, retries, message) => {
-        if (win && !win.isDestroyed()) win.webContents.send('vision-rework-progress', `[System] Retry ${attempt}/${retries}: ${message}`, reworkTaskId);
-      },
-    });
-    return { success: true, taskId: reworkTaskId };
-  } catch (e) {
-    return { ...shapeFailure("run-vision-rework", e), taskId: reworkTaskId };
-  }
-});
-
-// Single file picker (for MD and reference PNG uploads in VisionReworkModal)
+// Single file picker (for MD and reference image uploads)
 ipcMain.handle("pick-single-file", async (event, filters) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {

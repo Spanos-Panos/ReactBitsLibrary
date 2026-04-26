@@ -8,8 +8,6 @@ interface Props {
   onKill: (id: string) => void;
   onSelect: (id: string) => void;
   onClearAll: () => void;
-  onVisionRework?: (taskId: string) => void;
-  reworkReadyTaskIds?: Set<string>;
 }
 
 type QueueStage =
@@ -21,10 +19,9 @@ type QueueStage =
 
 function getQueueStage(task: Task): QueueStage {
   const runWhenDoneUsed = task.runWhenDoneUsed ?? /auto run/i.test(task.progress);
-  const autoKillOnErrorUsed = task.autoKillOnErrorUsed ?? false;
   const hasError = task.status === 'error' || !!task.error || !!task.hasTerminalError;
 
-  if (hasError) return autoKillOnErrorUsed ? 'error-auto-close' : 'error-static';
+  if (hasError) return 'error-static';
   if (task.status === 'running') return 'generating';
   
   // If the server was manually stopped, downgrade to static success to remove border effects
@@ -128,7 +125,6 @@ function ProjectNameLabel({ value, fallbackLabel }: { value: string; fallbackLab
 
 export default function GenerationQueue({
   tasks, onKill, onSelect, onClearAll,
-  onVisionRework, reworkReadyTaskIds = new Set(),
 }: Props) {
   const taskList = Object.values(tasks)
     .filter(task => getQueueStage(task) !== 'error-auto-close')
@@ -171,7 +167,6 @@ export default function GenerationQueue({
             const isStructure = task.type === 'structure';
             const isAiBuild   = !isStructure && (task.name?.toLowerCase().includes('ai') || task.name?.toLowerCase().includes('build'));
             const isCompleted = stage === 'success-auto-run' || stage === 'success-static';
-            const reworkReady = reworkReadyTaskIds.has(task.id);
             const primaryName = task.projectName?.trim() || task.name;
 
             // Labels matching user request: PROJECT, DEMO, STRUCTURE
@@ -213,24 +208,7 @@ export default function GenerationQueue({
                 <div className="gq-card-row gq-card-row--meta">
                   <span className="gq-info-hint">Click for more information</span>
 
-                  {/* Vision Rework Action */}
-                  {isAiBuild && isCompleted && onVisionRework && (
-                    <button
-                      className={`gq-rework-btn ${reworkReady ? 'rework-ready' : ''}`}
-                      onClick={e => { e.stopPropagation(); onVisionRework(task.id); }}
-                    >
-                      <AnimatePresence mode="wait">
-                        {reworkReady && (
-                          <motion.span
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="gq-rework-dot"
-                          />
-                        )}
-                      </AnimatePresence>
-                      🎨 Rework
-                    </button>
-                  )}
+
                 </div>
               </div>
             );

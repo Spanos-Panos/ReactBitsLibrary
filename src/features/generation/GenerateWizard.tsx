@@ -22,11 +22,11 @@ interface GenerateWizardProps {
   onOpenWhenDoneChange: (v: boolean) => void;
   runWhenDone: boolean;
   onRunWhenDoneChange: (v: boolean) => void;
-  autoKillOnError: boolean;
-  onAutoKillChange: (v: boolean) => void;
-  polishPass: boolean;
-  onPolishPassChange: (v: boolean) => void;
+  aiSupport: boolean;
+  onAiSupportChange: (v: boolean) => void;
   onConfirm: () => void;
+  builderMode?: boolean;
+  generationSummary?: string;
 }
 
 const PM_LIST: PackageManager[] = ["pnpm", "npm", "yarn", "bun"];
@@ -36,12 +36,13 @@ export default function GenerateWizard({
   projectName, onProjectNameChange, projectPath, onBrowse,
   installTab, onInstallTabChange, packageManager, onPackageManagerChange,
   openWhenDone, onOpenWhenDoneChange, runWhenDone, onRunWhenDoneChange,
-  autoKillOnError, onAutoKillChange, polishPass, onPolishPassChange, onConfirm
+  aiSupport, onAiSupportChange, onConfirm,
+  builderMode, generationSummary,
 }: GenerateWizardProps) {
 
   const isAiBuild = !!lastEnhancedPrompt;
-  const titleText = isAiBuild ? "Generate AI Master Project" : "Generate Demo Project";
-  const shouldShow = open && (selected || lastEnhancedPrompt);
+  const titleText = isAiBuild ? 'AI-Enhanced Generation' : builderMode ? 'Generate Project' : 'Generate Demo';
+  const shouldShow = open && (selected || lastEnhancedPrompt || builderMode);
 
   const [isConfirming, setIsConfirming] = useState(false);
 
@@ -90,6 +91,16 @@ export default function GenerateWizard({
                 }}>
                   {titleText}
                 </span>
+                {generationSummary && (
+                  <span style={{
+                    position: 'absolute', left: 14,
+                    fontSize: '0.52rem', fontWeight: 500, letterSpacing: '0.04em',
+                    color: 'rgba(99,102,241,0.7)',
+                    fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+                  }}>
+                    {generationSummary}
+                  </span>
+                )}
                 <button 
                   onClick={onClose} 
                   style={{
@@ -119,23 +130,23 @@ export default function GenerateWizard({
                 {/* ID & Scope */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                   <div>
-                    <SectionLabel>Logical Handle</SectionLabel>
+                    <SectionLabel>Project Name</SectionLabel>
                     <input
                       type="text"
                       value={projectName}
                       onChange={e => onProjectNameChange(e.target.value)}
-                      placeholder="rb-demo-project"
+                      placeholder="my-project"
                       style={INPUT_STYLE}
                     />
                   </div>
                   <div>
-                    <SectionLabel>Filesystem Destination</SectionLabel>
+                    <SectionLabel>Save To</SectionLabel>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <input
                         type="text"
                         value={projectPath}
                         readOnly
-                        placeholder="Select target directory..."
+                        placeholder="Select output folder..."
                         style={{ ...INPUT_STYLE, flex: 1, cursor: 'default' }}
                       />
                       <PremiumUnderlineButton onClick={onBrowse}>Browse</PremiumUnderlineButton>
@@ -146,7 +157,7 @@ export default function GenerateWizard({
                 {/* Provisioning Engine */}
                 <div style={{ display: 'flex', gap: 24 }}>
                   <div style={{ flex: 1 }}>
-                    <SectionLabel>Routine</SectionLabel>
+                    <SectionLabel>Install Method</SectionLabel>
                     <div style={{ display: 'flex', gap: 14 }}>
                         <PremiumUnderlineButton 
                           onClick={() => onInstallTabChange('cli')} 
@@ -165,7 +176,7 @@ export default function GenerateWizard({
                      </div>
                   </div>
                   <div style={{ flex: 1.6 }}>
-                    <SectionLabel>Core Tech</SectionLabel>
+                    <SectionLabel>Package Manager</SectionLabel>
                     <div style={{ display: 'flex', gap: 14 }}>
                         {PM_LIST.map(pm => (
                           <PremiumUnderlineButton 
@@ -183,7 +194,7 @@ export default function GenerateWizard({
 
                 {/* Unified Automation Suite */}
                 <div>
-                  <SectionLabel>Automation Routines</SectionLabel>
+                  <SectionLabel>After Generation</SectionLabel>
                   <div style={{
                     display: 'flex', flexDirection: 'column',
                     background: 'rgba(255,255,255,0.02)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)',
@@ -207,39 +218,51 @@ export default function GenerateWizard({
                       onChange={onRunWhenDoneChange}
                     />
 
-                    <AnimatePresence>
-                      {runWhenDone && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.25, ease: 'easeInOut' }}
-                          style={{ overflow: 'hidden', borderTop: '1px solid rgba(255,255,255,0.03)' }}
-                        >
-                          <AutomationRow
-                            child
-                            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>}
-                            title="Fault Gate"
-                            subtext="Process termination if browser fails"
-                            checked={autoKillOnError}
-                            onChange={onAutoKillChange}
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                  </div>
+                </div>
 
-                    {isAiBuild && (
-                      <>
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }} />
-                        <AutomationRow
-                          icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>}
-                          title="Polish Pass"
-                          subtext="Screenshot → Claude vision → auto CSS fix (+~30s, ~$0.05)"
-                          checked={polishPass}
-                          onChange={onPolishPassChange}
-                        />
-                      </>
-                    )}
+                {/* AI Support Engine */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <SectionLabel>AI Engine</SectionLabel>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '16px 20px', background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>
+                        AI Design Support
+                      </div>
+                      <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
+                        Faster & free — or let AI craft a full design brief
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onAiSupportChange(!aiSupport)}
+                      style={{
+                        background: aiSupport ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                        border: `1px solid ${aiSupport ? 'rgba(99, 102, 241, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`,
+                        borderRadius: 20,
+                        padding: '6px 14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: aiSupport ? '#818cf8' : 'rgba(255, 255, 255, 0.3)',
+                        boxShadow: aiSupport ? '0 0 8px #818cf8' : 'none'
+                      }} />
+                      <span style={{
+                        color: aiSupport ? '#e0e7ff' : 'rgba(255, 255, 255, 0.5)',
+                        fontSize: '0.75rem', fontWeight: 600
+                      }}>
+                        {aiSupport ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
                   </div>
                 </div>
 
@@ -252,7 +275,7 @@ export default function GenerateWizard({
                     active
                     primary
                   >
-                    Initialize Synthesis
+                    {isConfirming ? 'Starting...' : 'Generate →'}
                   </PremiumUnderlineButton>
                 </div>
 

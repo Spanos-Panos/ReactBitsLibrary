@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import './ProjectBuilderPanel.css';
-import type { LayoutConfig, LayoutItem, ZLayer, XAlign, HeightHint, PageConfig, PageType } from '../../shared/types/index';
+import type { ReactBitsItem, PageConfig, PageType } from '../../shared/types/index';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,8 +40,7 @@ export interface DesignRules {
 }
 
 export type AestheticPreset =
-  | 'Editorial' | 'Brutalist' | 'Minimal' | 'Futuristic'
-  | 'Organic' | 'Playful' | 'Luxury' | 'Corporate';
+  | 'Editorial' | 'Brutalist' | 'Minimal' | 'Futuristic';
 
 export type TypographyIntensity = 'subtle' | 'dramatic' | 'experimental' | '';
 
@@ -68,13 +67,12 @@ export interface ProjectBuilderPanelProps {
   onGenerate: () => void;
   designRules: DesignRules;
   onDesignRulesChange: (rules: DesignRules) => void;
-  layoutConfig: LayoutConfig;
-  onLayoutConfigChange: (c: LayoutConfig) => void;
+
   styleDirection: StyleDirection;
   onStyleDirectionChange: (s: StyleDirection) => void;
   clientBrief: ClientBrief;
   onClientBriefChange: (b: ClientBrief) => void;
-  onOpenLayoutIntelligence?: () => void;
+
   onRestoreFromHistory?: (prompt: string, selectedComponents: ComponentItem[]) => void;
   scrollbarStyle: ScrollbarStyle;
   onScrollbarStyleChange: (s: ScrollbarStyle) => void;
@@ -135,10 +133,11 @@ export interface ScrollbarStyle {
   mode: 'default' | 'hidden' | 'custom';
   track?: string;
   thumb?: string;
+  scrollBehavior?: 'smooth' | 'default';
 }
 
-type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Layout' | 'Sizes' | 'Images' | 'Output' | 'Pages';
-const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Layout', 'Sizes', 'Images', 'Output', 'Pages'];
+type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Sizes' | 'Images' | 'Output' | 'Pages';
+const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Sizes', 'Images', 'Output', 'Pages'];
 
 
 type AssemblyCategoryId = 'Components' | 'Backgrounds' | 'Animations' | 'TextAnimations';
@@ -952,206 +951,7 @@ function ColorsTab({ rules, onChange }: { rules: DesignRules; onChange: (r: Desi
   );
 }
 
-function LayoutTab({ config, onChange, onOpenIntelligence }: { 
-  config: LayoutConfig; 
-  onChange: (c: LayoutConfig) => void;
-  onOpenIntelligence?: () => void;
-}) {
-  const updateItem = (componentName: string, updates: Partial<LayoutItem>) =>
-    onChange(config.map(item => item.componentName === componentName ? { ...item, ...updates } : item));
 
-  const catColor = (category: string) => {
-    if (category === 'Backgrounds')    return '#6366f1';
-    if (category === 'TextAnimations') return '#f59e0b';
-    if (category === 'Animations')     return '#10b981';
-    return '#ec4899';
-  };
-  const catLabel = (category: string) => {
-    if (category === 'Backgrounds')    return 'BG';
-    if (category === 'TextAnimations') return 'TXT';
-    if (category === 'Animations')     return 'ANI';
-    return 'UI';
-  };
-
-  if (config.length === 0) {
-    return (
-      <div className="pbp-layout-tab">
-        <div className="pbp-layout-empty" style={{ cursor: 'default' }}>
-          <div className="pbp-layout-empty-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" />
-            </svg>
-          </div>
-          <div className="pbp-layout-empty-text">No Components Selected</div>
-          <span className="pbp-layout-empty-sub">Select components to configure layout.</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="pbp-layout-tab">
-      <div className="pbp-layout-list-header">
-        <span className="pbp-rule-label">Layer Order</span>
-        <span className="pbp-layout-hint">Drag to reorder</span>
-      </div>
-      <Reorder.Group
-        axis="y"
-        values={config}
-        onReorder={onChange}
-        className="pbp-layout-list"
-        style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}
-      >
-        {config.map(item => {
-          const isFixed = item.position === 'fixed';
-          const cc = catColor(item.category);
-          return (
-            <Reorder.Item key={item.componentName} value={item} className="pbp-layout-row">
-              <div className="pbp-layout-row-top">
-                <span className="pbp-layout-drag" title="Drag to reorder">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                </span>
-                <span className="pbp-layout-row-name">{item.componentName}</span>
-                {item.widthHint && item.widthHint !== 'full' && (
-                  <span className="pbp-layout-badge" style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8', borderColor: 'rgba(255,255,255,0.1)' }}>
-                    {item.widthHint === 'half' ? '50% COL' : '33% COL'}
-                  </span>
-                )}
-                <span className="pbp-layout-badge" style={{ background: cc + '1A', color: cc, borderColor: cc + '40' }}>
-                  {catLabel(item.category)}
-                </span>
-              </div>
-              <div className="pbp-layout-row-controls">
-
-                <div className="pbp-control-field" style={{ minWidth: '100px', flex: '0.8' }}>
-                  <span className="pbp-control-label">Position</span>
-                  <div className="pbp-layout-segmented">
-                    <button
-                      className={`pbp-layout-seg-btn${item.position === 'fixed' ? ' pbp-layout-seg-btn--active' : ''}`}
-                      onClick={() => updateItem(item.componentName, { position: 'fixed' })}
-                    >
-                      FIXED
-                    </button>
-                    <button
-                      className={`pbp-layout-seg-btn${item.position === 'in-flow' ? ' pbp-layout-seg-btn--active' : ''}`}
-                      onClick={() => updateItem(item.componentName, { position: 'in-flow' })}
-                    >
-                      FLOW
-                    </button>
-                  </div>
-                </div>
-
-                {!isFixed && (
-                  <div className="pbp-control-field" style={{ minWidth: '140px', flex: '1.2' }}>
-                    <span className="pbp-control-label">Width Constraints</span>
-                    <div className="pbp-layout-segmented">
-                      <button
-                        className={`pbp-layout-seg-btn${(item.widthHint || 'full') === 'full' ? ' pbp-layout-seg-btn--active' : ''}`}
-                        onClick={() => updateItem(item.componentName, { widthHint: 'full' })}
-                        title="Full Width"
-                      >
-                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="6" width="20" height="12" rx="2" ry="2"/></svg>
-                      </button>
-                      <button
-                        className={`pbp-layout-seg-btn${item.widthHint === 'half' ? ' pbp-layout-seg-btn--active' : ''}`}
-                        onClick={() => updateItem(item.componentName, { widthHint: 'half' })}
-                        title="50% Column"
-                      >
-                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="6" width="8" height="12" rx="1" ry="1"/><rect x="14" y="6" width="8" height="12" rx="1" ry="1"/></svg>
-                      </button>
-                      <button
-                        className={`pbp-layout-seg-btn${item.widthHint === 'third' ? ' pbp-layout-seg-btn--active' : ''}`}
-                        onClick={() => updateItem(item.componentName, { widthHint: 'third' })}
-                        title="33% Column"
-                      >
-                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="6" width="5" height="12" rx="1" /><rect x="9.5" y="6" width="5" height="12" rx="1" /><rect x="17" y="6" width="5" height="12" rx="1" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="pbp-control-field">
-                  <span className="pbp-control-label">Z-Layer</span>
-                  <AnimatedSelect
-                    value={item.zLayer}
-                    onChange={v => updateItem(item.componentName, { zLayer: v as ZLayer })}
-                    options={[
-                      { label: 'z:0 Background', value: 'background' },
-                      { label: 'z:1 View Content', value: 'content' },
-                      { label: 'z:999 Foreground', value: 'overlay' }
-                    ]}
-                  />
-                </div>
-
-                {!isFixed && (
-                  <div className="pbp-control-field">
-                    <span className="pbp-control-label">Alignment</span>
-                    <AnimatedSelect
-                      value={item.xAlign}
-                      onChange={v => updateItem(item.componentName, { xAlign: v as XAlign })}
-                      options={[
-                        { label: 'Stretch Full', value: 'full-width' },
-                        { label: 'Align Left', value: 'left' },
-                        { label: 'Centered', value: 'center' },
-                        { label: 'Align Right', value: 'right' }
-                      ]}
-                    />
-                  </div>
-                )}
-
-                {!isFixed && (
-                  <div className="pbp-control-field">
-                    <span className="pbp-control-label">Height Limit</span>
-                    <AnimatedSelect
-                      value={item.heightHint}
-                      onChange={v => updateItem(item.componentName, { heightHint: v as HeightHint })}
-                      options={[
-                        { label: '100vh Hero', value: 'fullscreen' },
-                        { label: '85vh Large', value: 'large' },
-                        { label: '50vh Medium', value: 'medium' },
-                        { label: '20vh Strip', value: 'strip' }
-                      ]}
-                    />
-                  </div>
-                )}
-
-                {!isFixed && (
-                  <div className="pbp-control-field">
-                    <span className="pbp-control-label">Scroll Anim Entrance</span>
-                    <AnimatedSelect
-                      value={item.entranceAnimation || 'none'}
-                      onChange={v => updateItem(item.componentName, { entranceAnimation: v as "none" | "fade-in" | "slide-up" | "scale-up" | "blur-in" })}
-                      options={[
-                        { label: 'None (Static)', value: 'none' },
-                        { label: 'Slide Up', value: 'slide-up' },
-                        { label: 'Fade In', value: 'fade-in' },
-                        { label: 'Scale Up', value: 'scale-up' },
-                        { label: 'Blur In', value: 'blur-in' }
-                      ]}
-                    />
-                  </div>
-                )}
-
-              </div>
-            </Reorder.Item>
-          );
-        })}
-      </Reorder.Group>
-
-      <div className="pbp-layout-preview-wrap">
-        <button 
-          className="pbp-layout-preview-trigger"
-          onClick={() => onOpenIntelligence?.()}
-        >
-           <span className="pbp-layout-preview-btn-label">Layout Intelligence Generator</span>
-           <span className="pbp-layout-preview-btn-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m7.8 16.2-2.9 2.9"/><path d="M6 12H2"/><path d="m7.8 7.8-2.9-2.9"/><circle cx="12" cy="12" r="3"/></svg>
-           </span>
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function SizesTab({ rules, onChange }: { rules: DesignRules; onChange: (r: DesignRules) => void }) {
   const set = (key: keyof DesignRules['sizes'], val: string) =>
@@ -1458,8 +1258,8 @@ function BriefTab({ brief, onChange }: { brief: ClientBrief; onChange: (b: Clien
 }
 
 function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: StyleDirection) => void }) {
-  const AESTHETICS: AestheticPreset[] = ['Editorial', 'Brutalist', 'Minimal', 'Futuristic', 'Organic', 'Playful', 'Luxury', 'Corporate'];
-  const SITE_TYPES = ['Portfolio', 'Landing', 'Agency', 'SaaS', 'E-commerce', 'Blog', 'Event'];
+  const AESTHETICS: AestheticPreset[] = ['Editorial', 'Brutalist', 'Minimal', 'Futuristic'];
+  const SITE_TYPES = ['Portfolio', 'Landing', 'SaaS', 'Agency'];
   const COLOR_STRATEGIES: { value: ColorStrategy; label: string }[] = [
     { value: 'dark-bold-accent', label: 'Dark + Accent' },
     { value: 'light-subtle', label: 'Light' },
@@ -1832,11 +1632,59 @@ function PagesTab({
 function OutputTab({ style, onChange }: { style: ScrollbarStyle; onChange: (s: ScrollbarStyle) => void }) {
   const modes: ScrollbarStyle['mode'][] = ['default', 'hidden', 'custom'];
   const modeLabel: Record<ScrollbarStyle['mode'], string> = { default: 'Browser', hidden: 'Hidden', custom: 'Custom' };
+  
+  const [tsStrictness, setTsStrictness] = useState('strict');
+  const [commentsInCode, setCommentsInCode] = useState('yes');
 
   return (
     <div className="pbp-sizes-tab">
       <div className="pbp-rule-header">
-        <span className="pbp-rule-label">Scrollbar</span>
+        <span className="pbp-rule-label">TypeScript Strictness</span>
+      </div>
+      <div className="pbp-sizes-chip-grid" style={{ display: 'flex', gap: 16 }}>
+        {['strict', 'loose'].map(m => (
+          <PremiumUnderlineButton
+            key={m}
+            active={tsStrictness === m}
+            onClick={() => setTsStrictness(m)}
+          >
+            {m.charAt(0).toUpperCase() + m.slice(1)}
+          </PremiumUnderlineButton>
+        ))}
+      </div>
+
+      <div className="pbp-rule-header" style={{ marginTop: '20px' }}>
+        <span className="pbp-rule-label">Comments in Code</span>
+      </div>
+      <div className="pbp-sizes-chip-grid" style={{ display: 'flex', gap: 16 }}>
+        {['yes', 'no'].map(m => (
+          <PremiumUnderlineButton
+            key={m}
+            active={commentsInCode === m}
+            onClick={() => setCommentsInCode(m)}
+          >
+            {m === 'yes' ? 'Include Comments' : 'No Comments'}
+          </PremiumUnderlineButton>
+        ))}
+      </div>
+
+      <div className="pbp-rule-header" style={{ marginTop: '20px' }}>
+        <span className="pbp-rule-label">Scroll Behavior</span>
+      </div>
+      <div className="pbp-sizes-chip-grid" style={{ display: 'flex', gap: 16 }}>
+        {(['default', 'smooth'] as const).map(m => (
+          <PremiumUnderlineButton
+            key={m}
+            active={(style.scrollBehavior ?? 'default') === m}
+            onClick={() => onChange({ ...style, scrollBehavior: m })}
+          >
+            {m.charAt(0).toUpperCase() + m.slice(1)}
+          </PremiumUnderlineButton>
+        ))}
+      </div>
+
+      <div className="pbp-rule-header" style={{ marginTop: '20px' }}>
+        <span className="pbp-rule-label">Scrollbar Style</span>
       </div>
       <div className="pbp-sizes-chip-grid" style={{ display: 'flex', gap: 16 }}>
         {modes.map(m => (
@@ -1887,13 +1735,10 @@ export default function ProjectBuilderPanel({
   onGenerate,
   designRules,
   onDesignRulesChange,
-  layoutConfig,
-  onLayoutConfigChange,
   styleDirection,
   onStyleDirectionChange,
   clientBrief,
   onClientBriefChange,
-  onOpenLayoutIntelligence,
   onRestoreFromHistory,
   scrollbarStyle,
   onScrollbarStyleChange,
@@ -1954,8 +1799,6 @@ export default function ProjectBuilderPanel({
       case 'Brief': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>;
       case 'Style': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12c0-2.5 1-4.7 2.7-6.3L12 12V2z" /></svg>;
       case 'Fonts': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7" /><line x1="9" y1="20" x2="15" y2="20" /><line x1="12" y1="4" x2="12" y2="20" /></svg>;
-      case 'Colors': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" /></svg>;
-      case 'Layout': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>;
       case 'Sizes': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="2" width="18" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12" y2="18" /></svg>;
       case 'Images': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>;
       case 'Pages': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>;
@@ -2049,7 +1892,6 @@ export default function ProjectBuilderPanel({
                 {activeTab === 'Style' && <StyleTab style={styleDirection} onChange={onStyleDirectionChange} />}
                 {activeTab === 'Fonts' && <FontsTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Colors' && <ColorsTab rules={designRules} onChange={onDesignRulesChange} />}
-                {activeTab === 'Layout' && <LayoutTab config={layoutConfig} onChange={onLayoutConfigChange} onOpenIntelligence={onOpenLayoutIntelligence} />}
                 {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} limits={IMG_LIMITS} />}
                 {activeTab === 'Output' && <OutputTab style={scrollbarStyle} onChange={onScrollbarStyleChange} />}
@@ -2084,7 +1926,6 @@ export default function ProjectBuilderPanel({
                 <div className="pbp-prompt-generate-wrap">
                   <PremiumUnderlineButton
                     onClick={onGenerate}
-                    disabled={selectedComponents.length === 0 || !prompt.trim()}
                     primary
                     fullWidth
                   >

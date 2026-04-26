@@ -52,40 +52,10 @@ function validateEnhancedPromptShape(prompt, selectedComponents) {
 
   if (!isPlainObject(prompt.projectMeta)) issues.push("Missing or invalid projectMeta object.");
   if (!isPlainObject(prompt.designTokens)) issues.push("Missing or invalid designTokens object.");
-  if (!isPlainObject(prompt.siteArchitecture)) issues.push("Missing or invalid siteArchitecture object.");
-  if (!isPlainObject(prompt.technicalRequirements)) issues.push("Missing or invalid technicalRequirements object.");
-  if (!Array.isArray(prompt.generatorSteps) || prompt.generatorSteps.length < 4) {
-    issues.push("generatorSteps must contain at least 4 items.");
-  }
+  // siteArchitecture is optional now — template engine handles structure
+  // contentOverrides is optional — reviewer uses it when present
 
-  const sections = prompt.siteArchitecture?.sections;
-  if (!Array.isArray(sections) || sections.length === 0) {
-    issues.push("siteArchitecture.sections must be a non-empty array.");
-  } else {
-    for (const section of sections) {
-      if (!isPlainObject(section)) {
-        issues.push("Every section must be an object.");
-        break;
-      }
-      if (typeof section.id !== "string" || !section.id.trim()) issues.push("Every section must have a non-empty id.");
-      if (typeof section.componentRef !== "string" || !section.componentRef.trim()) issues.push("Every section must have a non-empty componentRef.");
-    }
-  }
-
-  const dependencies = prompt.technicalRequirements?.dependencies;
-  if (!Array.isArray(dependencies) || dependencies.length === 0) {
-    issues.push("technicalRequirements.dependencies must be a non-empty array.");
-  }
-  if (typeof prompt.technicalRequirements?.layoutStrategy !== "string" || !prompt.technicalRequirements.layoutStrategy.trim()) {
-    issues.push("technicalRequirements.layoutStrategy must be a non-empty string.");
-  }
-
-  const selectedNames = new Set((selectedComponents || []).map(c => String(c.name || "").toLowerCase()).filter(Boolean));
-  const sectionRefs = new Set((sections || []).map(s => String(s.componentRef || "").toLowerCase()));
-  for (const name of selectedNames) {
-    const matched = Array.from(sectionRefs).some(ref => ref === name || ref.includes(name));
-    if (!matched) issues.push(`Missing selected component in sections: ${name}`);
-  }
+  // generatorSteps removed (Phase 4.8) — template engine drives structure, not the enhancer
 
   return { ok: issues.length === 0, issues };
 }
@@ -103,39 +73,28 @@ function scoreEnhancedPromptQuality(prompt) {
   ];
 
   let score = 100;
-  const sections = Array.isArray(prompt?.siteArchitecture?.sections) ? prompt.siteArchitecture.sections : [];
-  const generatorSteps = Array.isArray(prompt?.generatorSteps) ? prompt.generatorSteps : [];
 
-  const texts = [];
-  for (const section of sections) {
-    const content = section?.content;
-    if (isPlainObject(content)) {
-      for (const value of Object.values(content)) {
-        if (typeof value === "string" && value.trim()) texts.push(value.toLowerCase());
-      }
-    }
+  // Score contentOverrides (new schema) — richer overrides = higher quality
+  const contentOverrides = isPlainObject(prompt?.contentOverrides) ? prompt.contentOverrides : {};
+  const overrideCount = Object.keys(contentOverrides).length;
+  if (overrideCount === 0) {
+    score -= 15;
+    penalties.push("No contentOverrides provided — reviewer will have no content suggestions.");
   }
 
-  if (sections.length < 3) {
-    score -= 18;
-    penalties.push("Too few sections (<3), likely under-structured layout.");
-  }
-
-  if (generatorSteps.length < 6) {
+  // Score projectMeta quality
+  const mood = (prompt?.projectMeta?.mood || '').toLowerCase();
+  if (!mood || mood.length < 5) {
     score -= 10;
-    penalties.push("Too few generator steps (<6), instruction detail is weak.");
+    penalties.push("projectMeta.mood is missing or too vague.");
   }
 
-  const hasRoleSpecificContent = texts.some(t => t.length > 40 && /\b(benefit|service|product|audience|contact|cta|offer)\b/.test(t));
-  if (!hasRoleSpecificContent) {
-    score -= 10;
-    penalties.push("Content appears generic and not domain-specific enough.");
-  }
-
+  // Check for slop phrases in contentOverrides
+  const allText = Object.values(contentOverrides).map(v => String(v).toLowerCase()).join(' ');
   for (const phrase of slopPhrases) {
-    if (texts.some(t => t.includes(phrase))) {
+    if (allText.includes(phrase)) {
       score -= 8;
-      penalties.push(`Contains banned generic copy phrase: "${phrase}"`);
+      penalties.push(`contentOverrides contains banned generic copy: "${phrase}"`);
     }
   }
 
@@ -145,36 +104,38 @@ function scoreEnhancedPromptQuality(prompt) {
 // ─── Skill content ────────────────────────────────────────────────────────────
 
 const PROMPT_ENHANCER_SKILL = `
-# Senior Project Architect (Claude Haiku 4.5 Edition)
+# Senior Brand Strategist (AI ON path — Supplement mode)
 
-You are a Senior UI Architect and Frontend Lead. Your mission is to transform a raw user request + a set of custom React components into a Master Project Brief.
+You are a Senior Brand Strategist. A deterministic template engine has already handled site structure and layout.
+Your ONLY job is to provide content suggestions and brand direction that the AI reviewer will use to refine the generated site.
 
 ## YOUR CONTEXT
-You will be provided with a "componentContext" array. For each component, you have:
-1. **Usage**: A markdown file showing how to implement it (includes props and usage patterns).
-2. **Install**: The dependencies required.
+You will be provided with a "componentContext" array and CLIENT BRIEF data.
+The template engine has already generated a working React/Vite site with real sections.
+The AI reviewer will read your output and use it to improve content, tone, and aesthetic consistency.
 
 ## OUTPUT FORMAT
 Return ONLY a raw JSON object. No preamble, no backticks.
 
 {
-  "projectMeta": { "title", "theme", "mood" },
-  "designTokens": { "colors": { "primary", "secondary", "background", "text", "accent" }, "typography", "borderRadius" },
-  "siteArchitecture": {
-    "sections": [
-      { "id", "componentRef", "props": { "propName": "Value" }, "content": { "headline", "body", "cta" } }
-    ]
+  "projectMeta": { "title": "Project title", "theme": "visual theme description", "mood": "aesthetic mood string" },
+  "designTokens": {
+    "colors": { "primary": "#hex", "secondary": "#hex", "background": "#hex", "text": "#hex", "accent": "#hex" },
+    "typography": { "heading": "Font Name", "body": "Font Name" },
+    "borderRadius": "e.g. 0px or 8px or 24px"
   },
-  "technicalRequirements": {
-    "dependencies": ["List of npm packages needed"],
-    "layoutStrategy": "Layout description"
-  },
-  "generatorSteps": [
-    "Step 1: Description",
-    "Step 2: Description",
-    "CRITICAL: NO MARKDOWN CODE BLOCKS (\\\`\\\`\\\`) OR NEWLINES IN THESE STRINGS."
-  ]
+  "contentOverrides": {
+    "hero.headline": "Specific, punchy headline for this brand",
+    "hero.subheadline": "Specific subheadline",
+    "hero.cta": "Primary button text",
+    "features.heading": "Section heading for features/services",
+    "cta.heading": "Final CTA section heading",
+    "cta.subtext": "CTA subtext",
+    "about.body": "About section body paragraph"
+  }
 }
+
+DO NOT include: generatorSteps, siteArchitecture, technicalRequirements — the template engine handles all of that.
 
 ## CORE RULES
 1. **No Code Blocks**: Do NOT use triple backticks ( \\\`\\\`\\\` ) inside the JSON string fields. Explain code in words or simple single-line strings.
@@ -567,116 +528,36 @@ async function enhancePrompt(options) {
       console.warn(`[Claude Enhancer] Quality gate failed on attempt ${qualityAttempt}. Retrying...`);
     }
 
-    // ─── Post-parse: guarantee every selected component is in sections ─────────
-    // Haiku occasionally drops components from siteArchitecture.sections even when
-    // Rule 7 says not to. Catch it here so code gen always sees all components.
+    // ─── Post-parse: normalise contentOverrides (Phase 4.8) ──────────────────
+    // Ensure contentOverrides is always an object, even if model omitted it.
     try {
-      if (!enhancedPrompt.siteArchitecture) enhancedPrompt.siteArchitecture = {};
-      if (!Array.isArray(enhancedPrompt.siteArchitecture.sections)) {
-        enhancedPrompt.siteArchitecture.sections = [];
+      if (!enhancedPrompt.contentOverrides || typeof enhancedPrompt.contentOverrides !== 'object') {
+        enhancedPrompt.contentOverrides = {};
+        console.warn('[Claude Enhancer] contentOverrides missing from response — set to empty object.');
       }
-      const sections = enhancedPrompt.siteArchitecture.sections;
-      const allRefs = sections.map(s => (s.componentRef || '').toLowerCase());
-
-      for (const comp of strippedComponents) {
-        const compLower = comp.name.toLowerCase();
-        const alreadyPresent = allRefs.some(
-          ref => ref === compLower || ref.includes(compLower)
-        );
-        if (!alreadyPresent) {
-          const isBackground = comp.category === 'Backgrounds';
-          const newSection = isBackground
-            ? {
-                id: 'ambient-bg',
-                componentRef: comp.name,
-                props: { style: 'position:fixed, inset:0, zIndex:0, pointerEvents:none' },
-                content: {}
-              }
-            : {
-                id: `section-${comp.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-                componentRef: comp.name,
-                props: {},
-                content: { headline: '', body: '', cta: '' }
-              };
-          sections.push(newSection);
-          console.warn(`[Claude Enhancer] Auto-inserted missing component into sections: ${comp.name}`);
-        }
-      }
-    } catch (validationErr) {
-      console.warn('[Claude Enhancer] Section validation skipped (non-fatal):', validationErr.message);
+    } catch (coErr) {
+      console.warn('[Claude Enhancer] contentOverrides normalisation failed (non-fatal):', coErr.message);
     }
 
-    // ─── Post-parse: apply user layoutConfig order + props to sections ─────────
-    try {
-      if (systemContext?.layoutConfig?.length > 0) {
-        const lc = systemContext.layoutConfig;
-        const inFlowOrder = lc.filter(i => i.position === 'in-flow').map(i => i.componentName.toLowerCase());
-        const fixedItems  = lc.filter(i => i.position === 'fixed');
-        const hMap = { fullscreen: '100vh', large: '85vh', medium: '50vh', strip: '20vh' };
-        const sections = enhancedPrompt.siteArchitecture.sections;
+    // layoutConfig post-parse removed (Phase 1.3 — Layout tab deleted)
 
-        // Sort sections to match user's configured order
-        sections.sort((a, b) => {
-          const aRef = (a.componentRef || '').toLowerCase();
-          const bRef = (b.componentRef || '').toLowerCase();
-          const aIdx = inFlowOrder.findIndex(n => aRef.includes(n));
-          const bIdx = inFlowOrder.findIndex(n => bRef.includes(n));
-          if (aIdx === -1 && bIdx === -1) return 0;
-          if (aIdx === -1) return 1;
-          if (bIdx === -1) return -1;
-          return aIdx - bIdx;
-        });
-
-        // Inject layout props into each section
-        for (const section of sections) {
-          const ref = (section.componentRef || '').toLowerCase();
-          const fixedMatch = fixedItems.find(i => ref.includes(i.componentName.toLowerCase()));
-          const flowMatch  = lc.find(i => i.position === 'in-flow' && ref.includes(i.componentName.toLowerCase()));
-          if (fixedMatch) {
-            section.props = { ...section.props, position: 'fixed', zIndex: zNum[fixedMatch.zLayer] };
-          } else if (flowMatch) {
-            section.props = {
-              ...section.props,
-              minHeight: hMap[flowMatch.heightHint],
-              textAlign: flowMatch.xAlign === 'center' ? 'center' : 'left',
-              zIndex: zNum[flowMatch.zLayer] || 1,
-            };
-          }
-        }
-        console.log(`[Claude Enhancer] Applied layoutConfig: ${inFlowOrder.length} in-flow, ${fixedItems.length} fixed`);
-      }
-    } catch (layoutErr) {
-      console.warn('[Claude Enhancer] Layout ordering skipped (non-fatal):', layoutErr.message);
-    }
-
-    // ─── Post-parse: derive and attach layoutPersonality ──────────────────────
+    // ─── Post-parse: derive layoutPersonality from aesthetic (4 valid values only) ─
     try {
       const LAYOUT_PERSONALITY_MAP = {
         brutalist:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'dense',  gridStyle: 'raw' },
         editorial:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'airy',   gridStyle: 'asymmetric' },
         futuristic: { textAlign: 'center', heroAlign: 'center', sectionDensity: 'medium', gridStyle: 'geometric' },
         minimal:    { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'airy',   gridStyle: 'single-column' },
-        organic:    { textAlign: 'left',   heroAlign: 'center', sectionDensity: 'medium', gridStyle: 'irregular' },
-        playful:    { textAlign: 'center', heroAlign: 'center', sectionDensity: 'dense',  gridStyle: 'mixed' },
-        luxury:     { textAlign: 'center', heroAlign: 'center', sectionDensity: 'sparse', gridStyle: 'single-column' },
-        corporate:  { textAlign: 'left',   heroAlign: 'left',   sectionDensity: 'medium', gridStyle: 'structured' },
       };
       const aesthetics = (systemContext?.styleDirection?.aesthetics || []).map(a => a.toLowerCase());
       const mood = (enhancedPrompt.projectMeta?.mood || '').toLowerCase();
-      // Derive primary aesthetic: from styleDirection first, then fallback to mood string
       const primaryAesthetic = aesthetics[0]
         || (mood.includes('brutal') ? 'brutalist'
           : mood.includes('editorial') ? 'editorial'
           : mood.includes('futuristic') || mood.includes('cyber') ? 'futuristic'
-          : mood.includes('minimal') || mood.includes('clean') ? 'minimal'
-          : mood.includes('organic') || mood.includes('natural') ? 'organic'
-          : mood.includes('playful') || mood.includes('fun') ? 'playful'
-          : mood.includes('luxury') || mood.includes('premium') ? 'luxury'
-          : mood.includes('corporate') || mood.includes('professional') ? 'corporate'
-          : null);
-      if (primaryAesthetic && LAYOUT_PERSONALITY_MAP[primaryAesthetic]) {
+          : 'minimal');
+      if (LAYOUT_PERSONALITY_MAP[primaryAesthetic]) {
         enhancedPrompt.layoutPersonality = LAYOUT_PERSONALITY_MAP[primaryAesthetic];
-        console.log(`[Claude Enhancer] Attached layoutPersonality for aesthetic: ${primaryAesthetic}`);
       }
     } catch (lpErr) {
       console.warn('[Claude Enhancer] layoutPersonality derivation skipped:', lpErr.message);

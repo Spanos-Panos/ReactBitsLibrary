@@ -9,7 +9,6 @@ export interface Task {
   error?: string;
   path?: string;
   runWhenDoneUsed?: boolean;
-  autoKillOnErrorUsed?: boolean;
   hasTerminalError?: boolean;
 }
 
@@ -31,27 +30,7 @@ export interface ParsedInstallData {
   manual: Record<string, string>;
 }
 
-// ── Layout Config ──────────────────────────────────────────────────────────────
 
-export type ZLayer       = 'background' | 'content' | 'overlay';
-export type XAlign       = 'full-width' | 'left' | 'center' | 'right';
-export type PositionType = 'fixed' | 'in-flow';
-export type HeightHint   = 'fullscreen' | 'large' | 'medium' | 'strip';
-export type EntranceAnimation = 'none' | 'fade-in' | 'slide-up' | 'scale-up' | 'blur-in';
-export type WidthHint         = 'full' | 'half' | 'third';
-
-export interface LayoutItem {
-  componentName: string;
-  category: string;
-  position: PositionType;
-  xAlign: XAlign;
-  zLayer: ZLayer;
-  heightHint: HeightHint;
-  entranceAnimation: EntranceAnimation;
-  widthHint: WidthHint;
-}
-
-export type LayoutConfig = LayoutItem[];
 
 // ── Multi-Page Generation ──────────────────────────────────────────────────────
 

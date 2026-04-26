@@ -117,24 +117,7 @@ function validateStructurePayload(options) {
   return null;
 }
 
-function validateVisionReworkPayload(payload) {
-  if (!isPlainObject(payload)) return "Payload must be an object.";
-  const requiredStrings = ["projectPath", "projectName", "referenceImagePath", "weaknessesMd", "taskId"];
-  for (const key of requiredStrings) {
-    if (typeof payload[key] !== "string" || !payload[key].trim()) return `${key} is required.`;
-  }
-  if (!isPlainObject(payload.originalPreset)) return "originalPreset must be an object.";
-  if (typeof payload.backupFirst !== "boolean") return "backupFirst must be a boolean.";
-  if (payload.maxBudgetUsd !== undefined) {
-    if (typeof payload.maxBudgetUsd !== "number" || Number.isNaN(payload.maxBudgetUsd)) {
-      return "maxBudgetUsd must be a number when provided.";
-    }
-    if (payload.maxBudgetUsd <= 0 || payload.maxBudgetUsd > 1) {
-      return "maxBudgetUsd must be > 0 and <= 1.";
-    }
-  }
-  return null;
-}
+
 
 module.exports = {
   validationFailure,
@@ -143,5 +126,5 @@ module.exports = {
   validateEnhancePromptPayload,
   validateGeneratePlaygroundArgs,
   validateStructurePayload,
-  validateVisionReworkPayload,
+
 };

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import type { ReactBitsItem, LayoutConfig, LayoutItem, PageConfig } from "./shared/types/index";
+import type { ReactBitsItem, PageConfig } from "./shared/types/index";
 import { getRoleData } from "./shared/data/componentRoles";
 import "./shared/types/api";
 import { useComponentLoader }   from "./shared/hooks/useComponentLoader";
@@ -19,9 +19,7 @@ import StructureWizard from "./features/generation/StructureWizard";
 import { useStructureWizard } from "./shared/hooks/useStructureWizard";
 import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
-import LayoutPreviewModal from "./features/project-builder/LayoutPreviewModal";
-import VisionReworkModal from "./features/generation/VisionReworkModal";
-import type { ComponentContext, EnhancePromptResult, VisionReworkPayload, VisionReworkReadyData } from "./shared/types/api";
+import type { ComponentContext, EnhancePromptResult } from "./shared/types/api";
 import type { ProjectStructureOptions } from "./shared/types";
 
 const CATEGORY_LIMITS: Record<string, number> = {
@@ -86,7 +84,6 @@ function App() {
     packageManager,     setPackageManager,
     openWhenDone,       setOpenWhenDone,
     runWhenDone,        setRunWhenDone,
-    autoKillOnError,    setAutoKillOnError,
     handleSelectDirectory,
   } = useGenerationWizard();
 
@@ -102,11 +99,10 @@ function App() {
   const [designRules,          setDesignRules]          = useState<DesignRules>(DEFAULT_DESIGN_RULES);
   const [styleDirection,       setStyleDirection]       = useState<StyleDirection>(DEFAULT_STYLE_DIRECTION);
   const [clientBrief,          setClientBrief]          = useState<ClientBrief>(DEFAULT_CLIENT_BRIEF);
-  const [layoutConfig,         setLayoutConfig]         = useState<LayoutConfig>([]);
-  const [scrollbarStyle,       setScrollbarStyle]       = useState<ScrollbarStyle>({ mode: 'default' });
-  const [pages,                setPages]                = useState<PageConfig[]>([{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
+  const [aiSupport,            setAiSupport]            = useState(false);
+  const [pages,                setPages]                = useState<PageConfig[]>([{ id: 'home', title: 'Home', type: 'home', componentIds: [] }]);
+  const [scrollbarStyle,       setScrollbarStyle]       = useState<ScrollbarStyle>({ mode: 'custom' });
   const structureWizard = useStructureWizard();
-  const [polishPass,           setPolishPass]           = useState(false);
 
   const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<EnhancedPromptData | null>(null);
   const [generateStatus,       setGenerateStatus]       = useState("");
@@ -114,17 +110,12 @@ function App() {
 
   const [appReady,             setAppReady]             = useState(false);
   const [presetsOpen,          setPresetsOpen]          = useState(false);
-  const [showLayoutIntelligence, setShowLayoutIntelligence] = useState(false);
+  const [loadedPresetName,     setLoadedPresetName]     = useState('');
 
-  // ── Vision Rework state ───────────────────────────────────────────────────
-  const [visionReworkOpen,     setVisionReworkOpen]     = useState(false);
-  const [visionReworkData,     setVisionReworkData]     = useState<VisionReworkReadyData | null>(null);
-  const [visionReworkTaskId,   setVisionReworkTaskId]   = useState<string | null>(null);
-  const [reworkReadyTaskIds,   setReworkReadyTaskIds]   = useState<Set<string>>(new Set());
-  // Store the last enhanced prompt used per task so rework can reference original preset
-  const lastPresetByTaskId = useRef<Record<string, object>>({});
   // Track reserved names during the current JS tick to prevent races
   const pendingProjectNamesRef = useRef<Set<string>>(new Set());
+  // Set to true when the wizard is opened from the builder panel (not the inspector)
+  const builderModeRef = useRef(false);
 
   // ── Derived state ─────────────────────────────────────────────────────────
   useEffect(() => { setSearchQuery(""); }, [activeCategory]);
@@ -141,18 +132,7 @@ function App() {
     [selectedIds, items]
   );
 
-  // ── Auto-populate layoutConfig when selectedComponents changes ───────────
-  useEffect(() => {
-    setLayoutConfig(prev => {
-      const prevMap = new Map(prev.map((i: LayoutItem) => [i.componentName, i]));
-      return selectedComponents.map((comp): LayoutItem => {
-        if (prevMap.has(comp.name)) return prevMap.get(comp.name)!;
-        if (comp.category === 'Backgrounds')
-          return { componentName: comp.name, category: comp.category, position: 'fixed',   xAlign: 'full-width', zLayer: 'background', heightHint: 'fullscreen', entranceAnimation: 'none', widthHint: 'full' };
-        return       { componentName: comp.name, category: comp.category, position: 'in-flow', xAlign: 'full-width', zLayer: 'content',    heightHint: 'medium', entranceAnimation: 'none', widthHint: 'full' };
-      });
-    });
-  }, [selectedComponents]);
+
 
   // ── Helper: Unique Project Name Resolution ───────────────────────────────
   const getUniqueProjectName = async (baseName: string, targetFolder: string) => {
@@ -216,9 +196,6 @@ function App() {
     await window.reactBitsApi?.terminateTask?.(id);
     setTasks(prev => { const next = { ...prev }; delete next[id]; return next; });
     if (activeTaskIdRef.current === id) setActiveTaskId(null);
-    // Clean up rework state for this task
-    setReworkReadyTaskIds(prev => { const next = new Set(prev); next.delete(id); return next; });
-    delete lastPresetByTaskId.current[id];
   };
 
   const handleStopTask = async (id: string) => {
@@ -238,30 +215,31 @@ function App() {
     await Promise.all(ids.map(id => window.reactBitsApi?.terminateTask?.(id)));
     setTasks({});
     setActiveTaskId(null);
-    setReworkReadyTaskIds(new Set());
-    lastPresetByTaskId.current = {};
   };
 
   const confirmGenerate = async () => {
     if (!projectPath || !window.reactBitsApi?.generatePlayground) return;
-    const isMasterBuild = !!lastEnhancedPrompt;
-    if (!isMasterBuild && !selected) return;
+    const isBuilderGeneration = builderModeRef.current || selectedComponents.length > 0;
+    builderModeRef.current = false;
+    if (!isBuilderGeneration && !selected) return;
     if (Object.values(tasks).filter(t => t.status === 'running').length >= 5) {
       showStatus("warning", "Task limit reached (max 5 running). Please wait for some to finish!");
       return;
     }
     const taskId = Date.now().toString();
     const uniqueProjectName = await getUniqueProjectName(projectName, projectPath);
+    const taskLabel = lastEnhancedPrompt
+      ? getEnhancedProjectTitle(lastEnhancedPrompt, "AI Project")
+      : (clientBrief.brandName || (selectedComponents[0]?.name ?? selected?.name ?? "Project"));
     setTasks(prev => ({
       ...prev,
       [taskId]: {
         id: taskId,
-        name: isMasterBuild ? getEnhancedProjectTitle(lastEnhancedPrompt, "AI Project") : selected!.name,
-        type: isMasterBuild ? 'web' : 'component',
+        name: taskLabel,
+        type: isBuilderGeneration ? 'web' : 'component',
         projectName: uniqueProjectName, progress: "Initializing project generation...",
         logs: ["Initializing Build Environment...\n"], status: 'running',
         runWhenDoneUsed: runWhenDone,
-        autoKillOnErrorUsed: autoKillOnError,
         hasTerminalError: false,
       },
     }));
@@ -270,45 +248,42 @@ function App() {
     setGenerateStatus("");
     try {
       let result;
-      if (isMasterBuild) {
+      if (isBuilderGeneration) {
         result = await window.reactBitsApi.generatePlayground({
-          options: { installMethod: installTab, packageManager, installData: parsedInstallData, projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone, autoKillOnError, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, scrollbarStyle: scrollbarStyle.mode !== 'default' ? scrollbarStyle : null, polishPass },
+          options: {
+            installMethod: installTab, packageManager, installData: parsedInstallData,
+            projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone,
+            scrollbarStyle: scrollbarStyle.mode !== 'default' ? scrollbarStyle : null,
+            aiSupport,
+            pages,
+            styleDirection,
+            designRules,
+            clientBrief,
+            presetName: loadedPresetName,
+          },
           selectedComponents: await Promise.all(selectedComponents.map(c => window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
           enhancedPrompt: lastEnhancedPrompt,
         }, null, taskId);
       } else {
         result = await window.reactBitsApi.generatePlayground(
           selected!.category, selected!.name, selected!.usageMarkdown, componentFiles,
-          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
+          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone },
           taskId
         );
       }
       if (result.success) {
         setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'success', progress: runWhenDone ? "Generation Complete! Auto Run Enabled." : "Generation Complete!", path: result.path, hasTerminalError: false } }));
         setGenerateStatus(result.message || "Success!");
-        // Remember the preset used for this task so Vision Rework can reference it
-        if (isMasterBuild && lastEnhancedPrompt) {
-          lastPresetByTaskId.current[taskId] = lastEnhancedPrompt;
-        }
-        if (isMasterBuild) setLastEnhancedPrompt(null);
+
+        if (lastEnhancedPrompt) setLastEnhancedPrompt(null);
       } else {
-        if (autoKillOnError) {
-          await handleCloseTask(taskId);
-          setGenerateStatus(`Failed and auto-cleared: ${result.error || "Unknown error"}`);
-        } else {
-          setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error, hasTerminalError: true } }));
-          setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
-        }
+        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error, hasTerminalError: true } }));
+        setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
       }
     } catch (e: unknown) {
       const message = getErrorMessage(e);
-      if (autoKillOnError) {
-        await handleCloseTask(taskId);
-        setGenerateStatus(`Error and auto-cleared: ${message}`);
-      } else {
-        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: message, hasTerminalError: true } }));
-        setGenerateStatus(`Error: ${message}`);
-      }
+      setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: message, hasTerminalError: true } }));
+      setGenerateStatus(`Error: ${message}`);
     }
     setTimeout(() => setGenerateStatus(""), 8000);
   };
@@ -341,7 +316,6 @@ function App() {
       projectPrompt,
       selectedComponentIds: selectedIds,
       designRules,
-      layoutConfig,
       projectName,
       packageManager,
       styleDirection,
@@ -351,14 +325,27 @@ function App() {
   };
 
   const handleLoadPreset = (preset: SavedPreset) => {
+    setLoadedPresetName(preset.name ?? '');
+    const VALID_AESTHETICS = ['Minimal', 'Editorial', 'Brutalist', 'Futuristic'];
+    const VALID_SITE_TYPES = ['Landing', 'Portfolio', 'SaaS', 'Agency'];
+
     setProjectPrompt(preset.projectPrompt ?? '');
     setSelectedIds(preset.selectedComponentIds ?? []);
     setDesignRules(preset.designRules ?? DEFAULT_DESIGN_RULES);
-    setLayoutConfig(preset.layoutConfig ?? []);
     setProjectName(preset.projectName ?? '');
     setPackageManager((preset.packageManager ?? 'npm') as typeof packageManager);
-    // v2 fields — fall back to defaults for old presets that don't have them
-    setStyleDirection(preset.styleDirection ?? DEFAULT_STYLE_DIRECTION);
+
+    // Sanitize styleDirection — filter out removed aesthetics/siteTypes so old presets don't break
+    const rawStyle = preset.styleDirection ?? DEFAULT_STYLE_DIRECTION;
+    const sanitizedStyle = {
+      ...rawStyle,
+      aesthetics: (rawStyle.aesthetics ?? []).filter((a: string) => VALID_AESTHETICS.includes(a)),
+      siteType: VALID_SITE_TYPES.includes(rawStyle.siteType ?? '') ? rawStyle.siteType : 'Landing',
+    };
+    // If all aesthetics were filtered out (old preset), default to Minimal
+    if (sanitizedStyle.aesthetics.length === 0) sanitizedStyle.aesthetics = ['Minimal'];
+    setStyleDirection(sanitizedStyle);
+
     setClientBrief(preset.clientBrief ?? DEFAULT_CLIENT_BRIEF);
     // v4 field — fall back to a single Home page for old presets
     setPages(preset.pages ?? [{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
@@ -373,8 +360,21 @@ function App() {
       showStatus("warning", "Task limit reached (max 5 running). Please wait for some to finish!");
       return;
     }
-    if (!projectPrompt.trim()) { showStatus("warning", "Please enter a prompt for your project!"); return; }
-    if (selectedComponents.length === 0) { showStatus("warning", "Please select at least one component!"); return; }
+
+    if (!aiSupport) {
+      setLastEnhancedPrompt(null);
+      // Default project name: use brand name > selected component > site type
+      const defaultName = clientBrief.brandName
+        ? clientBrief.brandName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+        : selected
+          ? `${selected.name.toLowerCase()}-demo`
+          : `${(styleDirection.siteType || 'project').toLowerCase()}-site`;
+      setProjectName(defaultName || 'my-project');
+      builderModeRef.current = true;
+      setShowGenerateWizard(true);
+      return;
+    }
+
     setGenerateStatus("Scavenging component source code...");
     try {
       const componentsWithContext = await Promise.all(
@@ -408,7 +408,7 @@ function App() {
 
       const enhanceResult = await window.reactBitsApi.enhancePrompt({
         rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
-        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Inline SVG or Unicode where needed", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Avoid introducing new icon-library imports in App.tsx."], designRules, responsiveDirective, styleDirection, clientBrief, layoutConfig: layoutConfig.length > 0 ? layoutConfig : null, componentRoleContext },
+        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Inline SVG or Unicode where needed", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Avoid introducing new icon-library imports in App.tsx."], designRules, responsiveDirective, styleDirection, clientBrief, componentRoleContext },
       });
       const enhanceData = enhanceResult as EnhancePromptResult;
       if (enhanceData.success) {
@@ -513,72 +513,7 @@ function App() {
     }
   };
 
-  // ── Vision Rework IPC listeners ────────────────────────────────────────────
-  useEffect(() => {
-    if (!window.reactBitsApi?.onVisionReworkReady) return;
-    const unsubscribe = window.reactBitsApi.onVisionReworkReady((data) => {
-      setReworkReadyTaskIds(prev => new Set([...prev, data.taskId]));
-      setVisionReworkData(data);
-      setVisionReworkTaskId(data.taskId);
-      setVisionReworkOpen(true);
-    });
-    return unsubscribe;
-  }, []);
 
-  useEffect(() => {
-    if (!window.reactBitsApi?.onVisionReworkProgress) return;
-    const unsubscribe = window.reactBitsApi.onVisionReworkProgress((msg, taskId) => {
-      setTasks(prev => {
-        if (!prev[taskId]) return prev;
-        return {
-          ...prev,
-          [taskId]: {
-            ...prev[taskId],
-            logs: [...(prev[taskId].logs || []), msg + '\n'],
-            progress: msg,
-          },
-        };
-      });
-    });
-    return unsubscribe;
-  }, []);
-
-  const handleVisionRework = (taskId: string) => {
-    // Re-open modal for this task (e.g. user closed it and clicked Rework pill)
-    setVisionReworkTaskId(taskId);
-    setVisionReworkOpen(true);
-  };
-
-  const handleVisionReworkConfirm = async (payload: VisionReworkPayload) => {
-    setVisionReworkOpen(false);
-    const reworkId = payload.taskId;
-    setTasks(prev => ({
-      ...prev,
-      [reworkId]: {
-        id: reworkId,
-        name: 'Vision Rework',
-        type: 'web' as const,
-        projectName: payload.projectName,
-        progress: 'Running vision rework…',
-        logs: ['Starting Vision Rework pass...\n'],
-        status: 'running' as const,
-        runWhenDoneUsed: false,
-        autoKillOnErrorUsed: false,
-        hasTerminalError: false,
-      },
-    }));
-    setActiveTaskId(reworkId);
-    const result = await window.reactBitsApi.runVisionRework(payload);
-    setTasks(prev => ({
-      ...prev,
-      [reworkId]: {
-        ...prev[reworkId],
-        status: result.success ? 'success' : 'error',
-        progress: result.success ? 'Vision Rework Complete!' : `Rework failed: ${result.error}`,
-        hasTerminalError: !result.success,
-      },
-    }));
-  };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -648,8 +583,6 @@ function App() {
               onKill={handleCloseTask}
               onSelect={setActiveTaskId}
               onClearAll={handleClearAllTasks}
-              onVisionRework={handleVisionRework}
-              reworkReadyTaskIds={reworkReadyTaskIds}
             />
           </aside>
 
@@ -681,15 +614,12 @@ function App() {
               onGenerate={handleBuilderGenerate}
               designRules={designRules}
               onDesignRulesChange={setDesignRules}
-              layoutConfig={layoutConfig}
-              onLayoutConfigChange={setLayoutConfig}
               styleDirection={styleDirection}
               onStyleDirectionChange={setStyleDirection}
               clientBrief={clientBrief}
               onClientBriefChange={setClientBrief}
               scrollbarStyle={scrollbarStyle}
               onScrollbarStyleChange={setScrollbarStyle}
-              onOpenLayoutIntelligence={() => setShowLayoutIntelligence(true)}
               onRestoreFromHistory={(p: string, sels: Array<{ id: string }>) => {
                 setProjectPrompt(p);
                 setSelectedIds(sels.map((s: { id: string }) => s.id));
@@ -707,7 +637,7 @@ function App() {
 
       <GenerateWizard
         open={showGenerateWizard}
-        onClose={() => setShowGenerateWizard(false)}
+        onClose={() => { builderModeRef.current = false; setShowGenerateWizard(false); }}
         selected={selected}
         lastEnhancedPrompt={lastEnhancedPrompt}
         projectName={projectName}
@@ -722,18 +652,17 @@ function App() {
         onOpenWhenDoneChange={setOpenWhenDone}
         runWhenDone={runWhenDone}
         onRunWhenDoneChange={setRunWhenDone}
-        autoKillOnError={autoKillOnError}
-        onAutoKillChange={setAutoKillOnError}
-        polishPass={polishPass}
-        onPolishPassChange={setPolishPass}
+        aiSupport={aiSupport}
+        onAiSupportChange={setAiSupport}
         onConfirm={confirmGenerate}
+        builderMode={showGenerateWizard && builderModeRef.current}
+        generationSummary={
+          selectedComponents.length > 0 || styleDirection.aesthetics.length > 0
+            ? `${styleDirection.aesthetics[0] ?? 'Default'} · ${styleDirection.siteType}${selectedComponents.length > 0 ? ` · ${selectedComponents.length} component${selectedComponents.length !== 1 ? 's' : ''}` : ''}`
+            : undefined
+        }
       />
 
-      <LayoutPreviewModal
-        isOpen={showLayoutIntelligence}
-        onClose={() => setShowLayoutIntelligence(false)}
-        layoutConfig={layoutConfig}
-      />
 
       <StructureWizard
         open={structureWizard.isOpen}
@@ -750,15 +679,6 @@ function App() {
         onOpenWhenDoneChange={structureWizard.setOpenWhenDone}
         onConfirm={handleStructureConfirm}
         allComponentNames={Object.fromEntries(selectedComponents.map(c => [`${c.category}/${c.name}`, c.name]))}
-      />
-
-      <VisionReworkModal
-        open={visionReworkOpen}
-        onClose={() => setVisionReworkOpen(false)}
-        reworkData={visionReworkData}
-        projectName={visionReworkTaskId ? (tasks[visionReworkTaskId]?.projectName ?? '') : ''}
-        originalPreset={visionReworkTaskId ? (lastPresetByTaskId.current[visionReworkTaskId] ?? null) : null}
-        onConfirm={handleVisionReworkConfirm}
       />
 
       {activeTaskId && tasks[activeTaskId] && (

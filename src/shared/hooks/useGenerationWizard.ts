@@ -13,7 +13,6 @@ export function useGenerationWizard() {
   const [packageManager, setPackageManager] = useState<'pnpm' | 'npm' | 'yarn' | 'bun'>('npm');
   const [openWhenDone, setOpenWhenDone] = useState(true);
   const [runWhenDone, setRunWhenDone]   = useState(false);
-  const [autoKillOnError, setAutoKillOnError] = useState(false);
 
   const handleSelectDirectory = async () => {
     const path = await window.reactBitsApi?.selectDirectory?.();
@@ -28,7 +27,6 @@ export function useGenerationWizard() {
     packageManager,     setPackageManager,
     openWhenDone,       setOpenWhenDone,
     runWhenDone,        setRunWhenDone,
-    autoKillOnError,    setAutoKillOnError,
     handleSelectDirectory,
   };
 }
