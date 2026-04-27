@@ -202,6 +202,38 @@ export default defineConfig({
     log(`[Scaffolder] Warning: Could not write vite.config.ts: ${e.message}\n`);
   }
 
+  // ── 6c. Patch tsconfig to remove verbatimModuleSyntax ───────────────────────
+  // Vite 5's react-ts template enables verbatimModuleSyntax by default, which
+  // requires `import type` for all type-only imports. Several ReactBits source
+  // files use value imports for types — removing this option prevents build errors.
+  try {
+    // Vite 5+ splits config into tsconfig.app.json (src) and tsconfig.node.json (vite config)
+    const tsconfigAppPath = path.join(targetDir, 'tsconfig.app.json');
+    const raw = await fs.readFile(tsconfigAppPath, 'utf-8');
+    const cfg = JSON.parse(raw);
+    if (cfg.compilerOptions) {
+      delete cfg.compilerOptions.verbatimModuleSyntax;
+      cfg.compilerOptions.allowSyntheticDefaultImports = true;
+      await fs.writeFile(tsconfigAppPath, JSON.stringify(cfg, null, 2), 'utf-8');
+      log('[Scaffolder] Patched tsconfig.app.json: removed verbatimModuleSyntax\n');
+    }
+  } catch (_) {
+    // Vite 4 uses a single tsconfig.json — try that as fallback
+    try {
+      const tsconfigPath = path.join(targetDir, 'tsconfig.json');
+      const raw = await fs.readFile(tsconfigPath, 'utf-8');
+      const cfg = JSON.parse(raw);
+      if (cfg.compilerOptions) {
+        delete cfg.compilerOptions.verbatimModuleSyntax;
+        cfg.compilerOptions.allowSyntheticDefaultImports = true;
+        await fs.writeFile(tsconfigPath, JSON.stringify(cfg, null, 2), 'utf-8');
+        log('[Scaffolder] Patched tsconfig.json: removed verbatimModuleSyntax\n');
+      }
+    } catch (e2) {
+      log(`[Scaffolder] Warning: Could not patch tsconfig: ${e2.message}\n`);
+    }
+  }
+
   // ── 7. Remove default Vite boilerplate ───────────────────────────────────────
   for (const f of [
     path.join(targetDir, 'public', 'vite.svg'),

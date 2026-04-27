@@ -288,6 +288,8 @@ async function writeReviewerBrief(projectPath, briefContext, tsErrors) {
     `- DO NOT add new dependencies — all packages are already installed`,
     `- DO NOT add placeholder comments or TODO comments`,
     `- Use CSS variables from \`:root\` (--color-bg, --color-text, --color-accent, --color-primary)`,
+    `- **Text contrast**: NEVER set text the same or similar color as its background. Every \`<p>\`, \`<h1>\`–\`<h6>\`, \`<span>\`, \`<li>\` must have \`color: 'var(--color-text)'\` (or a contrasting explicit color). If a section has a dark surface background, use a light text color explicitly.`,
+    `- **All text must be readable**: if in doubt, add \`color: 'var(--color-text)'\` explicitly — never rely on inheritance alone when background colors change between sections.`,
     `- When finished with all fixes, output: DONE`,
     ``,
     `## Brief Context JSON`,

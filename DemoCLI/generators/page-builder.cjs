@@ -102,6 +102,75 @@ function innerContainer(maxWidth, aesthetic) {
   return `style={{ maxWidth: '${maxWidth}', margin: '0 auto', padding: '0 ${pad}', width: '100%' }}`;
 }
 
+// ── JSX-safe string helpers ───────────────────────────────────────────────────
+
+/**
+ * Escapes user-supplied content for safe embedding in JSX text nodes.
+ * Prevents build errors from angle brackets (<, >) and JSX expressions ({, }).
+ */
+function jsxText(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\{/g, '&#123;')
+    .replace(/\}/g, '&#125;');
+}
+
+/** Like jsxText but also escapes double-quotes for use inside JSX string attributes. */
+function jsxAttr(str) {
+  if (!str) return '';
+  return jsxText(str).replace(/"/g, '&quot;');
+}
+
+/**
+ * Returns a sanitized copy of the content object.
+ * All user-supplied strings are escaped so they cannot break JSX parsing.
+ * Call this once at the entry point of each page/section builder.
+ */
+function sanitizeContent(c) {
+  if (!c) return {};
+  const t = jsxText, a = jsxAttr;
+  return {
+    brandName: t(c.brandName),
+    hero: {
+      headline:     t(c.hero?.headline),
+      subheadline:  t(c.hero?.subheadline),
+      cta:          t(c.hero?.cta),
+      ctaSecondary: t(c.hero?.ctaSecondary),
+    },
+    about: {
+      heading:   t(c.about?.heading),
+      body:      t(c.about?.body),
+      highlight: t(c.about?.highlight),
+    },
+    features: {
+      heading: t(c.features?.heading),
+      items: (c.features?.items || []).map(it => ({ title: t(it.title), body: t(it.body) })),
+    },
+    benefits: (c.benefits || []).map(t),
+    cta: {
+      heading: t(c.cta?.heading),
+      subtext:  t(c.cta?.subtext),
+      button:   t(c.cta?.button),
+    },
+    contact: {
+      heading:  t(c.contact?.heading),
+      email:    a(c.contact?.email),
+      phone:    a(c.contact?.phone),
+      location: t(c.contact?.location),
+    },
+    footer: {
+      brand: t(c.footer?.brand),
+      copy:  t(c.footer?.copy),
+      links: (c.footer?.links || []).map(l => ({ label: t(l.label), href: a(l.href) })),
+      socialLinks: Object.fromEntries(
+        Object.entries(c.footer?.socialLinks || {}).map(([k, v]) => [t(k), t(v)])
+      ),
+    },
+  };
+}
+
 // ── Text prop substitution for TextAnimation components ───────────────────────
 
 const TEXT_PROP_COMPONENTS = new Set([
@@ -111,8 +180,14 @@ const TEXT_PROP_COMPONENTS = new Set([
 
 function withContentText(compName, jsx, text) {
   if (!TEXT_PROP_COMPONENTS.has(compName) || !text) return jsx;
-  const safeText = text.replace(/"/g, "'").replace(/\n/g, ' ').slice(0, 80);
-  return jsx.replace(/\btext=["'][^"']*["']/, `text="${safeText}"`);
+  // Convert double-quotes to single-quotes so the text is safe inside a double-quoted JSX attribute.
+  // Use separate [^""]* / [^']* patterns — the old [^"']* stopped at apostrophes inside "…" strings,
+  // which left dangling text after the closing quote (e.g. text="View the Menu"t this so cool?!")
+  const safeText = text.replace(/"/g, "'").replace(/\n/g, ' ').trim().slice(0, 80);
+  const replacement = `text="${safeText}"`;
+  return jsx
+    .replace(/\btext="[^"]*"/, replacement)
+    .replace(/\btext='[^']*'/, replacement);
 }
 
 // ── Section builders ──────────────────────────────────────────────────────────
@@ -398,6 +473,7 @@ function buildShowcaseSection(unplacedNames, aesthetic, layout) {
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
+          <h2 style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '3rem' }}>Explore More</h2>
 ${blocks.join('\n')}
         </div>
       </section>`;
@@ -443,6 +519,7 @@ const SECTION_BUILDERS = {
  * Returns an array of JSX section strings for a single-page site.
  */
 function buildSinglePageSections({ content, styleDirection, selectedComponentNames, siteType, hasNav = false }) {
+  content = sanitizeContent(content);
   const aesthetic = (styleDirection && styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'Minimal';
   const layout = getLayout(aesthetic);
   const sections = SITE_SECTIONS[siteType] || SITE_SECTIONS.Landing;
@@ -475,6 +552,7 @@ function buildSinglePageSections({ content, styleDirection, selectedComponentNam
  * Used for multi-page sites.
  */
 function buildPageFile(pageName, sectionTypes, content, styleDirection, selectedComponentNames) {
+  content = sanitizeContent(content);
   const aesthetic = (styleDirection && styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'Minimal';
   const layout = getLayout(aesthetic);
   const selectedNames = selectedComponentNames || [];

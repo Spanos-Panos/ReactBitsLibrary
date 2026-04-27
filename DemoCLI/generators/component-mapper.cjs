@@ -247,6 +247,86 @@ const COMPONENT_JSX_OVERRIDES = {
   <div style={{ height: '16vh' }} />
 </div>`,
 
+  // FlowingMenu: usageMarkdown has `const demoItems = [...]` which gets stripped,
+  // leaving items={demoItems} removed and the menu rendering nothing.
+  FlowingMenu: `<div style={{ height: '500px', position: 'relative', overflow: 'hidden' }}>
+  <FlowingMenu
+    items={[
+      { link: '#', text: 'Discover', image: '/joker-square.jpg' },
+      { link: '#', text: 'Design', image: '/joker-portrait.jpg' },
+      { link: '#', text: 'Deliver', image: '/joker-landscape.jpg' },
+      { link: '#', text: 'Deploy', image: '/joker-square.jpg' },
+    ]}
+  />
+</div>`,
+
+  // AnimatedList: usageMarkdown has `const items = [...]` which gets stripped,
+  // leaving the list empty. Override provides real content items.
+  AnimatedList: `<AnimatedList
+  items={['Strategy', 'Design', 'Development', 'Testing', 'Launch', 'Support', 'Analytics', 'Optimization']}
+  onItemSelect={(item, index) => console.log(item, index)}
+  showGradients={true}
+  enableArrowNavigation={true}
+  displayScrollbar={true}
+/>`,
+
+  // BounceCards: usageMarkdown has `const images = [...]` and `const transformStyles = [...]`
+  // which both get stripped, leaving the component with no images to show.
+  BounceCards: `<BounceCards
+  images={['/joker-square.jpg', '/joker-portrait.jpg', '/joker-landscape.jpg', '/joker-square.jpg', '/joker-portrait.jpg']}
+  containerWidth={500}
+  containerHeight={250}
+  animationDelay={0.5}
+  animationStagger={0.08}
+  easeType="elastic.out(1, 0.5)"
+  transformStyles={[
+    'rotate(5deg) translate(-150px)',
+    'rotate(0deg) translate(-70px)',
+    'rotate(-5deg)',
+    'rotate(5deg) translate(70px)',
+    'rotate(-5deg) translate(150px)',
+  ]}
+  enableHover={true}
+/>`,
+
+  // ScrollStack: requires a fixed-height overflow:hidden container to work with Lenis.
+  // Without it the rAF loop runs endlessly and freezes the page. Uses plain divs with
+  // className="scroll-stack-card" instead of <ScrollStackItem> to avoid named imports.
+  ScrollStack: `<div style={{ height: '100vh', overflow: 'hidden', position: 'relative' }}>
+  <ScrollStack
+    itemDistance={100}
+    itemScale={0.03}
+    itemStackDistance={30}
+    stackPosition="20%"
+    scaleEndPosition="10%"
+    baseScale={0.85}
+  >
+    <div className="scroll-stack-card" style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '3rem', color: 'var(--color-text)' }}>
+      <h2 style={{ marginBottom: '1rem', color: 'var(--color-text)' }}>Discover</h2>
+      <p style={{ opacity: 0.7, lineHeight: 1.7, color: 'var(--color-text)' }}>We start by understanding your vision — your goals, your audience, and the story you want to tell.</p>
+    </div>
+    <div className="scroll-stack-card" style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '3rem', color: 'var(--color-text)' }}>
+      <h2 style={{ marginBottom: '1rem', color: 'var(--color-text)' }}>Design</h2>
+      <p style={{ opacity: 0.7, lineHeight: 1.7, color: 'var(--color-text)' }}>Every pixel is purposeful. We craft interfaces that feel as good as they look — intuitive, elegant, and built to last.</p>
+    </div>
+    <div className="scroll-stack-card" style={{ background: 'var(--color-surface)', borderRadius: 12, padding: '3rem', color: 'var(--color-text)' }}>
+      <h2 style={{ marginBottom: '1rem', color: 'var(--color-text)' }}>Deliver</h2>
+      <p style={{ opacity: 0.7, lineHeight: 1.7, color: 'var(--color-text)' }}>From concept to launch, we move fast without cutting corners — shipping products that make a real impact.</p>
+    </div>
+  </ScrollStack>
+</div>`,
+
+  // CircularGallery: usageMarkdown hardcodes textColor="#ffffff" which is invisible on light
+  // background pages. Override sets a neutral dark value that works on both light/dark backgrounds.
+  CircularGallery: `<div style={{ height: '600px', position: 'relative', overflow: 'hidden' }}>
+  <CircularGallery
+    bend={3}
+    textColor="#111111"
+    borderRadius={0.05}
+    scrollEase={0.02}
+  />
+</div>`,
+
   // ScrambleText: usageMarkdown has `scrambleChars={.:}` which is invalid JSX (unquoted non-identifier).
   // Override uses correct string prop syntax.
   ScrambleText: `<ScrambleText
@@ -299,7 +379,14 @@ function extractComponentData(entry) {
 
   // Use hand-crafted override if available
   if (COMPONENT_JSX_OVERRIDES[name]) {
-    return { name, category, importLine: baseImportLine, jsx: COMPONENT_JSX_OVERRIDES[name], isFixed, zIndex };
+    const override = COMPONENT_JSX_OVERRIDES[name];
+    const isObj = override !== null && typeof override === 'object' && typeof override.jsx === 'string';
+    return {
+      name, category,
+      importLine: isObj ? override.importLine : baseImportLine,
+      jsx: isObj ? override.jsx : override,
+      isFixed, zIndex,
+    };
   }
 
   if (!usageMarkdown || !usageMarkdown.trim()) {

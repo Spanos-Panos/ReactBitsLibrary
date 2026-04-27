@@ -4,6 +4,8 @@
  * Produces aesthetic-specific CSS that is always injected — never depends on AI.
  */
 
+const { getContrastColor, getContrastRatio } = require('../utils/colorContrast.cjs');
+
 const AESTHETIC_GLOBALS = {
   minimal: `
 /* ── Minimal aesthetic ─────────────────────────────────── */
@@ -280,9 +282,16 @@ function buildTokensCSS(designRules, styleDirection) {
   const fonts = (designRules && designRules.fonts) || [];
 
   const bg      = resolveColor(colors, 'background') || defaults.bg;
-  const text    = resolveColor(colors, 'text')       || defaults.text;
+  let   text    = resolveColor(colors, 'text')       || defaults.text;
   const accent  = resolveColor(colors, 'accent')     || defaults.accent;
   const primary = resolveColor(colors, 'components') || defaults.primary;
+
+  // Ensure text is readable against the background (WCAG AA minimum ~3:1)
+  try {
+    if (getContrastRatio(bg, text) < 3.0) {
+      text = getContrastColor(bg);
+    }
+  } catch { /* non-hex colors (rgba, var()) — skip check */ }
 
   const headingFont = resolveFont(fonts, 'heading');
   const bodyFont    = resolveFont(fonts, 'body');
