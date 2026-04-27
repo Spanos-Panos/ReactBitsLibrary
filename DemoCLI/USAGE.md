@@ -20,7 +20,7 @@ node DemoCLI/synthetic-client/index.cjs
 # Free mode — no API, no key, instant
 node DemoCLI/synthetic-client/index.cjs --local
 node DemoCLI/synthetic-client/index.cjs --local --archetype luxury
-node DemoCLI/synthetic-client/index.cjs --local --count 5
+node DemoCLI/synthetic-client/index.cjs --local --count 3
 
 # Generate a specific type of client (Claude mode)
 node DemoCLI/synthetic-client/index.cjs --archetype luxury
