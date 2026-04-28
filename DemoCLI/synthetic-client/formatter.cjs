@@ -55,7 +55,8 @@ function buildPresetJson(claudeOutput, archetypeName) {
   }
 
   return {
-    id: "sc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
+    // Keep ID human-readable so imported preset filenames match project output naming.
+    id: projectName,
     name: `${clientBrief.brandName} — ${styleDirection.aesthetics[0]} ${styleDirection.siteType}`,
     savedAt: new Date().toISOString(),
     schemaVersion: 4,

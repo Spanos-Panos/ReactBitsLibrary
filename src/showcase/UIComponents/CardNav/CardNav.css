@@ -12,6 +12,7 @@
 .card-nav {
   display: block;
   height: 56px;
+  box-sizing: border-box;
   padding: 0;
   background-color: rgba(9, 12, 20, 0.55);
   backdrop-filter: blur(24px) saturate(160%);
@@ -42,6 +43,7 @@
   left: 0;
   right: 0;
   height: 56px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -288,6 +288,8 @@ async function main() {
             break;
           }
         }
+        // Keep imported preset filename aligned with the final output folder.
+        preset.id = folderName;
 
         const brief = formatter.buildBriefMd(claudeOutput, archetype.name, dateStr, folderName);
 
@@ -306,6 +308,24 @@ async function main() {
         console.log(`           brief.md     ← read this to understand the client`);
         console.log(`       Brand: ${preset.clientBrief.brandName}`);
         console.log(`       Components: ${preset.selectedComponentIds.map(id => id.split('/').pop()).join(', ')}`);
+
+        // Drop a readable copy into the BitForge presets folder.
+        // The Import button in BitForge opens a file dialog that starts here,
+        // so you can pick and load this preset without hunting for the file.
+        const PRESETS_DIR = path.join(
+          process.env.USERPROFILE || process.env.HOME || '',
+          'Documents', '.reactBitsExplorer', 'presets'
+        );
+        try {
+          await fs.mkdir(PRESETS_DIR, { recursive: true });
+          const presetId     = `${folderName}-preset`;
+          const exportPreset = { ...preset, id: presetId, _outputPath: clientDir };
+          const destFile     = path.join(PRESETS_DIR, `${presetId}.json`);
+          await fs.writeFile(destFile, JSON.stringify(exportPreset, null, 2));
+          console.log(`       → Preset ready: ${path.relative(process.cwd(), destFile)}`);
+        } catch (exportErr) {
+          console.warn(`       ⚠ Could not write preset: ${exportErr.message}`);
+        }
       }
 
     } catch (err) {

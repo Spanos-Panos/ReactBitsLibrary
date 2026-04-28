@@ -139,6 +139,7 @@ export interface ReactBitsApi {
   deletePreset(id: string): Promise<unknown>;
   openPresetsFolder(): Promise<unknown>;
   importPreset(): Promise<{ success?: boolean; preset?: unknown; canceled?: boolean; error?: string }>;
+  onPresetImported(cb: (result: { success?: boolean; preset?: unknown; error?: string }) => void): () => void;
   addComponent(payload: NewComponentPayload): Promise<AddComponentResult>;
   pickDesignImages(): Promise<Array<{ name: string; path: string; base64: string }>>;
   pickSingleFile(filters: Array<{ name: string; extensions: string[] }>): Promise<PickFileResult | null>;

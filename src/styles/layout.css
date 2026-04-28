@@ -167,6 +167,8 @@
 /* ── Top bar (CardNav + action buttons) ──────────────────────────────────── */
 
 .top-bar {
+  --top-bar-control-size: 56px;
+  --top-bar-actions-offset: 0px;
   position: absolute;
   top: 0.4rem;
   left: calc(220px + 0.9rem);
@@ -182,19 +184,31 @@
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+  height: var(--top-bar-control-size);
+  align-items: center;
+  align-self: flex-start;
+  margin-top: var(--top-bar-actions-offset);
 }
 
 /* Mirror spacer — keeps CardNav truly centered between the action buttons */
 .top-bar-spacer {
-  width: calc(2 * 56px + 6px);
+  width: calc(2 * var(--top-bar-control-size) + 6px);
+  height: var(--top-bar-control-size);
   flex-shrink: 0;
   pointer-events: none;
+  align-self: flex-start;
+  margin-top: var(--top-bar-actions-offset);
 }
 
 .nav-action-btn {
   position: relative;
-  width: 56px;
-  height: 56px;
+  width: var(--top-bar-control-size);
+  height: var(--top-bar-control-size);
+  min-width: var(--top-bar-control-size);
+  min-height: var(--top-bar-control-size);
+  max-width: var(--top-bar-control-size);
+  max-height: var(--top-bar-control-size);
+  box-sizing: border-box;
   border-radius: 14px;
   background: rgba(9, 12, 20, 0.55);
   backdrop-filter: blur(24px) saturate(160%);

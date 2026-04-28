@@ -473,9 +473,15 @@ ipcMain.handle("preset-delete", (_event, id)     => deletePreset(id));
 ipcMain.handle("preset-open-folder", ()          => openPresetsFolder());
 ipcMain.handle("preset-import", async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
+  const presetsDir = path.join(app.getPath('documents'), '.reactBitsExplorer', 'presets');
+  // Ensure the folder exists so the dialog can navigate to it
+  fs.mkdirSync(presetsDir, { recursive: true });
+  // Including a filename in defaultPath forces Windows to always open in this folder
+  // rather than remembering the last-browsed location from other dialogs.
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     title: 'Import Preset',
-    filters: [{ name: 'JSON Preset', extensions: ['json'] }],
+    defaultPath: path.join(presetsDir, 'preset.json'),
+    filters: [{ name: 'BitForge Preset', extensions: ['json'] }],
     properties: ['openFile'],
   });
   if (canceled || !filePaths.length) return { canceled: true };

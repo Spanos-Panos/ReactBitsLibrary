@@ -126,6 +126,11 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   openInVSCode(path) {
     return ipcRenderer.invoke("open-in-vscode", path);
   },
+  onPresetImported(callback) {
+    const handler = (_event, result) => callback(result);
+    ipcRenderer.on('preset-imported', handler);
+    return () => ipcRenderer.removeListener('preset-imported', handler);
+  },
 });
 
 function safeReadDir(dirPath) {

@@ -2,6 +2,9 @@ import React, { useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import "./CardNav.css";
 
+const TOP_BAR_HEIGHT = 56;
+const CONTENT_GAP = 16;
+
 export type CardNavItem = {
   label: string;
   bgColor: string;
@@ -64,7 +67,7 @@ const CardNav: React.FC<CardNavProps> = ({
         contentEl.style.pointerEvents = wasPointerEvents;
         contentEl.style.position = wasPosition;
         contentEl.style.height = wasHeight;
-        return 60 + contentHeight + 16;
+        return TOP_BAR_HEIGHT + contentHeight + CONTENT_GAP;
       }
     }
     return 260;
@@ -73,7 +76,7 @@ const CardNav: React.FC<CardNavProps> = ({
   const createTimeline = () => {
     const navEl = navRef.current;
     if (!navEl) return null;
-    gsap.set(navEl, { height: 60, overflow: "hidden" });
+    gsap.set(navEl, { height: TOP_BAR_HEIGHT, overflow: "hidden" });
     gsap.set(cardsRef.current, { y: 50, opacity: 0 });
     const tl = gsap.timeline({ paused: true });
     tl.to(navEl, { height: calculateHeight, duration: 0.4, ease });

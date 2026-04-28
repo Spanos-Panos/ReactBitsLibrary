@@ -70,11 +70,13 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   const [confirmLoadId, setConfirmLoadId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [importStatus, setImportStatus] = useState<'idle' | 'ok' | 'err'>('idle');
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [subPanelVisible, setSubPanelVisible] = useState(false);
   const [infoPanelVisible, setInfoPanelVisible] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
   const inputRef = useRef<HTMLInputElement>(null);
+  const SUBPANEL_CLOSE_MS = 240;
+  const MAIN_CLOSE_MS = 260;
 
   useEffect(() => {
     const hasConfirm = !!(confirmLoadId || confirmDeleteId);
@@ -88,6 +90,12 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
     const t = setTimeout(() => setInfoPanelVisible(false), 320);
     return () => clearTimeout(t);
   }, [infoId]);
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   /* ── data loading ─────────────────────────────────────────── */
 
@@ -112,6 +120,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
     }
   }, [isOpen]);
 
+
   const pushRecent = (id: string) => {
     const next = [id, ...recentIds.filter(r => r !== id)].slice(0, 5);
     setRecentIds(next);
@@ -122,22 +131,27 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
 
   const handleImport = async () => {
     const result = await api()?.importPreset?.();
-    if (result?.canceled) return;
-    if (result?.success) {
-      setImportStatus('ok');
+    if (result && !result.canceled && result.success) {
       await loadPresets();
-    } else {
-      setImportStatus('err');
     }
-    setTimeout(() => setImportStatus('idle'), 1800);
+  };
+
+  const closeModalSequentially = (afterMainClose?: () => void) => {
+    setInfoId(null);
+    setConfirmLoadId(null);
+    setConfirmDeleteId(null);
+
+    window.setTimeout(() => {
+      onToggle();
+      if (afterMainClose) {
+        window.setTimeout(afterMainClose, MAIN_CLOSE_MS);
+      }
+    }, SUBPANEL_CLOSE_MS);
   };
 
   const handleClose = () => {
     if (infoId || confirmLoadId || confirmDeleteId) {
-      setInfoId(null);
-      setConfirmLoadId(null);
-      setConfirmDeleteId(null);
-      setTimeout(() => onToggle(), 380);
+      closeModalSequentially();
       return;
     }
     onToggle();
@@ -155,9 +169,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
 
   const handleLoadConfirmed = (preset: SavedPreset) => {
     pushRecent(preset.id);
-    onLoad(preset);
-    setConfirmLoadId(null);
-    setTimeout(() => onToggle(), 280);
+    closeModalSequentially(() => onLoad(preset));
   };
 
   const handleDeleteConfirmed = async (id: string) => {
@@ -219,6 +231,13 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   const infoPreset = presets.find(p => p.id === infoId);
   const confirmLoadPreset = presets.find(p => p.id === confirmLoadId);
   const confirmDeletePreset = presets.find(p => p.id === confirmDeleteId);
+  const hasSidePanel = infoPanelVisible || subPanelVisible;
+  const maxModalWidth = Math.max(320, viewportWidth - 32);
+  const minMainWidthWhenSplit = 360;
+  const preferredSideWidth = Math.min(400, maxModalWidth * 0.36);
+  const maxAllowedSideWidth = Math.max(0, maxModalWidth - minMainWidthWhenSplit);
+  const sidePanelWidth = hasSidePanel ? Math.min(preferredSideWidth, maxAllowedSideWidth) : 0;
+  const mainPanelWidth = hasSidePanel ? Math.max(320, maxModalWidth - sidePanelWidth) : Math.min(920, maxModalWidth);
   /* ── render ───────────────────────────────────────────────── */
 
   return (
@@ -241,8 +260,8 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
           <div className="wizard-overlay" style={{ zIndex: 99999, alignItems: 'center' }}>
             {/* outer row: main+confirm column | info column */}
             <motion.div
-              animate={{ x: (infoPanelVisible || subPanelVisible) ? -200 : 0 }}
-              transition={{ type: 'spring', damping: 32, stiffness: 360, mass: 0.9 }}
+              animate={{ x: hasSidePanel ? -(sidePanelWidth / 2) : 0 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}
               onClick={e => e.stopPropagation()}
             >
@@ -261,13 +280,14 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                   exit={{ opacity: 0, scale: 0.94, y: 18 }}
                   transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.9 }}
                   style={{
-                    width: 680, flexShrink: 0,
+                    width: mainPanelWidth, flexShrink: 0,
                     background: 'rgba(9, 12, 20, 0.78)',
                     backdropFilter: 'blur(40px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(40px) saturate(180%)',
                     border: '1px solid rgba(255,255,255,0.08)',
                     borderRadius: 18,
                     overflow: 'hidden',
+                    maxHeight: '88vh',
                     zIndex: 2,
                     boxShadow: '0 40px 90px -20px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.03)',
                     display: 'flex', flexDirection: 'column',
@@ -309,7 +329,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                     </button>
                   </div>
 
-                  <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20, flex: 1, minHeight: 0, overflowY: 'auto' }}>
                     {/* Section 1 — Create */}
                     <section>
                       <SectionLabel>Create Preset</SectionLabel>
@@ -343,7 +363,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                     <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)', margin: '0 -20px' }} />
 
                     {/* Two-Column Grid for Recent and Browser */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: mainPanelWidth < 760 ? '1fr' : '1fr 1fr', gap: mainPanelWidth < 760 ? 20 : 32 }}>
                       {/* Section 2 — Recent */}
                       <section>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 26, marginBottom: 14 }}>
@@ -444,46 +464,9 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 26, marginBottom: 14 }}>
                           <SectionLabel style={{ marginBottom: 0 }}>Global Browser · {presets.length}</SectionLabel>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <button
-                              onClick={handleImport}
-                              title="Import Preset"
-                              style={{
-                                padding: '4px 8px', borderRadius: 6,
-                                background: importStatus === 'ok' ? 'rgba(74,222,128,0.06)' : importStatus === 'err' ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.03)',
-                                border: `1px solid ${importStatus === 'ok' ? 'rgba(74,222,128,0.3)' : importStatus === 'err' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                                color: importStatus === 'ok' ? '#4ade80' : importStatus === 'err' ? '#f87171' : 'rgba(255,255,255,0.25)',
-                                fontSize: '0.52rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                                fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-                                transition: 'all .18s ease',
-                              }}
-                              onMouseEnter={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; } }}
-                              onMouseLeave={e => { if (importStatus === 'idle') { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'rgba(255,255,255,0.25)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; } }}
-                            >
-                              {importStatus === 'ok' ? (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                              ) : importStatus === 'err' ? (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                              ) : (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                              )}
-                              {importStatus === 'ok' ? 'Done' : importStatus === 'err' ? 'Err' : 'Import'}
-                            </button>
-                            <button
-                              onClick={() => api()?.openPresetsFolder?.()}
-                              title="Open presets folder"
-                              style={{
-                                flexShrink: 0, padding: '4px 6px', borderRadius: 6,
-                                background: 'none', border: '1px solid rgba(255,255,255,0.04)',
-                                color: 'rgba(255,255,255,0.15)', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                transition: 'all .15s ease',
-                              }}
-                              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; e.currentTarget.style.background = 'none'; }}
-                            >
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                            </button>
+                            <PremiumUnderlineButton onClick={handleImport} title="Open presets folder" primary>
+                              Import
+                            </PremiumUnderlineButton>
                           </div>
                         </div>
 
@@ -554,13 +537,13 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                   {(infoId || confirmLoadId || confirmDeleteId) && (
                     <motion.div
                       key="pm-side-panel"
-                      initial={{ width: 0, opacity: 0 }}
-                      animate={{ width: 400, opacity: 1 }}
-                      exit={{ width: 0, opacity: 0 }}
-                      transition={{ type: 'spring', damping: 32, stiffness: 360, mass: 0.9 }}
+                      initial={{ width: sidePanelWidth, opacity: 0, x: 22 }}
+                      animate={{ width: sidePanelWidth, opacity: 1, x: 0 }}
+                      exit={{ width: sidePanelWidth, opacity: 0, x: 16 }}
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                       style={{
-                        position: 'absolute', top: 0, bottom: 0, left: 680,
-                        width: 400, flexShrink: 0, overflow: 'hidden',
+                        position: 'absolute', top: 0, bottom: 0, left: mainPanelWidth,
+                        width: sidePanelWidth, flexShrink: 0, overflow: 'hidden',
                         background: 'rgba(9, 12, 20, 0.78)',
                         backdropFilter: 'blur(40px) saturate(180%)',
                         WebkitBackdropFilter: 'blur(40px) saturate(180%)',
@@ -572,7 +555,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                         boxShadow: '0 40px 90px -20px rgba(0,0,0,0.7)',
                       }}
                     >
-                      <div style={{ width: 400, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ width: sidePanelWidth, height: '100%', display: 'flex', flexDirection: 'column' }}>
                         {infoId && infoPreset && <InfoPanelContent preset={infoPreset} onClose={() => setInfoId(null)} />}
 
                         {confirmLoadId && confirmLoadPreset && (
@@ -635,7 +618,8 @@ function PremiumUnderlineButton({
   disabled,
   active,
   primary,
-  danger
+  danger,
+  title
 }: {
   children: React.ReactNode;
   onClick: () => void;
@@ -643,12 +627,14 @@ function PremiumUnderlineButton({
   active?: boolean;
   primary?: boolean;
   danger?: boolean;
+  title?: string;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
     <button
       onClick={onClick}
+      title={title}
       disabled={disabled}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

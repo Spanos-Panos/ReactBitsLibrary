@@ -114,10 +114,38 @@ function listPresets() {
   }
 }
 
+// Resolved once so every deletePreset call can use it as a fallback root.
+const SYNTH_OUTPUT_ROOT = path.join(__dirname, '..', 'DemoCLI', 'synthetic-client', 'output');
+
 function deletePreset(id) {
   try {
     const filePath = path.join(PRESETS_DIR, `${id}.json`);
+
+    // Read the preset before deleting so we can find the output folder
+    let outputPath = null;
+    if (fs.existsSync(filePath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        // Primary: explicit path stored by the CLI
+        if (data._outputPath) {
+          outputPath = data._outputPath;
+        // Fallback: derive from projectName — covers presets generated before _outputPath was added
+        } else if (data.projectName) {
+          const candidate = path.join(SYNTH_OUTPUT_ROOT, data.projectName);
+          if (fs.existsSync(candidate)) outputPath = candidate;
+        }
+      } catch {}
+    }
+
+    // Delete the preset JSON from the presets folder
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    // Delete the output folder (preset.json + brief.md)
+    if (outputPath && fs.existsSync(outputPath)) {
+      fs.rmSync(outputPath, { recursive: true, force: true });
+      console.log(`[Storage] Deleted output folder: ${outputPath}`);
+    }
+
     return { success: true };
   } catch (error) {
     console.error('[Storage] Failed to delete preset:', error);
