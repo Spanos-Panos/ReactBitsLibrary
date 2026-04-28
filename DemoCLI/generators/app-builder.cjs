@@ -103,6 +103,87 @@ ${sections.join('\n')}
 }
 
 /**
+ * Builds nav JSX with items derived from the actual pages, not hardcoded placeholders.
+ * Falls back to the static component-mapper JSX for unknown nav types.
+ */
+function buildNavJsxForPages(navName, pages) {
+  const items = pages.map((p, i) => ({
+    label: p.pageName,
+    href:  i === 0 ? '/' : p.path,
+  }));
+
+  switch (navName) {
+    case 'StaggeredMenu': {
+      const itemsStr = items
+        .map(it => `      { label: '${it.label}', ariaLabel: 'Go to ${it.label.toLowerCase()}', link: '${it.href}' }`)
+        .join(',\n');
+      return `<div style={{ position: 'fixed', top: 0, right: 0, zIndex: 999, pointerEvents: 'auto' }}>
+  <StaggeredMenu
+    position="right"
+    items={[\n${itemsStr}\n    ]}
+    displayItemNumbering={true}
+  />
+</div>`;
+    }
+    case 'GooeyNav': {
+      const itemsStr = items
+        .map(it => `      { label: '${it.label}', href: '${it.href}' }`)
+        .join(',\n');
+      return `<nav style={{ position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 999, pointerEvents: 'auto' }}>
+  <GooeyNav
+    items={[\n${itemsStr}\n    ]}
+    particleCount={12}
+    particleDistances={[80, 10]}
+    particleR={80}
+    initialActiveIndex={0}
+    animationTime={400}
+    timeVariance={200}
+    colors={[1, 2, 3, 1, 2, 3, 1, 4]}
+  />
+</nav>`;
+    }
+    case 'CardNav': {
+      const itemsStr = items
+        .map(it => `      { label: '${it.label}', href: '${it.href}' }`)
+        .join(',\n');
+      return `<div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, pointerEvents: 'auto' }}>
+  <CardNav
+    items={[\n${itemsStr}\n    ]}
+  />
+</div>`;
+    }
+    case 'Dock': {
+      const labels = ['⌂', '☰', '✦', '◈', '⊕'];
+      const itemsStr = items
+        .map((it, i) => `      { icon: <span style={{ fontSize: '1.1rem' }}>${labels[i] || '•'}</span>, label: '${it.label}', onClick: () => window.location.href='${it.href}' }`)
+        .join(',\n');
+      return `<div style={{ position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 999, pointerEvents: 'auto' }}>
+  <Dock
+    items={[\n${itemsStr}\n    ]}
+    panelHeight={68}
+    baseItemSize={50}
+    magnification={70}
+  />
+</div>`;
+    }
+    case 'PillNav': {
+      const itemsStr = items
+        .map(it => `      { label: '${it.label}', href: '${it.href}' }`)
+        .join(',\n');
+      return `<nav style={{ position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 999, pointerEvents: 'auto' }}>
+  <PillNav
+    items={[\n${itemsStr}\n    ]}
+  />
+</nav>`;
+    }
+    default: {
+      // FlowingMenu and unknown types: fall back to component-mapper static JSX
+      return getComponent(navName).jsx;
+    }
+  }
+}
+
+/**
  * Generates src/App.tsx for a multi-page site using react-router-dom.
  */
 async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief = {} }) {
@@ -133,10 +214,10 @@ async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clie
     return `        ${data.isFixed ? data.jsx : `<${c.name} style={{ position: 'fixed', inset: 0, zIndex: ${c.zIndex}, pointerEvents: '${pointerEvents}' }} />`}`;
   }).join('\n');
 
-  // Nav layer JSX — fixed overlays, shared across all routes
+  // Nav layer JSX — fixed overlays with links matching the actual pages
   const navLayers = navs.map(c => {
-    const data = getComponent(c.name);
-    return `        ${data.jsx}`;
+    const jsx = buildNavJsxForPages(c.name, uniquePages);
+    return `        ${jsx}`;
   }).join('\n');
 
   const fixedImports = fixed
@@ -149,9 +230,9 @@ async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clie
     .map(c => getComponent(c.name).importLine)
     .join('\n');
 
-  // Always generate a NavLink-based navbar for multi-page sites — reliable page links regardless
-  // of whether a ReactBits nav component is selected. ReactBits nav renders as an additional overlay.
-  const needsAutoNav = uniquePages.length > 1;
+  // When no nav component is selected, auto-generate a NavLink-based navbar with active state.
+  // Without this, multi-page sites have routes but no way to navigate between them.
+  const needsAutoNav = !hasNav && uniquePages.length > 1;
   const brandName = clientBrief.brandName || 'Brand';
   const autoNavLinks = uniquePages.map((p, i) => {
     const href = i === 0 ? '/' : p.path;
