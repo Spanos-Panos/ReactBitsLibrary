@@ -132,8 +132,38 @@ Return ONLY a raw JSON object. No preamble, no backticks.
     "cta.heading": "Final CTA section heading",
     "cta.subtext": "CTA subtext",
     "about.body": "About section body paragraph"
+  },
+  "pageContents": {
+    "home": {
+      "pageTitle": "Specific punchy h1 for the home page",
+      "tagline": "One-line subheading",
+      "valueProps": ["Specific benefit 1", "Specific benefit 2", "Specific benefit 3"]
+    },
+    "about": {
+      "pageTitle": "Specific about page headline",
+      "tagline": "One-line subheading",
+      "teamMembers": [{ "name": "Real-sounding name", "role": "Job title" }]
+    },
+    "services": {
+      "pageTitle": "Specific services headline",
+      "services": [{ "name": "Service name", "description": "One-line description" }]
+    },
+    "contact": {
+      "pageTitle": "Get in touch headline",
+      "faqs": [{ "q": "Specific question", "a": "Specific answer" }]
+    }
   }
 }
+
+RULES FOR pageContents:
+- Include ONLY page keys that exist in the project (e.g. a Landing page only needs "home")
+- pageTitle must be a punchy, brand-specific headline — NOT a generic page name
+- All copy must be specific to this brand and industry — no Lorem ipsum
+- teamMembers: 2–4 people with plausible names and roles appropriate to the industry
+- services: 3–5 services/features with one-line descriptions
+- faqs: 3 realistic questions a potential client would ask, with helpful answers
+- If the site has only one page, only include "home" in pageContents
+- pageContents is OPTIONAL — omit the key entirely if you have no useful content to add
 
 DO NOT include: generatorSteps, siteArchitecture, technicalRequirements — the template engine handles all of that.
 

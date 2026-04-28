@@ -171,11 +171,16 @@ function getRandomArchetype() {
 }
 
 function getArchetypeByKeyword(keyword) {
+  const n = parseInt(keyword, 10);
+  if (!isNaN(n) && String(n) === String(keyword).trim()) {
+    const byIndex = archetypes[n - 1];
+    if (byIndex) return byIndex;
+  }
   const kw = keyword.toLowerCase();
-  const match = archetypes.find(a => 
-    a.name.toLowerCase().includes(kw) || 
-    a.aesthetic.toLowerCase().includes(kw) || 
-    a.siteType.toLowerCase().includes(kw) || 
+  const match = archetypes.find(a =>
+    a.name.toLowerCase().includes(kw) ||
+    a.aesthetic.toLowerCase().includes(kw) ||
+    a.siteType.toLowerCase().includes(kw) ||
     a.industryHints.toLowerCase().includes(kw)
   );
   return match || getRandomArchetype();

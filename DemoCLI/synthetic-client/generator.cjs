@@ -119,7 +119,23 @@ Return a JSON object with exactly this structure — no extra fields, no missing
   },
   "selectedComponentIds": ["Category/Name", ...],
   "pages": [
-    { "id": "page-home", "title": "Home", "type": "home", "componentIds": [] }
+    {
+      "id": "page-home",
+      "title": "Home",
+      "type": "home",
+      "componentIds": [],
+      "content": {
+        "pageTitle": "<specific h1 for this page>",
+        "tagline": "<one-line subheading>",
+        "sections": [
+          { "sectionType": "hero", "heading": "...", "bodyCopy": "1-2 sentences", "cta": "button label" }
+        ],
+        "valueProps": ["benefit 1", "benefit 2", "benefit 3"],
+        "teamMembers": [],
+        "services": [],
+        "faqs": []
+      }
+    }
   ],
   "projectPrompt": "...",
   "projectName": "<lowercase-slug>",
@@ -135,7 +151,7 @@ Return a JSON object with exactly this structure — no extra fields, no missing
 }
 
 RULES FOR selectedComponentIds:
-- Pick exactly 3 to 6 components from this list:
+- Pick exactly 5 to 8 components from this list:
   Components: AnimatedList, BounceCards, CardNav, CardSwaps, Carousel, ChromeGrid, CircularGallery, Counter, DecayCard, Dock, ElasticSlider, FlowingMenu, FluidGlass, FlyingPosters, Folder, GlassIcons, GlassSurface, GooeyNav, InfiniteMenu, InfiniteScroll, Lanyard, MagicBento, Mansory, ModelViewer, PillNav, PixelCard, ProfileCard, RollingGallery, ScrollStack, SpotlightCard, Stack, StaggeredMenu, Stepper, TiltedCard
   Animations: AnimatedContent, BlobCursor, ClickSpark, Crosshair, Cubes, FadeContent, GlareHover, GradualBlur, ImageTrail, LogoLoop, MagicRings, Magnet, MagnetLines, MetaBalls, MetalicPaint, Noise, PixelTrail, PixelTransition, Ribbons, ShapeBlur, SplashCursor, StarBorder, StickerPeel, TargetCursor
   Backgrounds: Aurora, Balatro, Ballpit, Beams, ColorBends, DarkVeil, Dither, DotGrid, FaultyTerminal, FloatingLines, Galaxy, GridDistortion, GridMotion, HyperSpeed, Iridescence, LatterGlitch, Lightning, LightRays, LiquidChrome, Orb, Particles, Plasma, PlasmaWave, Prism, RippleGrid, Silk, Squares, Threads, Waves
@@ -144,7 +160,15 @@ RULES FOR selectedComponentIds:
 - At most 1 Background component
 - At most 1 nav component (CardNav, StaggeredMenu, GooeyNav, Dock, PillNav, FlowingMenu)
 - At most 1 cursor (BlobCursor, SplashCursor, PixelTrail, ImageTrail, TargetCursor, Crosshair)
-- Choose components that suit this client's industry and aesthetic
+- If the site has MORE THAN ONE page, you MUST include exactly 1 nav component
+- AVOID REPETITION: Do NOT default to GradualBlur, SplitText, or CircularGallery in every project. Vary your choices widely across the full component list based on the specific client's aesthetic and industry
+- Aesthetic matching rules:
+  * Editorial / monochromatic: prefer ScrollReveal, ScrollStack, FadeContent, TiltedCard, AnimatedContent, ShinyText, GradientText
+  * Futuristic / dark-bold-accent: prefer SplashCursor, Ribbons, MetaBalls, ScrambleText, GlitchText, PixelCard, Cubes, CountUp
+  * Brutalist / high-contrast-bw: prefer ASCIIText, TextPressure, GradualBlur, Noise, FuzzyText, PixelTransition, BounceCards
+  * Minimal / light-subtle: prefer FadeContent, LogoLoop, Counter, Stepper, AnimatedList, BlurText, TrueFocus, GlassSurface
+  * Colorful / playful: prefer BounceCards, MagicBento, GlassIcons, Folder, StarBorder, ClickSpark, Cubes
+- Choose components that match this client's industry and aesthetic — make each project feel uniquely tailored
 
 RULES FOR fonts:
 - Must be real Google Fonts names. Safe choices: Inter, Space Grotesk, Playfair Display, Neue Haas Grotesk, IBM Plex Mono, DM Sans, DM Serif Display, Syne, Josefin Sans, Outfit, Plus Jakarta Sans, Bebas Neue, Anton, Cormorant Garamond, Instrument Serif, Montserrat, Raleway, Work Sans, Barlow, Archivo Black, Unbounded, Orbitron, Share Tech Mono, Oxanium, Rajdhani
@@ -154,13 +178,24 @@ RULES FOR colors:
 - Match the colorStrategy: dark-bold-accent = dark bg + bright accent, light-subtle = off-white/cream bg + muted accent, high-contrast-bw = pure black/white + one accent, monochromatic = same hue family, colorful = vivid multi-color
 
 RULES FOR pages (siteType determines default page structure):
-- Landing → [{ id: "page-home", title: "Home", type: "home", componentIds: [] }]
-- Portfolio → [{ id: "page-home", title: "Home", type: "home", componentIds: [] }, { id: "page-work", title: "Work", type: "custom", componentIds: [] }, { id: "page-about", title: "About", type: "about", componentIds: [] }]
-- SaaS → [{ id: "page-home", title: "Home", type: "home", componentIds: [] }, { id: "page-features", title: "Features", type: "custom", componentIds: [] }]
-- Agency → [{ id: "page-home", title: "Home", type: "home", componentIds: [] }, { id: "page-services", title: "Services", type: "services", componentIds: [] }, { id: "page-contact", title: "Contact", type: "contact", componentIds: [] }]
+- Landing → [{ id: "page-home", title: "Home", type: "home", componentIds: [], content: {...} }]
+- Portfolio → home + work + about pages (each with their own content)
+- SaaS → home + features pages (each with their own content)
+- Agency → home + services + contact pages (each with their own content)
+
+RULES FOR pages[n].content — fill fields relevant to each page type:
+- home / Landing: fill pageTitle, tagline, valueProps (3-5 short benefits), sections (3-4: hero + features + cta)
+- about: fill pageTitle, tagline, teamMembers (2-4 people with real names + roles), sections (about + team)
+- services / features: fill pageTitle, tagline, services (3-5 items with name + 1-line description), sections
+- contact: fill pageTitle, tagline, faqs (3 realistic Q&A pairs), sections (contact)
+- work / custom: fill pageTitle, tagline, sections, leave teamMembers/services/faqs as []
+- pageTitle must be a specific, punchy headline — NOT a generic page name like "Home" or "About Us"
+- All text must be specific to this brand, industry, and client — no Lorem ipsum, no generic filler
 
 RULES FOR projectName:
 - Lowercase slug, no spaces or special chars, max 20 chars, based on brandName
+- Must be unique and specific to this brand — do NOT use generic names like "studio-project", "brand-site", or "demo-site"
+- Good format examples: "noir-atelier", "drift-labs", "arca-studio", "vela-motion", "crest-works"
 
 RULES FOR projectPrompt:
 - 2-3 sentences. First sentence: what the site is for and who it's for. Second: the key design goals. Third (optional): any specific feature or mood.
@@ -169,7 +204,7 @@ RULES FOR projectPrompt:
   try {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2000,
+      max_tokens: 4096,
       temperature: 1.0,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }]
@@ -203,6 +238,28 @@ RULES FOR projectPrompt:
         console.warn(`[Validator] Unknown component ID removed: "${id}"`);
         return false;
       });
+    }
+
+    // Nav enforcement: multi-page sites must have exactly 1 nav component
+    const NAV_COMPONENTS = [
+      "Components/CardNav", "Components/StaggeredMenu", "Components/GooeyNav",
+      "Components/Dock", "Components/PillNav", "Components/FlowingMenu",
+    ];
+    const NAV_BY_AESTHETIC = {
+      Editorial:   "Components/CardNav",
+      Minimal:     "Components/PillNav",
+      Futuristic:  "Components/FlowingMenu",
+      Brutalist:   "Components/StaggeredMenu",
+      colorful:    "Components/GooeyNav",
+    };
+    const isMultiPage = Array.isArray(data.pages) && data.pages.length > 1;
+    if (isMultiPage && Array.isArray(data.selectedComponentIds)) {
+      const hasNav = data.selectedComponentIds.some(id => NAV_COMPONENTS.includes(id));
+      if (!hasNav) {
+        const navId = NAV_BY_AESTHETIC[archetype.aesthetic] || "Components/PillNav";
+        data.selectedComponentIds.push(navId);
+        console.warn(`[Validator] Multi-page site had no nav — injected ${navId}`);
+      }
     }
 
     return data;

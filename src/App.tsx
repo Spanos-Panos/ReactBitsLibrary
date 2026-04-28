@@ -23,11 +23,11 @@ import type { ComponentContext, EnhancePromptResult } from "./shared/types/api";
 import type { ProjectStructureOptions } from "./shared/types";
 
 const CATEGORY_LIMITS: Record<string, number> = {
-  Backgrounds: 1, TextAnimations: 2, Animations: 3, Components: 5,
+  Backgrounds: 1, TextAnimations: 3, Animations: 3, Components: 5,
 };
 
 /** Shown in project panel assembly as `n / max` selected. */
-const MAX_SELECTED_COMPONENTS_TOTAL = 5;
+const MAX_SELECTED_COMPONENTS_TOTAL = 10;
 
 const PILL_NAV_ITEMS = [
   { id: 'Components',     label: 'Components' },
@@ -295,6 +295,10 @@ function App() {
     if (selectedIds.includes(id)) {
       setSelectedIds(prev => prev.filter(curr => curr !== id));
     } else {
+      if (selectedIds.length >= MAX_SELECTED_COMPONENTS_TOTAL) {
+        showStatus("warning", `Maximum ${MAX_SELECTED_COMPONENTS_TOTAL} components allowed.`, 5000);
+        return;
+      }
       const categoryCount = selectedIds.filter(sid => items.find(i => i.id === sid)?.category === item.category).length;
       const limit = CATEGORY_LIMITS[item.category] || 99;
       if (categoryCount >= limit) {
@@ -330,7 +334,7 @@ function App() {
     const VALID_SITE_TYPES = ['Landing', 'Portfolio', 'SaaS', 'Agency'];
 
     setProjectPrompt(preset.projectPrompt ?? '');
-    setSelectedIds(preset.selectedComponentIds ?? []);
+    setSelectedIds((preset.selectedComponentIds ?? []).slice(0, MAX_SELECTED_COMPONENTS_TOTAL));
     setDesignRules(preset.designRules ?? DEFAULT_DESIGN_RULES);
     setProjectName(preset.projectName ?? '');
     setPackageManager((preset.packageManager ?? 'npm') as typeof packageManager);

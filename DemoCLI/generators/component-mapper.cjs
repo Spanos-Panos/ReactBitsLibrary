@@ -26,7 +26,7 @@ const CURSOR_NAMES = new Set([
  */
 // Nav component names — rendered as fixed overlays in App.tsx, never as in-flow sections
 const NAV_COMPONENT_NAMES = new Set([
-  'StaggeredMenu', 'GooeyNav', 'CardNav', 'Dock',
+  'StaggeredMenu', 'GooeyNav', 'CardNav', 'Dock', 'PillNav', 'FlowingMenu',
 ]);
 
 function isNavComponent(name) {
@@ -337,6 +337,57 @@ const COMPONENT_JSX_OVERRIDES = {
   scrambleChars=".:!">
   Lorem ipsum dolor sit amet consectetur adipisicing elit.
 </ScrambleText>`,
+
+  // Cursor components: their usageMarkdown files are the full component source, not usage examples.
+  // Use bare self-closing tags — each component handles its own position:fixed internally.
+  SplashCursor: '<SplashCursor />',
+  BlobCursor: '<BlobCursor />',
+  PixelTrail: '<PixelTrail />',
+  TargetCursor: '<TargetCursor />',
+
+  // Stepper: usageMarkdown uses const [name, setName] = useState('') — array destructuring
+  // not captured by strippedImportNames regex, leaving dangling state refs in JSX.
+  // Also needs { Step } named import which the auto-detection would otherwise handle,
+  // but pairing with the clean override avoids the state ref issue entirely.
+  Stepper: {
+    importLine: "import Stepper, { Step } from './components/Components/Stepper/Stepper';",
+    jsx: `<Stepper
+  initialStep={1}
+  onStepChange={(step) => console.log('step', step)}
+  onFinalStepCompleted={() => console.log('complete')}
+  backButtonText="Back"
+  nextButtonText="Next"
+>
+  <Step>
+    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Getting Started</h2>
+    <p style={{ color: 'var(--color-text)', opacity: 0.65, margin: 0 }}>Welcome. Follow the steps below to continue.</p>
+  </Step>
+  <Step>
+    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Configure</h2>
+    <p style={{ color: 'var(--color-text)', opacity: 0.65, margin: 0 }}>Adjust your preferences and settings here.</p>
+  </Step>
+  <Step>
+    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Complete</h2>
+    <p style={{ color: 'var(--color-text)', opacity: 0.65, margin: 0 }}>You are all set. Everything is ready to go.</p>
+  </Step>
+</Stepper>`,
+  },
+
+  // FadeContent: usageMarkdown wraps content in backgroundColor:'#111' which gets stripped,
+  // but inner color:'white' and color:'#888' survive — invisible on light-background sites.
+  FadeContent: {
+    importLine: "import FadeContent from './components/Animations/FadeContent/FadeContent';",
+    jsx: `<FadeContent blur={true} duration={1000} delay={200} initialOpacity={0} yOffset={30}>
+  <div style={{ textAlign: 'center', padding: '2rem' }}>
+    <h2 style={{ color: 'var(--color-text)', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', margin: '0 0 1rem', fontWeight: 700 }}>
+      Crafted with Purpose
+    </h2>
+    <p style={{ color: 'var(--color-text)', opacity: 0.65, fontSize: '1.05rem', maxWidth: '480px', margin: '0 auto', lineHeight: 1.7 }}>
+      Every detail considered. Every decision intentional.
+    </p>
+  </div>
+</FadeContent>`,
+  },
 };
 
 // Image replacements: swap picsum/external URLs with local joker assets
@@ -511,11 +562,12 @@ function buildCleanJsx(name, category, raw, isFixed, zIndex, isCursor) {
  */
 function stripAppWrapper(content) {
   // Match: export default function App() { ... return ( ... ); }
-  const appMatch = content.match(/export\s+default\s+function\s+\w+\s*\(\)\s*\{[\s\S]*?return\s*\(([\s\S]*?)\);\s*\}/);
+  // Greedy [\s\S]* so nested ); inside callbacks don't stop the match early.
+  const appMatch = content.match(/export\s+default\s+function\s+\w+\s*\(\)\s*\{[\s\S]*?return\s*\(([\s\S]*)\);\s*\}/);
   if (appMatch) return appMatch[1].trim();
 
   // Match: const App = () => { return ( ... ); }
-  const constMatch = content.match(/(?:const|function)\s+\w+\s*(?:=\s*\(\)\s*=>)?\s*\{[\s\S]*?return\s*\(([\s\S]*?)\);\s*\}/);
+  const constMatch = content.match(/(?:const|function)\s+\w+\s*(?:=\s*\(\)\s*=>)?\s*\{[\s\S]*?return\s*\(([\s\S]*)\);\s*\}/);
   if (constMatch) return constMatch[1].trim();
 
   // Match bare return (...)

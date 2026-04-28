@@ -149,15 +149,16 @@ async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clie
     .map(c => getComponent(c.name).importLine)
     .join('\n');
 
-  // When no nav component is selected, auto-generate a minimal Link-based navbar.
-  // Without this, multi-page sites have routes but no way to navigate between them.
-  const needsAutoNav = !hasNav && uniquePages.length > 1;
+  // Always generate a NavLink-based navbar for multi-page sites — reliable page links regardless
+  // of whether a ReactBits nav component is selected. ReactBits nav renders as an additional overlay.
+  const needsAutoNav = uniquePages.length > 1;
   const brandName = clientBrief.brandName || 'Brand';
   const autoNavLinks = uniquePages.map((p, i) => {
     const href = i === 0 ? '/' : p.path;
-    return `        <Link to="${href}" style={{ color: 'var(--color-text)', textDecoration: 'none', fontSize: '0.9rem', opacity: 0.75, fontWeight: 500 }}>${p.pageName}</Link>`;
+    const endProp = i === 0 ? ' end' : '';
+    return `        <NavLink to="${href}"${endProp} style={({ isActive }) => ({ color: 'var(--color-text)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500, opacity: isActive ? 1 : 0.65, borderBottom: isActive ? '2px solid var(--color-accent)' : '2px solid transparent', paddingBottom: '2px', transition: 'opacity 0.2s, border-color 0.2s' })}>${p.pageName}</NavLink>`;
   }).join('\n');
-  const autoNavJsx = needsAutoNav ? `        {/* Auto-generated nav — no nav component was selected */}
+  const autoNavJsx = needsAutoNav ? `        {/* Auto-generated nav */}
         <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 clamp(1rem, 4vw, 3rem)', height: '3.5rem' }}>
           <span style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: '1rem' }}>${brandName}</span>
           <div style={{ display: 'flex', gap: '1.5rem' }}>
@@ -166,22 +167,30 @@ ${autoNavLinks}
         </nav>` : '';
 
   const routerImport = needsAutoNav
-    ? `import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';`
+    ? `import { useEffect } from 'react';\nimport { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';`
     : `import { BrowserRouter, Routes, Route } from 'react-router-dom';`;
 
   const wrapperStyle = (hasNav || needsAutoNav)
     ? `position: 'relative', minHeight: '100vh', paddingTop: '3.5rem'`
     : `position: 'relative', minHeight: '100vh'`;
 
+  const scrollToTop = needsAutoNav ? `
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+` : '';
+
   const appContent = `${routerImport}
 ${fixedImports}
 ${navImports}
 ${pageImports}
-
+${scrollToTop}
 export default function App() {
   return (
     <BrowserRouter>
-      <div style={{ ${wrapperStyle} }}>
+${needsAutoNav ? '      <ScrollToTop />\n' : ''}      <div style={{ ${wrapperStyle} }}>
 ${fixedLayers ? `        {/* Fixed ambient layers */}\n${fixedLayers}\n` : ''}${autoNavJsx ? `${autoNavJsx}\n` : ''}${navLayers ? `        {/* Navigation */}\n${navLayers}\n` : ''}
         <Routes>
 ${routeElements}

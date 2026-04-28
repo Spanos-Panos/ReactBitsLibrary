@@ -195,4 +195,55 @@ function buildContent(brief, siteType = 'Landing') {
   };
 }
 
-module.exports = { buildContent };
+/**
+ * Merges page-specific content (from synthetic-client's page.content field)
+ * over the base content object. Falls back gracefully to base if fields are absent.
+ * Call this in writePageFiles for each page before passing content to buildPageFile.
+ */
+function buildPageContent(baseContent, pageData) {
+  if (!pageData || !pageData.content) return baseContent;
+  const pc = pageData.content;
+
+  const result = {
+    brandName: baseContent.brandName,
+    hero:     { ...baseContent.hero },
+    about:    { ...baseContent.about },
+    features: { ...baseContent.features },
+    benefits: [...(baseContent.benefits || [])],
+    cta:      { ...baseContent.cta },
+    contact:  { ...baseContent.contact },
+    footer:   { ...baseContent.footer },
+  };
+
+  // Page-specific headline / tagline override
+  if (pc.pageTitle) result.hero.headline = pc.pageTitle;
+  if (pc.tagline)   result.hero.subheadline = pc.tagline;
+
+  // Page-specific services override features section
+  if (Array.isArray(pc.services) && pc.services.length > 0) {
+    result.features = {
+      heading: 'Our Services',
+      items: pc.services.map(s => ({
+        title: s.name  || s.title || '?',
+        body:  s.description || s.body || '',
+      })),
+    };
+  }
+
+  // Page-specific value props override benefits list
+  if (Array.isArray(pc.valueProps) && pc.valueProps.length > 0) {
+    result.benefits = pc.valueProps;
+  }
+
+  // Optional extras — used by section builders when present
+  if (Array.isArray(pc.teamMembers) && pc.teamMembers.length > 0) {
+    result.teamMembers = pc.teamMembers;
+  }
+  if (Array.isArray(pc.faqs) && pc.faqs.length > 0) {
+    result.faqs = pc.faqs;
+  }
+
+  return result;
+}
+
+module.exports = { buildContent, buildPageContent };

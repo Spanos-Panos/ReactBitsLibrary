@@ -10,6 +10,7 @@
 const path = require('path');
 const fs   = require('fs/promises');
 const { getComponent } = require('./component-mapper.cjs');
+const { buildPageContent } = require('./content-builder.cjs');
 
 // ── Section maps per siteType ─────────────────────────────────────────────────
 
@@ -19,6 +20,53 @@ const SITE_SECTIONS = {
   SaaS:      ['hero', 'features', 'pricing', 'cta'],
   Agency:    ['hero', 'services', 'work', 'contact'],
 };
+
+// ── Section variant pools — each page type has multiple layout options ────────
+
+const SECTION_VARIANTS = {
+  Landing: [
+    ['hero', 'features', 'benefits', 'cta'],
+    ['hero', 'features', 'work', 'cta'],
+    ['hero', 'benefits', 'features', 'contact'],
+  ],
+  Portfolio: [
+    ['hero', 'work', 'about', 'contact'],
+    ['hero', 'work', 'services', 'contact'],
+    ['hero', 'about', 'work', 'cta'],
+  ],
+  SaaS: [
+    ['hero', 'features', 'pricing', 'cta'],
+    ['hero', 'features', 'benefits', 'cta'],
+    ['hero', 'pricing', 'features', 'contact'],
+  ],
+  Agency: [
+    ['hero', 'services', 'work', 'contact'],
+    ['hero', 'services', 'about', 'contact'],
+    ['hero', 'work', 'services', 'cta'],
+  ],
+  // Per-page type variants for multi-page sites
+  home:     [['hero', 'features', 'benefits', 'cta'], ['hero', 'features', 'work', 'cta'], ['hero', 'benefits', 'features', 'contact']],
+  about:    [['about', 'features', 'cta'], ['about', 'benefits', 'contact'], ['about', 'work', 'contact']],
+  services: [['services', 'features', 'pricing', 'contact'], ['services', 'work', 'contact'], ['hero', 'services', 'cta']],
+  work:     [['work', 'about', 'contact'], ['work', 'services', 'cta'], ['hero', 'work', 'contact']],
+  contact:  [['contact'], ['hero', 'contact'], ['about', 'contact']],
+  custom:   [['hero', 'features', 'cta'], ['hero', 'work', 'contact'], ['features', 'benefits', 'cta']],
+};
+
+function pickSectionVariant(pageType, siteType) {
+  const key = pageType || siteType || 'Landing';
+  const variants = SECTION_VARIANTS[key] || SECTION_VARIANTS[siteType] || SECTION_VARIANTS.Landing;
+  return variants[Math.floor(Math.random() * variants.length)];
+}
+
+// ── Image placeholder helper ──────────────────────────────────────────────────
+
+function buildImagePlaceholder(label, aspectRatio = '16/9') {
+  return `{/* img: ${label} */}
+              <div style={{ width: '100%', aspectRatio: '${aspectRatio}', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text)', opacity: 0.35, fontSize: '0.8rem', letterSpacing: '0.05em' }}>
+                [ ${label} ]
+              </div>`;
+}
 
 // ── Layout personality per aesthetic ─────────────────────────────────────────
 
@@ -168,6 +216,13 @@ function sanitizeContent(c) {
         Object.entries(c.footer?.socialLinks || {}).map(([k, v]) => [t(k), t(v)])
       ),
     },
+    // Optional per-page extras (populated by buildPageContent)
+    teamMembers: Array.isArray(c.teamMembers)
+      ? c.teamMembers.map(m => ({ name: t(m.name), role: t(m.role) }))
+      : undefined,
+    faqs: Array.isArray(c.faqs)
+      ? c.faqs.map(f => ({ q: t(f.q), a: t(f.a) }))
+      : undefined,
   };
 }
 
@@ -210,6 +265,8 @@ function buildHeroSection(content, aesthetic, layout, componentName, hasNav = fa
     ? layout.sectionPad.replace(/^[\d.]+rem/, m => `${Math.max(2, parseFloat(m) - 4)}rem`)
     : layout.sectionPad;
 
+  const heroBanner = buildImagePlaceholder('hero-banner — full-width atmospheric photo', '21/9');
+
   return `      <section style={{ padding: '${heroPad}', position: 'relative', zIndex: 1, minHeight: '80vh', display: 'flex', alignItems: 'center' }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
           <div style={{ textAlign: '${align}', maxWidth: '${align === 'left' ? '680px' : '100%'}' }}>
@@ -223,6 +280,9 @@ function buildHeroSection(content, aesthetic, layout, componentName, hasNav = fa
               <button style={{ padding: '0.85em 2.2em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', letterSpacing: '0.05em' }}>${cta}</button>
               <button style={{ padding: '0.85em 2.2em', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-text)', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem' }}>${ctaSecondary}</button>
             </div>${compJsx}
+          </div>
+          <div style={{ marginTop: '3rem' }}>
+            ${heroBanner}
           </div>
         </div>
       </section>`;
@@ -303,10 +363,22 @@ function buildCtaSection(content, aesthetic, layout, componentName) {
 
 function buildAboutSection(content, aesthetic, layout, componentName) {
   const { heading, body, highlight } = content.about;
+  const teamMembers = content.teamMembers;
   const comp = componentName ? getComponent(componentName) : null;
   const compJsx = comp && !comp.isFixed
     ? `\n          <div style={{ marginTop: '2rem' }}>\n            ${withContentText(componentName, comp.jsx, heading)}\n          </div>`
     : '';
+
+  // Render team member cards when page-specific content provides them
+  const rightColumn = Array.isArray(teamMembers) && teamMembers.length > 0
+    ? `<div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+              ${teamMembers.map(m => `<div style={{ flex: '1 1 140px', textAlign: 'center' }}>
+                ${buildImagePlaceholder(`${m.name} — headshot`, '1/1')}
+                <p style={{ color: 'var(--color-text)', fontWeight: 600, marginTop: '0.75rem', marginBottom: '0.25rem', fontSize: '0.9rem' }}>${m.name}</p>
+                <p style={{ color: 'var(--color-text)', opacity: 0.55, fontSize: '0.8rem', margin: 0 }}>${m.role}</p>
+              </div>`).join('')}
+            </div>`
+    : buildImagePlaceholder('team-photo — portrait or office shot', '1/1');
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
@@ -317,7 +389,7 @@ function buildAboutSection(content, aesthetic, layout, componentName) {
               <p style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-accent)' }}>${highlight}</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <img src="/joker-square.jpg" alt="About" style={{ width: '100%', maxWidth: '400px', objectFit: 'cover', display: 'block' }} />
+              ${rightColumn}
             </div>
           </div>${compJsx}
         </div>
@@ -337,15 +409,15 @@ function buildWorkSection(content, aesthetic, layout, componentName) {
   }
 
   const projects = [
-    { title: 'Project One', tag: 'Branding', img: '/joker-landscape.jpg' },
-    { title: 'Project Two', tag: 'Web Design', img: '/joker-portrait.jpg' },
-    { title: 'Project Three', tag: 'Digital', img: '/joker-square.jpg' },
+    { title: 'Project One', tag: 'Branding' },
+    { title: 'Project Two', tag: 'Web Design' },
+    { title: 'Project Three', tag: 'Digital' },
   ];
 
   const cards = projects.map((p, i) => `
             <div key="${i}" style={{ flex: '1 1 260px' }}>
-              <img src="${p.img}" alt="${p.title}" style={{ width: '100%', height: '220px', objectFit: 'cover', display: 'block', marginBottom: '1rem' }} />
-              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-accent)' }}>${p.tag}</span>
+              ${buildImagePlaceholder(`project-${i + 1} — ${p.tag} project screenshot`, '4/3')}
+              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-accent)', display: 'block', marginTop: '1rem' }}>${p.tag}</span>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-text)', marginTop: '0.5rem' }}>${p.title}</h3>
             </div>`).join('');
 
@@ -427,6 +499,7 @@ function buildPricingSection(content, aesthetic, layout, componentName) {
 
 function buildContactSection(content, aesthetic, layout, componentName) {
   const { heading, email, phone, location } = content.contact;
+  const faqs = content.faqs;
   const comp = componentName ? getComponent(componentName) : null;
   const compJsx = comp && !comp.isFixed
     ? `\n          <div style={{ marginTop: '3rem' }}>\n            ${withContentText(componentName, comp.jsx, heading)}\n          </div>`
@@ -437,6 +510,16 @@ function buildContactSection(content, aesthetic, layout, componentName) {
     phone    && `<a href="tel:${phone}" style={{ color: 'var(--color-text)', opacity: 0.75, textDecoration: 'none', fontSize: '1rem', display: 'block', marginBottom: '0.5rem' }}>${phone}</a>`,
     location && `<p style={{ color: 'var(--color-text)', opacity: 0.65, fontSize: '1rem', margin: '0.5rem 0' }}>${location}</p>`,
   ].filter(Boolean).join('\n            ');
+
+  const faqBlock = Array.isArray(faqs) && faqs.length > 0
+    ? `<div style={{ marginTop: '4rem' }}>
+              <h3 style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '2rem' }}>Frequently Asked Questions</h3>
+              ${faqs.map(faq => `<div style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                <h4 style={{ color: 'var(--color-text)', fontWeight: 600, marginBottom: '0.5rem', fontSize: '1rem' }}>${faq.q}</h4>
+                <p style={{ color: 'var(--color-text)', opacity: 0.7, fontSize: '0.9rem', lineHeight: 1.7, margin: 0 }}>${faq.a}</p>
+              </div>`).join('')}
+            </div>`
+    : '';
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
@@ -451,7 +534,7 @@ function buildContactSection(content, aesthetic, layout, componentName) {
               <textarea placeholder="Your message" rows={4} style={{ padding: '0.85rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', fontSize: '0.9rem', resize: 'vertical' }} />
               <button type="submit" style={{ padding: '0.85em 2em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', cursor: 'pointer', fontWeight: 700, alignSelf: 'flex-start' }}>Send Message</button>
             </form>
-          </div>${compJsx}
+          </div>${faqBlock}${compJsx}
         </div>
       </section>`;
 }
@@ -655,10 +738,12 @@ async function writePageFiles({ pagesConfig, content, styleDirection, selectedCo
       .replace(/^(.)/, c => c.toUpperCase())
       .replace(/[^a-zA-Z0-9]/g, '');
     const siteType = PAGE_TYPE_TO_SITE_TYPE[page.type] || page.siteType || 'Landing';
-    const sectionTypes = SITE_SECTIONS[siteType] || SITE_SECTIONS.Landing;
+    const sectionTypes = pickSectionVariant(page.type, siteType);
 
     const pageComponents = componentAssignment[i] || [];
-    const fileContent = buildPageFile(safeName, sectionTypes, content, styleDirection, pageComponents);
+    // Merge page-specific content (from synthetic-client page.content) over base content
+    const pageSpecificContent = buildPageContent(content, page);
+    const fileContent = buildPageFile(safeName, sectionTypes, pageSpecificContent, styleDirection, pageComponents);
     const fileName = `${safeName}.tsx`;
     await fs.writeFile(path.join(pagesDir, fileName), fileContent, 'utf-8');
 
