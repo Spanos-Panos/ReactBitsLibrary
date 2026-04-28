@@ -89,6 +89,7 @@ async function generatePlayground(payload, event, taskId) {
     const designRules    = options.designRules    || {};
     const clientBrief    = options.clientBrief    || {};
     const pages          = options.pages          || [];
+    const resolvedPages  = options.resolvedPages  || [];
     const presetName     = options.presetName     || '';
 
     // ── Step 1: Scaffold project skeleton + install deps ────────────────────────
@@ -133,6 +134,7 @@ async function generatePlayground(payload, event, taskId) {
         designRules,
         clientBrief,
         pages,
+        resolvedPages,
         presetName,
       });
     } catch (appErr) {

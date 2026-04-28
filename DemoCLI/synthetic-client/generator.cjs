@@ -1,4 +1,5 @@
 const { Anthropic } = require('@anthropic-ai/sdk');
+const { ensureNavForPages } = require('./nav-rules.cjs');
 
 /**
  * Known component IDs from reactbits-manifest.json.
@@ -52,7 +53,90 @@ const VALID_COMPONENT_IDS = new Set([
   "TextAnimations/VariableProximity"
 ]);
 
-const SYSTEM_PROMPT = `You are a synthetic client briefing tool. You output only valid JSON — no prose, no markdown, no explanation. Generate a realistic, specific client profile for a web design project. The client should feel like a real person with an opinion, not a template. Be specific about brand names, locations, colors, and font choices — avoid generic placeholder language.`;
+const SYSTEM_PROMPT = `You are a synthetic client briefing tool. You output only valid JSON — no prose, no markdown, no explanation. Generate realistic, specific client profiles for web projects. The client must feel like a real business with concrete positioning, constraints, and audience. Avoid repetitive templates, generic brand names, and vague copy.`;
+
+function slugifyProjectName(value, fallback) {
+  const base = String(value || fallback || 'project')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 20)
+    .replace(/-$/, '');
+  return base || 'project';
+}
+
+function cleanText(value, fallback) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text || fallback;
+}
+
+function ensurePageContent(page, brandName, pageType) {
+  const type = pageType || page.type || 'custom';
+  const content = page.content && typeof page.content === 'object' ? page.content : {};
+  const titleByType = {
+    home: cleanText(content.pageTitle, `${brandName} — Built With Intent`),
+    about: cleanText(content.pageTitle, `The Team Behind ${brandName}`),
+    services: cleanText(content.pageTitle, `${brandName} Services`),
+    contact: cleanText(content.pageTitle, `Contact ${brandName}`),
+    custom: cleanText(content.pageTitle, `${brandName} Featured Work`),
+  };
+  var normalized = {
+    pageTitle: titleByType[type] || titleByType.custom,
+    tagline: cleanText(content.tagline, 'Specific, high-context copy crafted for this page.'),
+    sections: Array.isArray(content.sections) ? content.sections : [],
+    valueProps: Array.isArray(content.valueProps) ? content.valueProps : [],
+    teamMembers: Array.isArray(content.teamMembers) ? content.teamMembers : [],
+    services: Array.isArray(content.services) ? content.services : [],
+    faqs: Array.isArray(content.faqs) ? content.faqs : [],
+    callToAction: cleanText(content.callToAction, 'Get Started'),
+  };
+  if (type !== 'contact') normalized.faqs = [];
+  if (type !== 'about') normalized.teamMembers = [];
+  if (type !== 'services' && type !== 'custom' && type !== 'home') normalized.services = [];
+  if (type === 'contact') normalized.valueProps = [];
+  return normalized;
+}
+
+function normalizeClaudeData(data, archetype) {
+  const normalized = { ...data };
+  normalized.clientBrief = { ...(data.clientBrief || {}) };
+  normalized.styleDirection = { ...(data.styleDirection || {}) };
+  normalized.designRules = { ...(data.designRules || {}) };
+
+  normalized.clientBrief.brandName = cleanText(normalized.clientBrief.brandName, `${archetype.name} Studio`);
+  normalized.clientBrief.tagline = cleanText(normalized.clientBrief.tagline, `${normalized.clientBrief.brandName} delivers measurable outcomes.`);
+  normalized.clientBrief.callToAction = cleanText(normalized.clientBrief.callToAction, 'Get Started');
+
+  normalized.projectName = slugifyProjectName(normalized.projectName, normalized.clientBrief.brandName);
+  normalized.projectPrompt = cleanText(normalized.projectPrompt, `Build a ${archetype.aesthetic.toLowerCase()} ${archetype.siteType.toLowerCase()} site for ${normalized.clientBrief.brandName}.`);
+
+  normalized.selectedComponentIds = Array.from(new Set(Array.isArray(normalized.selectedComponentIds) ? normalized.selectedComponentIds : []));
+
+  normalized.pages = (Array.isArray(normalized.pages) ? normalized.pages : []).map((page, idx) => {
+    const type = page.type || (idx === 0 ? 'home' : 'custom');
+    return {
+      ...page,
+      id: page.id || `page-${idx + 1}`,
+      title: cleanText(page.title, type === 'home' ? 'Home' : `Page ${idx + 1}`),
+      type,
+      componentIds: Array.isArray(page.componentIds) ? page.componentIds : [],
+      content: ensurePageContent(page, normalized.clientBrief.brandName, type),
+    };
+  });
+
+  if (normalized.pages.length === 0) {
+    normalized.pages = [{
+      id: 'page-home',
+      title: 'Home',
+      type: 'home',
+      componentIds: [],
+      content: ensurePageContent({}, normalized.clientBrief.brandName, 'home'),
+    }];
+  }
+
+  return normalized;
+}
 
 async function generateClient(archetype) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -191,6 +275,8 @@ RULES FOR pages[n].content — fill fields relevant to each page type:
 - work / custom: fill pageTitle, tagline, sections, leave teamMembers/services/faqs as []
 - pageTitle must be a specific, punchy headline — NOT a generic page name like "Home" or "About Us"
 - All text must be specific to this brand, industry, and client — no Lorem ipsum, no generic filler
+- DO NOT use generic/fake brand names like "Acme", "Demo", "Sample", "Test", "Brand Studio", or "Project Site"
+- Each page should have distinct context; contact-only content must stay on contact pages
 
 RULES FOR projectName:
 - Lowercase slug, no spaces or special chars, max 20 chars, based on brandName
@@ -225,10 +311,14 @@ RULES FOR projectPrompt:
 
     // Validation
     const requiredKeys = ["clientBrief", "styleDirection", "designRules", "selectedComponentIds", "pages", "projectPrompt", "projectName"];
+    const missingKeys = [];
     for (const key of requiredKeys) {
       if (!data[key]) {
-        console.warn(`[Validator] Missing required key: "${key}"`);
+        missingKeys.push(key);
       }
+    }
+    if (missingKeys.length) {
+      throw new Error(`Claude output missing required keys: ${missingKeys.join(', ')}`);
     }
 
     // Component validation (Task 2.1)
@@ -239,30 +329,24 @@ RULES FOR projectPrompt:
         return false;
       });
     }
-
-    // Nav enforcement: multi-page sites must have exactly 1 nav component
-    const NAV_COMPONENTS = [
-      "Components/CardNav", "Components/StaggeredMenu", "Components/GooeyNav",
-      "Components/Dock", "Components/PillNav", "Components/FlowingMenu",
-    ];
-    const NAV_BY_AESTHETIC = {
-      Editorial:   "Components/CardNav",
-      Minimal:     "Components/PillNav",
-      Futuristic:  "Components/FlowingMenu",
-      Brutalist:   "Components/StaggeredMenu",
-      colorful:    "Components/GooeyNav",
-    };
-    const isMultiPage = Array.isArray(data.pages) && data.pages.length > 1;
-    if (isMultiPage && Array.isArray(data.selectedComponentIds)) {
-      const hasNav = data.selectedComponentIds.some(id => NAV_COMPONENTS.includes(id));
-      if (!hasNav) {
-        const navId = NAV_BY_AESTHETIC[archetype.aesthetic] || "Components/PillNav";
-        data.selectedComponentIds.push(navId);
-        console.warn(`[Validator] Multi-page site had no nav — injected ${navId}`);
-      }
+    if (!Array.isArray(data.selectedComponentIds) || data.selectedComponentIds.length === 0) {
+      throw new Error('Claude output did not include valid selectedComponentIds after validation.');
+    }
+    if (!Array.isArray(data.pages) || data.pages.length === 0) {
+      throw new Error('Claude output did not include valid pages.');
     }
 
-    return data;
+    const navResult = ensureNavForPages(
+      data.selectedComponentIds,
+      data.pages,
+      archetype.aesthetic
+    );
+    data.selectedComponentIds = navResult.selectedComponentIds;
+    if (navResult.injectedNavId) {
+      console.warn(`[Validator] Multi-page site had no nav — injected ${navResult.injectedNavId}`);
+    }
+
+    return normalizeClaudeData(data, archetype);
   } catch (err) {
     console.error(`Error in generateClient for ${archetype.name}:`, err.message);
     throw err;

@@ -21,6 +21,7 @@ node DemoCLI/synthetic-client/index.cjs
 node DemoCLI/synthetic-client/index.cjs --local
 node DemoCLI/synthetic-client/index.cjs --local --archetype luxury
 node DemoCLI/synthetic-client/index.cjs --local --count 3
+node DemoCLI/synthetic-client/index.cjs --local --count 10 --seed test-batch-a --quality high
 
 # Generate a specific type of client (Claude mode)
 node DemoCLI/synthetic-client/index.cjs --archetype luxury
@@ -47,6 +48,8 @@ node DemoCLI/synthetic-client/index.cjs --help
 | *(no flags)*          | Generate 1 random client (Claude API)                                      |
 | `--local`             | Generate free, instant, offline-capable (no API key needed)                |
 | `--count N`           | Generate N clients sequentially                                            |
+| `--seed VALUE`        | Deterministic seed for reproducible multi-run datasets                      |
+| `--quality LEVEL`     | Local generation richness profile: `low`, `medium`, `high` (default: high) |
 | `--archetype KEYWORD` | Pick archetype by keyword (partial match, case-insensitive)                |
 | `--list`              | Show all 20 archetypes and exit                                            |
 | `--preview`           | Print brief to terminal, don't write files                                 |
@@ -60,8 +63,27 @@ node DemoCLI/synthetic-client/index.cjs --help
 | Cost | ~$0.002 per client | Free |
 | Speed | 10–20 seconds | Instant |
 | API key | Required | Not needed |
-| Variety | High (AI improvises) | Medium (curated pools) |
+| Variety | High (AI improvises + normalization) | High (seeded + curated realism pools) |
 | Output format | Same `preset.json` + `brief.md` | Identical |
+
+### Testing-Focused Commands
+
+```bash
+# Reproducible local dataset
+node DemoCLI/synthetic-client/index.cjs --local --count 20 --seed qa-round-01 --quality high
+
+# Same seed, different archetype filter
+node DemoCLI/synthetic-client/index.cjs --local --count 10 --seed qa-round-01 --archetype futuristic
+
+# Quick lower-richness stress pass
+node DemoCLI/synthetic-client/index.cjs --local --count 30 --seed stress-low --quality low
+```
+
+Each run now prints a summary with:
+- success / failed count
+- unique component count
+- category spread
+- page types seen
 
 ### Archetype Keywords
 

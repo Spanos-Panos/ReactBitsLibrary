@@ -10,7 +10,8 @@
 const path = require('path');
 const fs   = require('fs/promises');
 const { getComponent } = require('./component-mapper.cjs');
-const { buildPageContent } = require('./content-builder.cjs');
+const { buildContent, buildPageContent } = require('./content-builder.cjs');
+const { selectPolicySections } = require('./page-policy.cjs');
 
 // ── Section maps per siteType ─────────────────────────────────────────────────
 
@@ -53,10 +54,11 @@ const SECTION_VARIANTS = {
   custom:   [['hero', 'features', 'cta'], ['hero', 'work', 'contact'], ['features', 'benefits', 'cta']],
 };
 
-function pickSectionVariant(pageType, siteType) {
+function pickSectionVariant(pageType, siteType, seedKey) {
   const key = pageType || siteType || 'Landing';
   const variants = SECTION_VARIANTS[key] || SECTION_VARIANTS[siteType] || SECTION_VARIANTS.Landing;
-  return variants[Math.floor(Math.random() * variants.length)];
+  const policyType = pageType || 'custom';
+  return selectPolicySections({ pageType: policyType, variants, seedKey: seedKey || `${policyType}:${siteType}` });
 }
 
 // ── Image placeholder helper ──────────────────────────────────────────────────
@@ -718,9 +720,10 @@ function assignComponentsToPages(pagesConfig, selectedNames) {
  * Components are distributed across pages rather than duplicated.
  * Returns array of { pageName, fileName, path, label } for router generation.
  */
-async function writePageFiles({ pagesConfig, content, styleDirection, selectedComponentNames, targetDir }) {
+async function writePageFiles({ pagesConfig, content, styleDirection, selectedComponentNames, targetDir, resolvedPages = [] }) {
   const pagesDir = path.join(targetDir, 'src', 'pages');
   await fs.mkdir(pagesDir, { recursive: true });
+  const resolvedMap = new Map((resolvedPages || []).map(p => [p.id, p]));
 
   const PAGE_TYPE_TO_SITE_TYPE = {
     home: 'Landing', about: 'Portfolio', services: 'Agency', contact: 'Portfolio', custom: 'Landing',
@@ -738,12 +741,34 @@ async function writePageFiles({ pagesConfig, content, styleDirection, selectedCo
       .replace(/^(.)/, c => c.toUpperCase())
       .replace(/[^a-zA-Z0-9]/g, '');
     const siteType = PAGE_TYPE_TO_SITE_TYPE[page.type] || page.siteType || 'Landing';
-    const sectionTypes = pickSectionVariant(page.type, siteType);
+    const sectionTypes = pickSectionVariant(
+      page.type,
+      siteType,
+      `${page.id || page.title || i}:${page.type}:${siteType}`,
+    );
 
-    const pageComponents = componentAssignment[i] || [];
-    // Merge page-specific content (from synthetic-client page.content) over base content
-    const pageSpecificContent = buildPageContent(content, page);
-    const fileContent = buildPageFile(safeName, sectionTypes, pageSpecificContent, styleDirection, pageComponents);
+    const pageResolved = resolvedMap.get(page.id);
+    const explicitComponentNames = (Array.isArray(pageResolved?.componentIds) ? pageResolved.componentIds : page.componentIds || [])
+      .map(id => String(id).split('/').pop())
+      .filter(Boolean);
+    const pageComponents = explicitComponentNames.length > 0 ? explicitComponentNames : (componentAssignment[i] || []);
+
+    const baseContentForPage = pageResolved?.resolvedBrief
+      ? buildContent(pageResolved.resolvedBrief, pageResolved?.resolvedStyleDirection?.siteType || siteType)
+      : content;
+
+    const mergedPageData = {
+      ...page,
+      content: pageResolved?.content || page.content,
+    };
+    const pageSpecificContent = buildPageContent(baseContentForPage, mergedPageData);
+    const fileContent = buildPageFile(
+      safeName,
+      sectionTypes,
+      pageSpecificContent,
+      pageResolved?.resolvedStyleDirection || styleDirection,
+      pageComponents,
+    );
     const fileName = `${safeName}.tsx`;
     await fs.writeFile(path.join(pagesDir, fileName), fileContent, 'utf-8');
 

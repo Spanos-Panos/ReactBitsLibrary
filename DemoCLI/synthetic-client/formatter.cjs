@@ -1,6 +1,7 @@
 /**
  * Formats Claude's output into the final preset.json and brief.md files.
  */
+const { validatePageContentBoundary } = require('../generators/page-policy.cjs');
 
 const SAFE_FONTS = [
   "Inter", "Space Grotesk", "Playfair Display", "Neue Haas Grotesk", "IBM Plex Mono",
@@ -10,14 +11,119 @@ const SAFE_FONTS = [
   "Share Tech Mono", "Oxanium", "Rajdhani"
 ];
 
+const BANNED_BRAND_TOKENS = ['acme', 'demo', 'sample', 'test', 'brand', 'project', 'studio project'];
+
+function scoreComponentDiversity(selectedComponentIds) {
+  const ids = Array.isArray(selectedComponentIds) ? selectedComponentIds : [];
+  const categories = new Set();
+  const names = new Set();
+  ids.forEach(id => {
+    const parts = String(id).split('/');
+    if (parts[0]) categories.add(parts[0]);
+    if (parts[1]) names.add(parts[1]);
+  });
+  return {
+    total: ids.length,
+    uniqueNames: names.size,
+    categories: categories.size,
+    score: (categories.size * 20) + (names.size * 5),
+  };
+}
+
+function validateBrandRealism(brandName) {
+  const value = String(brandName || '').trim().toLowerCase();
+  if (!value || value.length < 3) return false;
+  for (const token of BANNED_BRAND_TOKENS) {
+    if (value.includes(token)) return false;
+  }
+  return true;
+}
+
+function toPageOverrides(page) {
+  const content = page && page.content && typeof page.content === 'object' ? page.content : null;
+  if (!content) return undefined;
+  return {
+    enabled: true,
+    content: {
+      pageTitle: content.pageTitle || '',
+      tagline: content.tagline || '',
+      description: content.description || '',
+      callToAction: content.callToAction || '',
+      valueProps: Array.isArray(content.valueProps) ? content.valueProps : [],
+      services: Array.isArray(content.services) ? content.services : [],
+      teamMembers: Array.isArray(content.teamMembers) ? content.teamMembers : [],
+      faqs: Array.isArray(content.faqs) ? content.faqs : [],
+    },
+    brief: {
+      tagline: content.tagline || '',
+      description: content.description || '',
+      callToAction: content.callToAction || '',
+    },
+  };
+}
+
+function validateSyntheticClientData(raw) {
+  const requiredKeys = [
+    "clientBrief",
+    "styleDirection",
+    "designRules",
+    "selectedComponentIds",
+    "pages",
+    "projectPrompt",
+    "projectName",
+  ];
+  for (const key of requiredKeys) {
+    if (raw == null || raw[key] == null) {
+      throw new Error(`Synthetic client output missing required key "${key}"`);
+    }
+  }
+  if (!Array.isArray(raw.selectedComponentIds) || raw.selectedComponentIds.length === 0) {
+    throw new Error('Synthetic client output must include at least one selected component.');
+  }
+  const diversity = scoreComponentDiversity(raw.selectedComponentIds);
+  if (diversity.total < 4) {
+    throw new Error('Synthetic client output must include at least 4 selected components for realistic layout coverage.');
+  }
+  if (diversity.categories < 2) {
+    throw new Error('Synthetic client output must include components from at least 2 categories.');
+  }
+
+  if (!validateBrandRealism(raw.clientBrief && raw.clientBrief.brandName)) {
+    throw new Error('Synthetic client output brand name appears generic or unrealistic.');
+  }
+
+  if (!Array.isArray(raw.pages) || raw.pages.length === 0) {
+    throw new Error('Synthetic client output must include at least one page.');
+  }
+  raw.pages.forEach((page, index) => {
+    const boundary = validatePageContentBoundary(page);
+    if (!boundary.ok) {
+      throw new Error(`Synthetic page ${index + 1} (${page.type || 'custom'}) violates page boundary policy: ${boundary.issues.join(', ')}`);
+    }
+  });
+  if (!raw.designRules || !Array.isArray(raw.designRules.fonts) || !Array.isArray(raw.designRules.colors)) {
+    throw new Error('Synthetic client output must include designRules.fonts and designRules.colors arrays.');
+  }
+  if (!raw.clientBrief.contactEmail || !String(raw.clientBrief.contactEmail).includes('@')) {
+    throw new Error('Synthetic client output must include a valid contact email.');
+  }
+  if (!raw.clientBrief.contactPhone || String(raw.clientBrief.contactPhone).length < 7) {
+    throw new Error('Synthetic client output must include a realistic contact phone.');
+  }
+  return raw;
+}
+
 function buildPresetJson(claudeOutput, archetypeName) {
-  const { clientBrief, styleDirection, designRules, selectedComponentIds, pages, projectPrompt, projectName, reasoning } = claudeOutput;
+  const validated = validateSyntheticClientData(claudeOutput);
+  const { clientBrief, styleDirection, designRules, selectedComponentIds, pages, projectPrompt, projectName, reasoning } = validated;
 
   // Task 2.2 — Font name sanitization
   if (designRules.fonts) {
     designRules.fonts = designRules.fonts.map(font => {
       let val = font.value;
       if (!val || typeof val !== 'string' || val.length > 40 || /^(serif|sans-serif|monospace|system-ui)$/.test(val)) {
+        val = font.role === 'heading' ? "Inter" : "DM Sans";
+      } else if (!SAFE_FONTS.includes(val)) {
         val = font.role === 'heading' ? "Inter" : "DM Sans";
       }
       return { ...font, value: val };
@@ -54,20 +160,29 @@ function buildPresetJson(claudeOutput, archetypeName) {
     });
   }
 
+  const normalizedPages = (pages || []).map((page, idx) => ({
+    id: page.id || `page-${idx + 1}`,
+    title: page.title || (idx === 0 ? 'Home' : `Page ${idx + 1}`),
+    type: page.type || (idx === 0 ? 'home' : 'custom'),
+    componentIds: Array.isArray(page.componentIds) ? page.componentIds : [],
+    overrides: toPageOverrides(page),
+  }));
+
   return {
     // Keep ID human-readable so imported preset filenames match project output naming.
     id: projectName,
     name: `${clientBrief.brandName} — ${styleDirection.aesthetics[0]} ${styleDirection.siteType}`,
     savedAt: new Date().toISOString(),
-    schemaVersion: 4,
+    schemaVersion: 6,
     projectPrompt,
     selectedComponentIds,
     designRules,
     projectName,
     packageManager: "npm",
+    scrollbarStyle: { mode: 'custom' },
     styleDirection,
     clientBrief,
-    pages,
+    pages: normalizedPages,
     _reasoning: reasoning
   };
 }
@@ -219,6 +334,7 @@ That will create a folder in \`DemoCLI/synthetic-client/output/\` containing:
 }
 
 module.exports = {
+  validateSyntheticClientData,
   buildPresetJson,
   buildBriefMd
 };

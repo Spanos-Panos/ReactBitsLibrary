@@ -1,12 +1,64 @@
 'use strict';
+const { ensureNavForPages } = require('./nav-rules.cjs');
 
 // ─────────────────────────────────────────────────────────────
 // Section A: Utility helpers
 // ─────────────────────────────────────────────────────────────
 
+let CURRENT_RNG = Math.random;
+
+function hashSeed(seed) {
+  var str = String(seed || '');
+  var h = 1779033703 ^ str.length;
+  for (var i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return (h >>> 0);
+}
+
+function createSeededRng(seed) {
+  var t = hashSeed(seed);
+  return function() {
+    t += 0x6D2B79F5;
+    var r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+async function withRng(rng, fn) {
+  var prev = CURRENT_RNG;
+  CURRENT_RNG = rng || Math.random;
+  try {
+    return await fn();
+  } finally {
+    CURRENT_RNG = prev;
+  }
+}
+
+function random() {
+  return CURRENT_RNG();
+}
+
 function pick(arr) {
   if (!arr || arr.length === 0) return undefined;
-  return arr[Math.floor(Math.random() * arr.length)];
+  return arr[Math.floor(random() * arr.length)];
+}
+
+function pickWeighted(weightedItems) {
+  if (!Array.isArray(weightedItems) || weightedItems.length === 0) return undefined;
+  var total = weightedItems.reduce(function(sum, item) {
+    return sum + (item.weight || 0);
+  }, 0);
+  if (total <= 0) return weightedItems[0].value;
+  var roll = random() * total;
+  var acc = 0;
+  for (var i = 0; i < weightedItems.length; i++) {
+    acc += weightedItems[i].weight || 0;
+    if (roll <= acc) return weightedItems[i].value;
+  }
+  return weightedItems[weightedItems.length - 1].value;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -319,16 +371,40 @@ const COMPONENT_COMBOS = {
   ],
 };
 
+const RECENT_COMPONENT_SIGNATURES = [];
+const MAX_SIGNATURE_HISTORY = 30;
+
+function comboSignature(combo) {
+  return (combo || []).slice().sort().join('|');
+}
+
 function pickComponents(archetype) {
   const key = archetype.aesthetic + "|" + archetype.siteType;
   const combos = COMPONENT_COMBOS[key];
+  function pickWithDiversity(pool) {
+    var shuffled = pool.slice().sort(function() { return random() - 0.5; });
+    for (var i = 0; i < shuffled.length; i++) {
+      var sig = comboSignature(shuffled[i]);
+      if (!RECENT_COMPONENT_SIGNATURES.includes(sig)) {
+        RECENT_COMPONENT_SIGNATURES.push(sig);
+        if (RECENT_COMPONENT_SIGNATURES.length > MAX_SIGNATURE_HISTORY) RECENT_COMPONENT_SIGNATURES.shift();
+        return shuffled[i];
+      }
+    }
+    var fallback = pick(pool);
+    var fallbackSig = comboSignature(fallback);
+    RECENT_COMPONENT_SIGNATURES.push(fallbackSig);
+    if (RECENT_COMPONENT_SIGNATURES.length > MAX_SIGNATURE_HISTORY) RECENT_COMPONENT_SIGNATURES.shift();
+    return fallback;
+  }
+
   if (!combos || combos.length === 0) {
     const fallbackKey = Object.keys(COMPONENT_COMBOS).find(k => k.startsWith(archetype.aesthetic));
     return fallbackKey
-      ? pick(COMPONENT_COMBOS[fallbackKey])
+      ? pickWithDiversity(COMPONENT_COMBOS[fallbackKey])
       : ["TextAnimations/SplitText", "Animations/FadeContent", "Components/Counter"];
   }
-  return pick(combos);
+  return pickWithDiversity(combos);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1316,7 +1392,7 @@ const FALLBACK_PHONES = [
 
 function randomDigits(n) {
   var s = '';
-  for (var i = 0; i < n; i++) s += Math.floor(Math.random() * 10);
+  for (var i = 0; i < n; i++) s += Math.floor(random() * 10);
   return s;
 }
 
@@ -1347,7 +1423,7 @@ async function fetchContactData() {
       req.on('error', reject);
     });
   } catch(_) {
-    var template = pick(FALLBACK_PHONES).replace(/X/g, function() { return Math.floor(Math.random() * 10); });
+    var template = pick(FALLBACK_PHONES).replace(/X/g, function() { return Math.floor(random() * 10); });
     return {
       city:    pick(FALLBACK_CITIES),
       state:   '',
@@ -1359,10 +1435,16 @@ async function fetchContactData() {
 
 function generateContact(brandName, contactData) {
   var slug   = brandName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  var tld    = pick(['com', 'co', 'io', 'studio', 'agency']);
+  var tld    = pickWeighted([
+    { value: 'com', weight: 55 },
+    { value: 'co', weight: 20 },
+    { value: 'io', weight: 10 },
+    { value: 'studio', weight: 8 },
+    { value: 'agency', weight: 7 },
+  ]);
   var domain = slug.slice(0, 15) + '.' + tld;
   var email  = 'hello@' + domain;
-  var handle = '@' + slug.slice(0, 15);
+  var handle = '@' + slug.slice(0, 15) + (random() > 0.7 ? randomDigits(2) : '');
   var loc    = [contactData.city, contactData.country].filter(Boolean).join(', ');
   return { email: email, phone: contactData.phone, location: loc, socialLinks: handle };
 }
@@ -1371,7 +1453,108 @@ function generateContact(brandName, contactData) {
 // Section I: Pages + Project Prompt + Main assembler
 // ─────────────────────────────────────────────────────────────
 
-function buildPages(siteType) {
+var BANNED_GENERIC_HEADLINES = new Set(['home', 'about us', 'services', 'contact']);
+
+function cleanShortCopy(text, fallback) {
+  var safe = (text || '').replace(/\s+/g, ' ').trim();
+  if (!safe) return fallback;
+  if (safe.length < 8) return fallback;
+  if (BANNED_GENERIC_HEADLINES.has(safe.toLowerCase())) return fallback;
+  return safe;
+}
+
+function splitLines(text) {
+  return String(text || '')
+    .split(/\n|,|;/)
+    .map(function(line) { return line.trim(); })
+    .filter(Boolean);
+}
+
+function sampleItems(items, minCount, maxCount) {
+  var pool = (items || []).slice();
+  var count = Math.max(minCount, Math.min(maxCount, pool.length || minCount));
+  var out = [];
+  for (var i = 0; i < count; i++) {
+    if (pool.length === 0) break;
+    var idx = Math.floor(random() * pool.length);
+    out.push(pool.splice(idx, 1)[0]);
+  }
+  return out;
+}
+
+function buildPageContent(pageType, brandName, copy, quality) {
+  var qualityProfile = quality || 'high';
+  var richness = qualityProfile === 'low' ? { min: 2, max: 3 } : qualityProfile === 'medium' ? { min: 3, max: 4 } : { min: 3, max: 5 };
+  var cleanTagline = cleanShortCopy(copy.tagline, 'Built for ambitious teams that value quality.');
+  var cta = cleanShortCopy(copy.callToAction, 'Get Started');
+  var serviceItems = splitLines(copy.services).map(function(item) {
+    return {
+      name: item.split(' - ')[0].trim(),
+      description: item.split(' - ')[1] ? item.split(' - ')[1].trim() : (item + ' tailored for this client profile.'),
+    };
+  });
+  var valueProps = splitLines(copy.keyBenefits);
+  var pageTitleByType = {
+    home: cleanShortCopy(copy.tagline, brandName + ' — Built With Intent'),
+    about: 'The Team Behind ' + brandName,
+    services: brandName + ' Services Built Around Outcomes',
+    contact: 'Talk To The ' + brandName + ' Team',
+    custom: brandName + ' Featured Work',
+  };
+
+  var content = {
+    pageTitle: pageTitleByType[pageType] || pageTitleByType.custom,
+    tagline: cleanTagline,
+    sections: [],
+    valueProps: pageType === 'contact' ? [] : sampleItems(valueProps, richness.min, richness.max),
+    teamMembers: [],
+    services: [],
+    faqs: [],
+    callToAction: cta,
+  };
+
+  if (pageType === 'about') {
+    var namePool = ['Maya', 'Noah', 'Lina', 'Theo', 'Iris', 'Arman', 'Sofia', 'Eden'];
+    var rolePool = ['Creative Director', 'Lead Strategist', 'Design Lead', 'Product Architect', 'Client Partner'];
+    content.teamMembers = sampleItems(namePool, 3, 4).map(function(first, idx) {
+      return { name: first + ' ' + brandName.split(' ')[0], role: rolePool[idx % rolePool.length] };
+    });
+    content.sections = [
+      { sectionType: 'about', heading: 'Our Approach', bodyCopy: copy.description, cta: 'Read Our Method' },
+      { sectionType: 'features', heading: 'How We Work', bodyCopy: copy.usp, cta: 'Meet The Team' },
+    ];
+  } else if (pageType === 'services') {
+    content.services = sampleItems(serviceItems, 3, 5);
+    content.sections = [
+      { sectionType: 'services', heading: 'What We Deliver', bodyCopy: copy.usp, cta: cta },
+      { sectionType: 'features', heading: 'Service Breakdown', bodyCopy: copy.description, cta: 'Request Scope' },
+    ];
+  } else if (pageType === 'contact') {
+    content.faqs = [
+      { q: 'What is your typical project timeline?', a: 'Most projects launch in 4-8 weeks depending on scope and approvals.' },
+      { q: 'Do you offer discovery sessions?', a: 'Yes. We begin every engagement with a focused discovery and strategy workshop.' },
+      { q: 'Can you work with in-house teams?', a: 'Absolutely. We collaborate closely with internal product, design, and engineering teams.' },
+    ];
+    content.sections = [
+      { sectionType: 'contact', heading: 'Start A Conversation', bodyCopy: 'Share your goals and timeline and we will reply within one business day.', cta: cta },
+    ];
+  } else if (pageType === 'custom') {
+    content.sections = [
+      { sectionType: 'work', heading: 'Featured Work', bodyCopy: 'Selected projects that represent the quality and direction of ' + brandName + '.', cta: 'View Case Studies' },
+      { sectionType: 'cta', heading: 'Let Us Build Yours Next', bodyCopy: copy.usp, cta: cta },
+    ];
+  } else {
+    content.sections = [
+      { sectionType: 'hero', heading: content.pageTitle, bodyCopy: copy.description, cta: cta },
+      { sectionType: 'features', heading: 'What Makes Us Different', bodyCopy: copy.usp, cta: 'Explore Services' },
+      { sectionType: 'cta', heading: 'Ready To Move Forward?', bodyCopy: copy.targetAudience, cta: cta },
+    ];
+  }
+
+  return content;
+}
+
+function buildPages(siteType, brandName, copy, quality) {
   var pageMap = {
     "Landing": [
       { id: "page-home", title: "Home", type: "home", componentIds: [] }
@@ -1391,7 +1574,12 @@ function buildPages(siteType) {
       { id: "page-contact",  title: "Contact",  type: "contact",  componentIds: [] }
     ],
   };
-  return pageMap[siteType] || pageMap["Landing"];
+  var basePages = pageMap[siteType] || pageMap["Landing"];
+  return basePages.map(function(page) {
+    return Object.assign({}, page, {
+      content: buildPageContent(page.type, brandName, copy, quality),
+    });
+  });
 }
 
 function buildProjectPrompt(brandName, copy, archetype) {
@@ -1404,95 +1592,82 @@ function buildProjectPrompt(brandName, copy, archetype) {
   var siteDesc = siteTypeMap[archetype.siteType] || "website";
   var aesthetic = archetype.aesthetic.toLowerCase();
   var colorDesc = archetype.colorStrategy.replace(/-/g, ' ');
-  return (
-    "Build a " + aesthetic + " " + siteDesc + " for " + brandName + " — " + copy.tagline + " " +
-    "The visual direction should be " + colorDesc + " with " + aesthetic + " typography and strong aesthetic identity. " +
-    copy.usp
-  );
+  return [
+    "Build a " + aesthetic + " " + siteDesc + " for " + brandName + ", targeting " + copy.targetAudience + ".",
+    "The direction should use " + colorDesc + " styling with " + aesthetic + " visual language and " + copy.typographyIntensity + " typography.",
+    "Emphasize " + copy.usp
+  ].join(' ');
 }
 
-// Nav components — must be injected for multi-page sites
-var NAV_COMPONENTS = [
-  "Components/CardNav", "Components/StaggeredMenu", "Components/GooeyNav",
-  "Components/Dock", "Components/PillNav", "Components/FlowingMenu",
-];
-var NAV_BY_AESTHETIC = {
-  Editorial:   "Components/CardNav",
-  Minimal:     "Components/PillNav",
-  Futuristic:  "Components/FlowingMenu",
-  Brutalist:   "Components/StaggeredMenu",
-  colorful:    "Components/GooeyNav",
-};
+async function generateClient(archetype, options) {
+  var opts = options || {};
+  var seed = opts.seed || (archetype.name + ':' + Date.now());
 
-async function generateClient(archetype) {
-  var brandName   = generateBrandName(archetype);
-  var projectName = generateProjectName(brandName);
-  var colors      = pickColors(archetype.colorStrategy);
-  var fonts       = pickFonts(archetype.aesthetic);
-  var componentIds = pickComponents(archetype);
-  var copy        = generateCopy(archetype, brandName);
-  var contactData = await fetchContactData();
-  var contact     = generateContact(brandName, contactData);
-  var pages       = buildPages(archetype.siteType);
-  var projectPrompt = buildProjectPrompt(brandName, copy, archetype);
+  return await withRng(createSeededRng(seed), async function() {
+    var brandName   = generateBrandName(archetype);
+    var projectName = generateProjectName(brandName);
+    var colors      = pickColors(archetype.colorStrategy);
+    var fonts       = pickFonts(archetype.aesthetic);
+    var componentIds = pickComponents(archetype);
+    var copy        = generateCopy(archetype, brandName);
+    var quality = ['low', 'medium', 'high'].includes(opts.quality) ? opts.quality : 'high';
+    var contactData = await fetchContactData();
+    var contact     = generateContact(brandName, contactData);
+    var pages       = buildPages(archetype.siteType, brandName, copy, quality);
+    var projectPrompt = buildProjectPrompt(brandName, copy, archetype);
 
-  // ── Nav enforcement: multi-page sites MUST have a nav component ──────────
-  var isMultiPage = pages.length > 1;
-  if (isMultiPage) {
-    var hasNav = componentIds.some(function(id) {
-      return NAV_COMPONENTS.indexOf(id) !== -1;
-    });
-    if (!hasNav) {
-      var navId = NAV_BY_AESTHETIC[archetype.aesthetic] || "Components/PillNav";
-      componentIds.push(navId);
-      console.log('[LocalGen] Multi-page site (' + archetype.siteType + ') had no nav — injected ' + navId);
+    var navResult = ensureNavForPages(componentIds, pages, archetype.aesthetic);
+    componentIds = navResult.selectedComponentIds;
+    if (navResult.injectedNavId) {
+      console.log('[LocalGen] Multi-page site (' + archetype.siteType + ') had no nav — injected ' + navResult.injectedNavId);
     }
-  }
 
-  var reasoning   = buildReasoning(archetype, brandName, fonts, componentIds);
+    var reasoning   = buildReasoning(archetype, brandName, fonts, componentIds);
 
-  return {
-    clientBrief: {
-      brandName:      brandName,
-      tagline:        copy.tagline,
-      industry:       copy.industry,
-      description:    copy.description,
-      usp:            copy.usp,
-      services:       copy.services,
-      targetAudience: copy.targetAudience,
-      callToAction:   copy.callToAction,
-      keyBenefits:    copy.keyBenefits,
-      tone:           copy.tone,
-      personality:    copy.personality,
-      contactEmail:   contact.email,
-      contactPhone:   contact.phone,
-      location:       contact.location,
-      socialLinks:    contact.socialLinks,
-    },
-    styleDirection: {
-      aesthetics:          [archetype.aesthetic],
-      siteType:            archetype.siteType,
-      typographyIntensity: copy.typographyIntensity,
-      visualEffects:       copy.visualEffects,
-      colorStrategy:       archetype.colorStrategy,
-      audience:            copy.audience,
-    },
-    designRules: {
-      fonts:  fonts,
-      colors: colors,
-      sizes: {
-        optimizationTarget: copy.optimizationTarget,
-        spacingScale:       copy.spacingScale,
-        borderRadius:       copy.borderRadius,
+    return {
+      clientBrief: {
+        brandName:      brandName,
+        tagline:        cleanShortCopy(copy.tagline, brandName + ' delivers measurable results.'),
+        industry:       copy.industry,
+        description:    copy.description,
+        usp:            copy.usp,
+        services:       copy.services,
+        targetAudience: copy.targetAudience,
+        callToAction:   cleanShortCopy(copy.callToAction, 'Get Started'),
+        keyBenefits:    copy.keyBenefits,
+        tone:           copy.tone,
+        personality:    copy.personality,
+        contactEmail:   contact.email,
+        contactPhone:   contact.phone,
+        location:       contact.location,
+        socialLinks:    contact.socialLinks,
       },
-      images: [],
-    },
-    selectedComponentIds: componentIds,
-    pages:         pages,
-    projectPrompt: projectPrompt,
-    projectName:   projectName,
-    reasoning:     reasoning,
-  };
+      styleDirection: {
+        aesthetics:          [archetype.aesthetic],
+        siteType:            archetype.siteType,
+        typographyIntensity: copy.typographyIntensity,
+        visualEffects:       sampleItems(copy.visualEffects || [], 1, Math.min(3, (copy.visualEffects || []).length)),
+        colorStrategy:       archetype.colorStrategy,
+        audience:            copy.audience,
+      },
+      designRules: {
+        fonts:  fonts,
+        colors: colors,
+        sizes: {
+          optimizationTarget: copy.optimizationTarget,
+          spacingScale:       copy.spacingScale,
+          borderRadius:       copy.borderRadius,
+        },
+        images: [],
+      },
+      selectedComponentIds: componentIds,
+      pages:         pages,
+      projectPrompt: projectPrompt,
+      projectName:   projectName,
+      reasoning:     reasoning,
+      _seed: String(seed),
+    };
+  });
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import "../../shared/types/api";
-import type { DesignRules, StyleDirection, ClientBrief } from '../project-builder/ProjectBuilderPanel';
+import type { DesignRules, StyleDirection, ClientBrief, ScrollbarStyle } from '../project-builder/ProjectBuilderPanel';
 import type { PageConfig } from '../../shared/types/index';
 
 // ── Schema version ──────────────────────────────────────────────────────────────
@@ -9,7 +9,9 @@ import type { PageConfig } from '../../shared/types/index';
 // v2: adds      styleDirection, clientBrief
 // v3: adds      layoutConfig (replaces layoutConcept)
 // v4: adds      pages (multi-page structure config)
-export const PRESET_SCHEMA_VERSION = 4;
+// v5: adds      scrollbarStyle (output tab settings)
+// v6: adds      page overrides persistence (per-page inheritance controls)
+export const PRESET_SCHEMA_VERSION = 6;
 
 export interface SavedPreset {
   id: string;
@@ -27,6 +29,8 @@ export interface SavedPreset {
   clientBrief?: ClientBrief;
   // v4 addition — absent in old presets, falls back to a single Home page on load
   pages?: PageConfig[];
+  // v5 addition — absent in old presets, falls back to default output settings
+  scrollbarStyle?: ScrollbarStyle;
 }
 
 interface PresetManagerProps {
@@ -53,6 +57,8 @@ const getPresetBadges = (preset: SavedPreset) => {
   }
 
   if (preset.pages && preset.pages.length > 1) badges.push({ label: `${preset.pages.length} Pages`, color: '#fb923c' });
+  const pagesWithOverrides = (preset.pages || []).filter(p => p.overrides?.enabled).length;
+  if (pagesWithOverrides > 0) badges.push({ label: `${pagesWithOverrides} Override${pagesWithOverrides > 1 ? 's' : ''}`, color: '#22d3ee' });
   if (preset.designRules?.fonts?.length) badges.push({ label: `${preset.designRules.fonts.length} Font${preset.designRules.fonts.length > 1 ? 's' : ''}`, color: '#a78bfa' });
   if (preset.designRules?.colors?.length) badges.push({ label: `${preset.designRules.colors.length} Color${preset.designRules.colors.length > 1 ? 's' : ''}`, color: '#f472b6' });
   if (preset.designRules?.images?.length) badges.push({ label: `${preset.designRules.images.length} Img`, color: '#facc15' });

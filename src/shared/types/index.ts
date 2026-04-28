@@ -36,11 +36,65 @@ export interface ParsedInstallData {
 
 export type PageType = 'home' | 'about' | 'services' | 'contact' | 'custom';
 
+export type PageTone = 'inherit' | 'formal' | 'casual' | 'technical' | 'friendly' | 'bold' | 'playful';
+export type PageDensity = 'inherit' | 'compact' | 'comfortable' | 'spacious';
+export type PageEmphasis = 'inherit' | 'hero' | 'editorial' | 'grid';
+
+export interface PageContentBlock {
+  pageTitle?: string;
+  tagline?: string;
+  description?: string;
+  callToAction?: string;
+  valueProps?: string[];
+  services?: Array<{ name: string; description: string }>;
+  teamMembers?: Array<{ name: string; role: string }>;
+  faqs?: Array<{ q: string; a: string }>;
+}
+
+export interface PageBriefOverrides {
+  tagline?: string;
+  description?: string;
+  callToAction?: string;
+  tone?: PageTone;
+}
+
+export interface PageStyleOverrides {
+  siteType?: string;
+  aesthetics?: string[];
+  colorStrategy?: string;
+  typographyIntensity?: string;
+  visualEffects?: string[];
+  audience?: string;
+}
+
+export interface PageDesignOverrides {
+  colors?: Array<{ value: string; role: string }>;
+  fonts?: Array<{ value: string; role: string }>;
+  spacingScale?: 'inherit' | 'compact' | 'comfortable' | 'spacious';
+  borderRadius?: 'inherit' | 'none' | 'small' | 'medium' | 'large' | 'pill';
+  optimizationTarget?: 'inherit' | 'mobile' | 'tablet' | 'desktop' | 'adaptive';
+}
+
+export interface PageLayoutOverrides {
+  density?: PageDensity;
+  emphasis?: PageEmphasis;
+}
+
+export interface PageOverrides {
+  enabled?: boolean;
+  brief?: PageBriefOverrides;
+  style?: PageStyleOverrides;
+  design?: PageDesignOverrides;
+  layout?: PageLayoutOverrides;
+  content?: PageContentBlock;
+}
+
 export interface PageConfig {
   id: string;
   title: string;
   type: PageType;
   componentIds: string[];
+  overrides?: PageOverrides;
 }
 
 export interface ProjectStructureOptions {

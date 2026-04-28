@@ -21,6 +21,7 @@ import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
 import type { ComponentContext, EnhancePromptResult } from "./shared/types/api";
 import type { ProjectStructureOptions } from "./shared/types";
+import { resolvePageIntents } from "./shared/lib/pageConfigResolver";
 
 const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 3, Animations: 3, Components: 5,
@@ -56,6 +57,18 @@ function getEnhancedProjectTitle(prompt: EnhancedPromptData | null, fallback: st
   if (!projectMeta || typeof projectMeta !== "object") return fallback;
   const title = (projectMeta as { title?: unknown }).title;
   return typeof title === "string" && title.trim() ? title : fallback;
+}
+
+function normalizePresetPages(rawPages: SavedPreset['pages'] | undefined): PageConfig[] {
+  const fallback = [{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] as string[] }];
+  if (!Array.isArray(rawPages) || rawPages.length === 0) return fallback;
+  return rawPages.map((page, idx) => ({
+    id: page.id || `page-${idx + 1}`,
+    title: page.title || 'Page',
+    type: page.type || 'custom',
+    componentIds: Array.isArray(page.componentIds) ? page.componentIds : [],
+    overrides: page.overrides?.enabled ? page.overrides : undefined,
+  }));
 }
 
 function App() {
@@ -131,6 +144,12 @@ function App() {
     () => selectedIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ReactBitsItem[],
     [selectedIds, items]
   );
+
+  const resolvedPageIntents = useMemo(() => resolvePageIntents(pages, {
+    clientBrief,
+    styleDirection,
+    designRules,
+  }), [pages, clientBrief, styleDirection, designRules]);
 
 
 
@@ -256,6 +275,7 @@ function App() {
             scrollbarStyle: scrollbarStyle.mode !== 'default' ? scrollbarStyle : null,
             aiSupport,
             pages,
+            resolvedPages: resolvedPageIntents,
             styleDirection,
             designRules,
             clientBrief,
@@ -325,6 +345,7 @@ function App() {
       styleDirection,
       clientBrief,
       pages,
+      scrollbarStyle,
     });
   };
 
@@ -351,8 +372,10 @@ function App() {
     setStyleDirection(sanitizedStyle);
 
     setClientBrief(preset.clientBrief ?? DEFAULT_CLIENT_BRIEF);
-    // v4 field — fall back to a single Home page for old presets
-    setPages(preset.pages ?? [{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
+    // v4-v6 field — migrate old page payloads safely to inheritance model
+    setPages(normalizePresetPages(preset.pages));
+    // v5 field — fall back safely for older presets
+    setScrollbarStyle(preset.scrollbarStyle ?? { mode: 'custom' });
     showStatus('success', `✓ Loaded "${preset.name}"`, 3000);
   };
 
@@ -412,7 +435,25 @@ function App() {
 
       const enhanceResult = await window.reactBitsApi.enhancePrompt({
         rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
-        systemContext: { framework: "Vite + React (TypeScript)", styling: "Tailwind CSS v4", icons: "Inline SVG or Unicode where needed", animations: ["Framer Motion", "GSAP"], architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Avoid introducing new icon-library imports in App.tsx."], designRules, responsiveDirective, styleDirection, clientBrief, componentRoleContext },
+        systemContext: {
+          framework: "Vite + React (TypeScript)",
+          styling: "Tailwind CSS v4",
+          icons: "Inline SVG or Unicode where needed",
+          animations: ["Framer Motion", "GSAP"],
+          architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Avoid introducing new icon-library imports in App.tsx."],
+          designRules,
+          responsiveDirective,
+          styleDirection,
+          clientBrief,
+          componentRoleContext,
+          pages: resolvedPageIntents.map(p => ({
+            id: p.id,
+            title: p.title,
+            type: p.type,
+            overridesEnabled: p.overridesEnabled,
+            content: p.content,
+          })),
+        },
       });
       const enhanceData = enhanceResult as EnhancePromptResult;
       if (enhanceData.success) {

@@ -203,6 +203,7 @@ function buildContent(brief, siteType = 'Landing') {
 function buildPageContent(baseContent, pageData) {
   if (!pageData || !pageData.content) return baseContent;
   const pc = pageData.content;
+  const pageType = pageData.type || 'custom';
 
   const result = {
     brandName: baseContent.brandName,
@@ -218,9 +219,14 @@ function buildPageContent(baseContent, pageData) {
   // Page-specific headline / tagline override
   if (pc.pageTitle) result.hero.headline = pc.pageTitle;
   if (pc.tagline)   result.hero.subheadline = pc.tagline;
+  if (pc.description) result.about.body = pc.description;
+  if (pc.callToAction) {
+    result.cta.button = pc.callToAction;
+    result.hero.cta = pc.callToAction;
+  }
 
-  // Page-specific services override features section
-  if (Array.isArray(pc.services) && pc.services.length > 0) {
+  // Services overrides are only valid for service-like pages.
+  if ((pageType === 'services' || pageType === 'custom' || pageType === 'home') && Array.isArray(pc.services) && pc.services.length > 0) {
     result.features = {
       heading: 'Our Services',
       items: pc.services.map(s => ({
@@ -230,16 +236,16 @@ function buildPageContent(baseContent, pageData) {
     };
   }
 
-  // Page-specific value props override benefits list
-  if (Array.isArray(pc.valueProps) && pc.valueProps.length > 0) {
+  // Value props are safe on non-contact pages.
+  if (pageType !== 'contact' && Array.isArray(pc.valueProps) && pc.valueProps.length > 0) {
     result.benefits = pc.valueProps;
   }
 
-  // Optional extras — used by section builders when present
-  if (Array.isArray(pc.teamMembers) && pc.teamMembers.length > 0) {
+  // Optional extras — constrain by page type to avoid cross-page leakage.
+  if ((pageType === 'about' || pageType === 'custom') && Array.isArray(pc.teamMembers) && pc.teamMembers.length > 0) {
     result.teamMembers = pc.teamMembers;
   }
-  if (Array.isArray(pc.faqs) && pc.faqs.length > 0) {
+  if ((pageType === 'contact' || pageType === 'custom') && Array.isArray(pc.faqs) && pc.faqs.length > 0) {
     result.faqs = pc.faqs;
   }
 

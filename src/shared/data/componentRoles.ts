@@ -136,3 +136,11 @@ export const COMPONENT_ROLES: ComponentRole[] = [
 export function getRoleData(componentName: string): ComponentRole | undefined {
   return COMPONENT_ROLES.find(r => r.name === componentName);
 }
+
+export function isNavigationComponentName(componentName: string | undefined): boolean {
+  if (!componentName) return false;
+  const roleData = getRoleData(componentName);
+  if (roleData) return roleData.roles.includes('navigation');
+  const lowered = componentName.toLowerCase();
+  return lowered.includes('nav') || lowered.includes('menu') || lowered.includes('header');
+}

@@ -420,7 +420,7 @@ async function writeBriefMd({ targetDir, selectedComponents, styleDirection, des
  * Main export: buildApp(options)
  * Decides single vs multi-page and generates App.tsx (+ page files if multi-page).
  */
-async function buildApp({ targetDir, selectedComponents, styleDirection, designRules, clientBrief, pages, presetName }) {
+async function buildApp({ targetDir, selectedComponents, styleDirection, designRules, clientBrief, pages, presetName, resolvedPages = [] }) {
   const content = buildContent(clientBrief, styleDirection && styleDirection.siteType);
 
   // Safety net: write a minimal valid App.tsx first — overwritten below if generation succeeds.
@@ -449,6 +449,7 @@ async function buildApp({ targetDir, selectedComponents, styleDirection, designR
       styleDirection,
       selectedComponentNames: inFlowNames,
       targetDir,
+      resolvedPages,
     });
 
     await buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief });

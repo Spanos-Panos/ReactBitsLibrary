@@ -5,7 +5,7 @@
  * Generates realistic client briefs for testing the project generation pipeline.
  *
  * Each run produces a per-client folder:
- *   output/YYYY-MM-DD-clientname/
+ *   output/<project-name>/
  *     preset.json   ← import directly into BitForge via Preset Manager
  *     brief.md      ← human-readable client profile with reasoning
  *
@@ -37,6 +37,8 @@ function parseArgs(argv) {
     previewMode: false,
     helpMode: false,
     localMode: false,
+    seed: null,
+    quality: 'high',
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -63,6 +65,12 @@ function parseArgs(argv) {
       case '--help':
       case '-h':
         opts.helpMode = true;
+        break;
+      case '--seed':
+        opts.seed = args[++i];
+        break;
+      case '--quality':
+        opts.quality = (args[++i] || 'high').toLowerCase();
         break;
     }
   }
@@ -131,7 +139,7 @@ function printHelp() {
   Each run creates a folder inside output/:
 
     output/
-      2026-04-26-novabrand/
+      novabrand/
         preset.json    ← import this into BitForge Preset Manager
         brief.md       ← read this to understand the client
 
@@ -147,6 +155,8 @@ function printHelp() {
   --local                 Generate without Claude API — free, instant, no API key needed
                           Uses curated data tables + free contact API. Same output format.
   --count N               Generate N clients in one run (sequential)
+  --seed VALUE            Deterministic run seed (especially useful with --local and --count)
+  --quality LEVEL         quality profile: low | medium | high (default: high)
   --archetype KEYWORD     Pick a specific archetype by keyword
                           (matches name, aesthetic, site type, or industry)
   --list                  Show all 20 available archetypes and exit
@@ -163,7 +173,7 @@ function printHelp() {
   # Free mode — no API cost, instant, no key needed
   node DemoCLI/synthetic-client/index.cjs --local
   node DemoCLI/synthetic-client/index.cjs --local --archetype luxury
-  node DemoCLI/synthetic-client/index.cjs --local --count 5
+  node DemoCLI/synthetic-client/index.cjs --local --count 5 --seed test-batch-1
   node DemoCLI/synthetic-client/index.cjs --local --archetype futuristic --preview
 
   # Generate 3 clients, each from a different random archetype
@@ -212,6 +222,14 @@ function printHelp() {
 `);
 }
 
+function buildVariationSignature(preset) {
+  const brand = (preset?.clientBrief?.brandName || '').toLowerCase().trim();
+  const comps = (preset?.selectedComponentIds || []).slice().sort().join('|');
+  const aesthetic = (preset?.styleDirection?.aesthetics || []).join('|');
+  const siteType = preset?.styleDirection?.siteType || '';
+  return `${brand}::${aesthetic}::${siteType}::${comps}`;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────
@@ -242,12 +260,24 @@ async function main() {
 ╚══════════════════════════════════════════════════════════════╝`);
   console.log(`  Generating ${opts.count} client${opts.count > 1 ? 's' : ''}${opts.archetypeKeyword ? ` (filter: "${opts.archetypeKeyword}")` : ' (random)'}`);
   console.log(`  Mode: ${opts.localMode ? 'local (free, no API)' : 'Claude AI'}`);
+  console.log(`  Quality: ${opts.quality}`);
+  if (opts.seed) console.log(`  Seed: ${opts.seed}`);
   if (!opts.previewMode) {
     console.log(`  Output: ${path.relative(process.cwd(), opts.outputDir) || opts.outputDir}/`);
   } else {
     console.log(`  Preview: no files written`);
   }
   console.log(`  Tip: run --help for full documentation\n`);
+
+  const summary = {
+    generated: 0,
+    failed: 0,
+    componentNames: new Set(),
+    categories: new Set(),
+    pageTypes: new Set(),
+  };
+  const seenBrandsInRun = new Set();
+  const seenVariationsInRun = new Set();
 
   for (let i = 0; i < opts.count; i++) {
     const archetype = opts.archetypeKeyword
@@ -262,10 +292,57 @@ async function main() {
     }
 
     try {
-      const claudeOutput = opts.localMode
-        ? await localGenerator.generateClient(archetype)
-        : await generator.generateClient(archetype);
-      const preset = formatter.buildPresetJson(claudeOutput, archetype.name);
+      const runSeedBase = opts.seed ? `${opts.seed}-${i + 1}` : null;
+      const maxRetries = opts.localMode ? 8 : 1;
+      let attempt = 0;
+      let claudeOutput = null;
+      let preset = null;
+      let accepted = false;
+
+      while (attempt < maxRetries && !accepted) {
+        const runSeed = runSeedBase ? `${runSeedBase}-r${attempt}` : null;
+        claudeOutput = opts.localMode
+          ? await localGenerator.generateClient(archetype, { seed: runSeed, quality: opts.quality })
+          : await generator.generateClient(archetype, { quality: opts.quality });
+        preset = formatter.buildPresetJson(claudeOutput, archetype.name);
+
+        if (!opts.localMode) {
+          accepted = true;
+          break;
+        }
+
+        const brandKey = (preset?.clientBrief?.brandName || '').toLowerCase().trim();
+        const variationKey = buildVariationSignature(preset);
+        const brandDuplicate = !!brandKey && seenBrandsInRun.has(brandKey);
+        const variationDuplicate = seenVariationsInRun.has(variationKey);
+
+        if (!brandDuplicate && !variationDuplicate) {
+          accepted = true;
+          seenBrandsInRun.add(brandKey);
+          seenVariationsInRun.add(variationKey);
+        } else {
+          attempt += 1;
+        }
+      }
+
+      if (!accepted && preset) {
+        const brandKey = (preset?.clientBrief?.brandName || '').toLowerCase().trim();
+        seenBrandsInRun.add(brandKey);
+        seenVariationsInRun.add(buildVariationSignature(preset));
+      }
+
+      if (!preset || !claudeOutput) {
+        throw new Error('Failed to generate a valid synthetic preset after retry attempts.');
+      }
+      summary.generated += 1;
+      (preset.selectedComponentIds || []).forEach(id => {
+        const parts = String(id).split('/');
+        if (parts[0]) summary.categories.add(parts[0]);
+        if (parts[1]) summary.componentNames.add(parts[1]);
+      });
+      (preset.pages || []).forEach(page => {
+        if (page.type) summary.pageTypes.add(page.type);
+      });
 
       if (opts.previewMode) {
         const brief = formatter.buildBriefMd(claudeOutput, archetype.name, dateStr, null);
@@ -318,9 +395,8 @@ async function main() {
         );
         try {
           await fs.mkdir(PRESETS_DIR, { recursive: true });
-          const presetId     = `${folderName}-preset`;
-          const exportPreset = { ...preset, id: presetId, _outputPath: clientDir };
-          const destFile     = path.join(PRESETS_DIR, `${presetId}.json`);
+          const exportPreset = { ...preset, id: folderName, _outputPath: clientDir };
+          const destFile     = path.join(PRESETS_DIR, `${folderName}-preset.json`);
           await fs.writeFile(destFile, JSON.stringify(exportPreset, null, 2));
           console.log(`       → Preset ready: ${path.relative(process.cwd(), destFile)}`);
         } catch (exportErr) {
@@ -329,6 +405,7 @@ async function main() {
       }
 
     } catch (err) {
+      summary.failed += 1;
       console.error(`       ✗ Failed: ${err.message}`);
     }
 
@@ -340,6 +417,16 @@ async function main() {
 
   if (!opts.previewMode && opts.count > 0) {
     console.log(`\n  All done. Open ${path.relative(process.cwd(), opts.outputDir) || opts.outputDir}/ to find your clients.\n`);
+  }
+
+  if (opts.count > 0) {
+    console.log('  Run summary');
+    console.log(`  - Success: ${summary.generated}`);
+    console.log(`  - Failed: ${summary.failed}`);
+    console.log(`  - Unique components: ${summary.componentNames.size}`);
+    console.log(`  - Category spread: ${Array.from(summary.categories).join(', ') || 'n/a'}`);
+    console.log(`  - Page types seen: ${Array.from(summary.pageTypes).join(', ') || 'n/a'}`);
+    console.log('');
   }
 }
 

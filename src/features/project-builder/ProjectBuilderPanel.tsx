@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import './ProjectBuilderPanel.css';
 import type { ReactBitsItem, PageConfig, PageType } from '../../shared/types/index';
+import { isNavigationComponentName } from '../../shared/data/componentRoles';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -137,7 +138,7 @@ export interface ScrollbarStyle {
 }
 
 type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Sizes' | 'Images' | 'Output' | 'Pages';
-const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Sizes', 'Images', 'Output', 'Pages'];
+const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Sizes', 'Pages', 'Images', 'Output'];
 
 
 type AssemblyCategoryId = 'Components' | 'Backgrounds' | 'Animations' | 'TextAnimations';
@@ -1377,27 +1378,7 @@ function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: St
   );
 }
 
-// ── Idle state ─────────────────────────────────────────────────────────────────
-import logo from '../../../images/ReactIcons/ReactIcon.svg';
-
-function IdleConfigState() {
-  return (
-    <div className="pbp-idle-state">
-      <img src={logo} alt="BitForge" className="pbp-idle-logo" />
-      <span className="pbp-idle-label">Configure</span>
-      <span className="pbp-idle-hint">Select a tab to shape your project</span>
-    </div>
-  );
-}
-
-// ── Output Tab (scrollbar + future output settings) ───────────────────────────
-
-// ── Navbar detection ──────────────────────────────────────────────────────────
-function isNavbarComponent(name: string | undefined): boolean {
-  if (!name) return false;
-  const n = name.toLowerCase();
-  return n.includes('nav') || n.includes('menu') || n.includes('header');
-}
+// ── Output Tab (scroll behavior + scrollbar) ──────────────────────────────────
 
 // ── Pages Tab ─────────────────────────────────────────────────────────────────
 const PAGE_TYPES: PageType[] = ['home', 'about', 'services', 'contact', 'custom'];
@@ -1416,13 +1397,14 @@ function PagesTab({
 }) {
   const topRef = useRef<HTMLDivElement>(null);
   const [flashWarning, setFlashWarning] = useState(false);
+  const [activePageId, setActivePageId] = useState<string | null>(null);
 
   // Safety: Ensure pages is always an array
   const safePages = Array.isArray(pages) ? pages : [];
 
-  const navbarComponent = selectedComponents.find(c => isNavbarComponent(c?.name));
-  const allSelectedNavbars = selectedComponents.filter(c => isNavbarComponent(c?.name));
-  const nonNavbarComponents = selectedComponents.filter(c => !isNavbarComponent(c?.name));
+  const navbarComponent = selectedComponents.find(c => isNavigationComponentName(c?.name));
+  const allSelectedNavbars = selectedComponents.filter(c => isNavigationComponentName(c?.name));
+  const nonNavbarComponents = selectedComponents.filter(c => !isNavigationComponentName(c?.name));
 
   // Safety net — ensure there's always at least one page
   useEffect(() => {
@@ -1430,6 +1412,16 @@ function PagesTab({
       onChange([{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }]);
     }
   }, [safePages.length, onChange]);
+
+  useEffect(() => {
+    if (safePages.length === 0) {
+      setActivePageId(null);
+      return;
+    }
+    if (!activePageId || !safePages.some(p => p.id === activePageId)) {
+      setActivePageId(safePages[0].id);
+    }
+  }, [safePages, activePageId]);
 
   const handleLockedClick = () => {
     if (!navbarComponent) {
@@ -1456,6 +1448,11 @@ function PagesTab({
     onChange(next);
   };
 
+  const updatePageById = (id: string, patch: Partial<PageConfig>) => {
+    const next = safePages.map((p) => p.id === id ? { ...p, ...patch } : p);
+    onChange(next);
+  };
+
   const toggleComponentOnPage = (pageIdx: number, compId: string) => {
     const page = safePages[pageIdx];
     if (!page) return;
@@ -1463,6 +1460,35 @@ function PagesTab({
       ? page.componentIds.filter(id => id !== compId)
       : [...page.componentIds, compId];
     updatePage(pageIdx, { componentIds: ids });
+  };
+
+  const activePage = safePages.find(p => p.id === activePageId) ?? safePages[0];
+  const activePageIndex = activePage ? safePages.findIndex(p => p.id === activePage.id) : -1;
+  const pageOverridesEnabled = !!activePage?.overrides?.enabled;
+
+  const setActivePageOverride = (patch: Partial<NonNullable<PageConfig['overrides']>>) => {
+    if (!activePage) return;
+    updatePageById(activePage.id, {
+      overrides: {
+        ...(activePage.overrides ?? {}),
+        ...patch,
+      },
+    });
+  };
+
+  const updateActivePageContent = (patch: Partial<NonNullable<NonNullable<PageConfig['overrides']>['content']>>) => {
+    if (!activePage) return;
+    setActivePageOverride({
+      content: {
+        ...(activePage.overrides?.content ?? {}),
+        ...patch,
+      },
+    });
+  };
+
+  const resetToInherited = () => {
+    if (!activePage) return;
+    updatePageById(activePage.id, { overrides: undefined });
   };
 
   return (
@@ -1496,7 +1522,7 @@ function PagesTab({
             options={[
               { label: '— None —', value: 'none' },
               ...allComponents
-                .filter(c => isNavbarComponent(c?.name))
+                .filter(c => isNavigationComponentName(c?.name))
                 .map(c => ({ label: c?.name || 'Unnamed', value: c?.id }))
             ]}
           />
@@ -1516,7 +1542,7 @@ function PagesTab({
             options={[
               { label: '— None —', value: 'none' },
               ...allComponents
-                .filter(c => isNavbarComponent(c?.name))
+                .filter(c => isNavigationComponentName(c?.name))
                 .map(c => ({ label: c?.name || 'Unnamed', value: c?.id }))
             ]}
           />
@@ -1564,65 +1590,162 @@ function PagesTab({
         )}
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, opacity: navbarComponent ? 1 : 0.35, pointerEvents: navbarComponent ? 'auto' : 'none', filter: navbarComponent ? 'none' : 'grayscale(100%)', transition: 'all 0.3s ease' }}>
-          <AnimatePresence initial={false}>
-            {safePages.map((page, idx) => (
-              <motion.div 
-                key={page?.id || idx}
-                initial={{ opacity: 0, height: 0, y: 10 }}
-                animate={{ opacity: 1, height: 'auto', y: 0 }}
-                exit={{ opacity: 0, height: 0, y: -10 }}
-                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                style={{ overflow: 'hidden' }}
-              >
-                <div style={{ borderBottom: idx < safePages.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none', paddingBottom: 20 }}>
-                  <div className="pbp-brief-grid" style={{ marginBottom: 12 }}>
-                    <div className="pbp-brief-field">
-                      <span className="pbp-brief-label">Page Title</span>
-                      <input
-                        className="pbp-brief-input"
-                        value={page.title}
-                        onChange={e => updatePage(idx, { title: e.target.value })}
-                        placeholder="e.g. Products"
-                      />
-                    </div>
-                    <div className="pbp-brief-field">
-                      <span className="pbp-brief-label">Route Type</span>
-                      <AnimatedSelect
-                        value={page.type}
-                        onChange={v => updatePage(idx, { type: v as PageType, title: page.title === DEFAULT_PAGE_TITLES[page.type] ? DEFAULT_PAGE_TITLES[v as PageType] : page.title })}
-                        options={PAGE_TYPES.map(t => ({ label: t.charAt(0).toUpperCase() + t.slice(1), value: t }))}
-                      />
-                    </div>
-                  </div>
+          <div className="pbp-brief-field">
+            <span className="pbp-brief-label">Page Inspector</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 6px', marginTop: 4 }}>
+              {safePages.map((page) => (
+                <button
+                  key={page.id}
+                  onClick={() => setActivePageId(page.id)}
+                  className={`pbp-preset-chip${activePage?.id === page.id ? ' pbp-preset-chip--active' : ''}`}
+                  style={{ padding: '4px 9px 5px', fontSize: '0.68rem' }}
+                >
+                  {page.title}
+                </button>
+              ))}
+            </div>
+          </div>
 
+          {activePage && (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activePage.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="pbp-brief-grid" style={{ marginBottom: 12 }}>
                   <div className="pbp-brief-field">
-                    <span className="pbp-brief-label">Page Layout — targeted components</span>
-                    {nonNavbarComponents.length > 0 ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 6px', marginTop: 4 }}>
-                        {nonNavbarComponents.map(comp => {
-                          const active = page.componentIds.includes(comp.id);
-                          return (
-                            <button
-                              key={comp.id}
-                              onClick={() => toggleComponentOnPage(idx, comp.id)}
-                              className={`pbp-preset-chip${active ? ' pbp-preset-chip--active' : ''}`}
-                              style={{ padding: '4px 9px 5px', fontSize: '0.68rem' }}
-                            >
-                              {comp.name}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    <span className="pbp-brief-label">Page Title</span>
+                    <input
+                      className="pbp-brief-input"
+                      value={activePage.title}
+                      onChange={e => updatePageById(activePage.id, { title: e.target.value })}
+                      placeholder="e.g. Products"
+                    />
+                  </div>
+                  <div className="pbp-brief-field">
+                    <span className="pbp-brief-label">Route Type</span>
+                    <AnimatedSelect
+                      value={activePage.type}
+                      onChange={v => updatePageById(activePage.id, { type: v as PageType, title: activePage.title === DEFAULT_PAGE_TITLES[activePage.type] ? DEFAULT_PAGE_TITLES[v as PageType] : activePage.title })}
+                      options={PAGE_TYPES.map(t => ({ label: t.charAt(0).toUpperCase() + t.slice(1), value: t }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="pbp-brief-field" style={{ marginBottom: 12 }}>
+                  <span className="pbp-brief-label">Page Layout — targeted components</span>
+                  {nonNavbarComponents.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 6px', marginTop: 4 }}>
+                      {nonNavbarComponents.map(comp => {
+                        const active = activePage.componentIds.includes(comp.id);
+                        return (
+                          <button
+                            key={comp.id}
+                            onClick={() => activePageIndex >= 0 && toggleComponentOnPage(activePageIndex, comp.id)}
+                            className={`pbp-preset-chip${active ? ' pbp-preset-chip--active' : ''}`}
+                            style={{ padding: '4px 9px 5px', fontSize: '0.68rem' }}
+                          >
+                            {comp.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.72rem', color: 'rgba(241,245,249,0.2)', padding: '6px 0', fontStyle: 'italic' }}>
+                      No components selected to assign.
+                    </div>
+                  )}
+                </div>
+
+                <div className="pbp-rule-header" style={{ marginTop: 8 }}>
+                  <span className="pbp-rule-label">Per-page Overrides</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {!pageOverridesEnabled ? (
+                      <button className="pbp-add-btn" onClick={() => setActivePageOverride({ enabled: true })}>Enable</button>
                     ) : (
-                      <div style={{ fontSize: '0.72rem', color: 'rgba(241,245,249,0.2)', padding: '6px 0', fontStyle: 'italic' }}>
-                        No components selected to assign.
-                      </div>
+                      <button className="pbp-add-btn" onClick={resetToInherited}>Reset To Inherit</button>
                     )}
                   </div>
                 </div>
+
+                {!pageOverridesEnabled ? (
+                  <p className="pbp-empty-hint">This page currently inherits global Brief + Forge settings.</p>
+                ) : (
+                  <>
+                    <div className="pbp-rule-header">
+                      <span className="pbp-rule-label">Content Overrides</span>
+                    </div>
+                    <div className="pbp-brief-grid">
+                      <div className="pbp-brief-field">
+                        <span className="pbp-brief-label">Page headline</span>
+                        <input
+                          className="pbp-brief-input"
+                          placeholder="Custom headline for this page"
+                          value={activePage.overrides?.content?.pageTitle ?? ''}
+                          onChange={(e) => updateActivePageContent({ pageTitle: e.target.value })}
+                        />
+                      </div>
+                      <div className="pbp-brief-field">
+                        <span className="pbp-brief-label">Page tagline</span>
+                        <input
+                          className="pbp-brief-input"
+                          placeholder="Custom subheading"
+                          value={activePage.overrides?.content?.tagline ?? ''}
+                          onChange={(e) => updateActivePageContent({ tagline: e.target.value })}
+                        />
+                      </div>
+                      <div className="pbp-brief-field pbp-brief-field--full">
+                        <span className="pbp-brief-label">CTA override</span>
+                        <input
+                          className="pbp-brief-input"
+                          placeholder="Get Started"
+                          value={activePage.overrides?.content?.callToAction ?? ''}
+                          onChange={(e) => updateActivePageContent({ callToAction: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pbp-rule-header">
+                      <span className="pbp-rule-label">Style Overrides</span>
+                    </div>
+                    <div className="pbp-brief-grid">
+                      <div className="pbp-brief-field">
+                        <span className="pbp-brief-label">Site type</span>
+                        <AnimatedSelect
+                          value={activePage.overrides?.style?.siteType ?? ''}
+                          placeholder="Inherit global"
+                          onChange={(v) => setActivePageOverride({ style: { ...(activePage.overrides?.style ?? {}), siteType: v } })}
+                          options={[
+                            { label: 'Inherit', value: '' },
+                            ...['Portfolio', 'Landing', 'SaaS', 'Agency'].map(v => ({ label: v, value: v })),
+                          ]}
+                        />
+                      </div>
+                      <div className="pbp-brief-field">
+                        <span className="pbp-brief-label">Color strategy</span>
+                        <AnimatedSelect
+                          value={activePage.overrides?.style?.colorStrategy ?? ''}
+                          placeholder="Inherit global"
+                          onChange={(v) => setActivePageOverride({ style: { ...(activePage.overrides?.style ?? {}), colorStrategy: v } })}
+                          options={[
+                            { label: 'Inherit', value: '' },
+                            { label: 'Dark + Accent', value: 'dark-bold-accent' },
+                            { label: 'Light', value: 'light-subtle' },
+                            { label: 'B&W + Pop', value: 'high-contrast-bw' },
+                            { label: 'Mono', value: 'monochromatic' },
+                            { label: 'Colorful', value: 'colorful' },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </motion.div>
-            ))}
-          </AnimatePresence>
+            </AnimatePresence>
+          )}
         </div>
       </div>
     </motion.div>
@@ -1632,43 +1755,10 @@ function PagesTab({
 function OutputTab({ style, onChange }: { style: ScrollbarStyle; onChange: (s: ScrollbarStyle) => void }) {
   const modes: ScrollbarStyle['mode'][] = ['default', 'hidden', 'custom'];
   const modeLabel: Record<ScrollbarStyle['mode'], string> = { default: 'Browser', hidden: 'Hidden', custom: 'Custom' };
-  
-  const [tsStrictness, setTsStrictness] = useState('strict');
-  const [commentsInCode, setCommentsInCode] = useState('yes');
 
   return (
     <div className="pbp-sizes-tab">
       <div className="pbp-rule-header">
-        <span className="pbp-rule-label">TypeScript Strictness</span>
-      </div>
-      <div className="pbp-sizes-chip-grid" style={{ display: 'flex', gap: 16 }}>
-        {['strict', 'loose'].map(m => (
-          <PremiumUnderlineButton
-            key={m}
-            active={tsStrictness === m}
-            onClick={() => setTsStrictness(m)}
-          >
-            {m.charAt(0).toUpperCase() + m.slice(1)}
-          </PremiumUnderlineButton>
-        ))}
-      </div>
-
-      <div className="pbp-rule-header" style={{ marginTop: '20px' }}>
-        <span className="pbp-rule-label">Comments in Code</span>
-      </div>
-      <div className="pbp-sizes-chip-grid" style={{ display: 'flex', gap: 16 }}>
-        {['yes', 'no'].map(m => (
-          <PremiumUnderlineButton
-            key={m}
-            active={commentsInCode === m}
-            onClick={() => setCommentsInCode(m)}
-          >
-            {m === 'yes' ? 'Include Comments' : 'No Comments'}
-          </PremiumUnderlineButton>
-        ))}
-      </div>
-
-      <div className="pbp-rule-header" style={{ marginTop: '20px' }}>
         <span className="pbp-rule-label">Scroll Behavior</span>
       </div>
       <div className="pbp-sizes-chip-grid" style={{ display: 'flex', gap: 16 }}>
@@ -1748,8 +1838,8 @@ export default function ProjectBuilderPanel({
   allComponents,
   onToggleComponent,
 }: ProjectBuilderPanelProps) {
-  const navbarComponent = selectedComponents.find(c => isNavbarComponent(c.name));
-  const [activeTab, setActiveTab] = useState<Tab | null>(null);
+  const navbarComponent = selectedComponents.find(c => isNavigationComponentName(c.name));
+  const [activeTab, setActiveTab] = useState<Tab>('Brief');
   const [topOpacity, setTopOpacity] = useState(0);
   const [bottomOpacity, setBottomOpacity] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1794,17 +1884,6 @@ export default function ProjectBuilderPanel({
       images: (designRules.images ?? []).filter(m => m !== img),
     });
 
-  const getTabIcon = (tab: Tab) => {
-    switch (tab) {
-      case 'Brief': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>;
-      case 'Style': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12c0-2.5 1-4.7 2.7-6.3L12 12V2z" /></svg>;
-      case 'Fonts': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7" /><line x1="9" y1="20" x2="15" y2="20" /><line x1="12" y1="4" x2="12" y2="20" /></svg>;
-      case 'Sizes': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="2" width="18" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12" y2="18" /></svg>;
-      case 'Images': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>;
-      case 'Pages': return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>;
-    }
-  };
-
   return (
     <div className="pbp-root">
       <div className="pbp-main-header">
@@ -1818,19 +1897,19 @@ export default function ProjectBuilderPanel({
         </div>
         <div />
         <div className="pbp-col-header pbp-col-header--assembly">
-          <span className="pbp-panel-title-text">ASSEMBLY</span>
+          <span className="pbp-panel-title-text">ASSEMBLY ACTIONS</span>
         </div>
         <div className="pbp-config-title-center">
           <AnimatePresence mode="wait" initial={false}>
             <motion.span
-              key={activeTab ?? 'idle'}
+              key={activeTab}
               className="pbp-workspace-title-text"
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             >
-              {activeTab ? `${activeTab.toUpperCase()} CONFIGURATION` : 'CONFIGURATION'}
+              {`${activeTab.toUpperCase()} CONFIGURATION`}
             </motion.span>
           </AnimatePresence>
         </div>
@@ -1880,14 +1959,13 @@ export default function ProjectBuilderPanel({
           >
             <AnimatePresence mode="wait">
               <MotionDiv
-                key={activeTab ?? 'idle'}
+                key={activeTab}
                 initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 style={{ height: '100%' }}
               >
-                {activeTab === null && <IdleConfigState />}
                 {activeTab === 'Brief' && <BriefTab brief={clientBrief} onChange={onClientBriefChange} />}
                 {activeTab === 'Style' && <StyleTab style={styleDirection} onChange={onStyleDirectionChange} />}
                 {activeTab === 'Fonts' && <FontsTab rules={designRules} onChange={onDesignRulesChange} />}

@@ -1,5 +1,6 @@
 import type { ComponentFile, ReactBitsItem, ProjectStructureOptions, StructureGenerateResult } from './index';
 import type { ClientBrief, DesignRules, StyleDirection, ComponentItem as BuilderComponentItem, ScrollbarStyle } from '../../features/project-builder/ProjectBuilderPanel';
+import type { PageConfig } from './index';
 
 export interface ComponentContext {
   id: string;
@@ -51,6 +52,13 @@ export interface EnhancePromptSystemContext {
   responsiveDirective?: string;
   styleDirection?: StyleDirection;
   clientBrief?: ClientBrief;
+  pages?: Array<{
+    id: string;
+    title: string;
+    type: PageConfig['type'];
+    overridesEnabled?: boolean;
+    content?: unknown;
+  }>;
 
   componentRoleContext?: Array<{ name: string; role: string; footprint: string; behaviors: string[] }>;
 }
@@ -87,7 +95,18 @@ export interface GeneratePlaygroundOptions {
 
   scrollbarStyle?: ScrollbarStyle | null;
   aiSupport?: boolean;
-  pages?: import('./index').PageConfig[];
+  pages?: PageConfig[];
+  resolvedPages?: Array<{
+    id: string;
+    title: string;
+    type: PageConfig['type'];
+    componentIds: string[];
+    overridesEnabled: boolean;
+    content?: unknown;
+    resolvedBrief: ClientBrief;
+    resolvedStyleDirection: StyleDirection;
+    resolvedDesignRules: DesignRules;
+  }>;
   styleDirection?: StyleDirection;
   designRules?: DesignRules;
   clientBrief?: ClientBrief;

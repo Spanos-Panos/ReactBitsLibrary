@@ -253,21 +253,45 @@ async function enhancePrompt(options) {
         });
       }
 
-      if (dr.sizes) {
-        lines.push('Sizes:');
-        lines.push(`  - Responsive strategy: ${dr.sizes.strategy}`);
-        if (dr.sizes.maxWidth) lines.push(`  - Max container width: ${dr.sizes.maxWidth}`);
+      if (dr.sizes && typeof dr.sizes === 'object') {
+        const sizeLines = [];
+        const optimizationTarget = dr.sizes.optimizationTarget || dr.sizes.strategy;
+        if (optimizationTarget) sizeLines.push(`  - Responsive strategy: ${optimizationTarget}`);
+        if (dr.sizes.spacingScale) sizeLines.push(`  - Spacing scale: ${dr.sizes.spacingScale}`);
+        if (dr.sizes.borderRadius) sizeLines.push(`  - Border radius system: ${dr.sizes.borderRadius}`);
+        if (dr.sizes.maxWidth) sizeLines.push(`  - Max container width: ${dr.sizes.maxWidth}`);
+        if (sizeLines.length > 0) {
+          lines.push('Sizes:');
+          lines.push(...sizeLines);
+        }
       }
 
       if (dr.images) {
-        lines.push('Image strategy:');
-        if (dr.images.style) lines.push(`  - Visual style: ${dr.images.style}`);
-        if (dr.images.direction) lines.push(`  - Direction: ${dr.images.direction}`);
-        if (dr.images.composition) lines.push(`  - Composition: ${dr.images.composition}`);
-        if (dr.images.subject) lines.push(`  - Subject: ${dr.images.subject}`);
-        if (dr.images.mood) lines.push(`  - Mood: ${dr.images.mood}`);
-        if (dr.images.lighting) lines.push(`  - Lighting: ${dr.images.lighting}`);
-        if (dr.images.texture) lines.push(`  - Texture: ${dr.images.texture}`);
+        if (Array.isArray(dr.images)) {
+          const total = dr.images.length;
+          if (total > 0) {
+            const categorized = dr.images.reduce((acc, img) => {
+              const key = (img && img.category) ? img.category : 'inspiration';
+              acc[key] = (acc[key] || 0) + 1;
+              return acc;
+            }, {});
+            lines.push('Image references:');
+            lines.push(`  - Total reference images: ${total}`);
+            Object.entries(categorized).forEach(([category, count]) => {
+              lines.push(`  - ${category}: ${count}`);
+            });
+          }
+        } else if (typeof dr.images === 'object') {
+          // Backward compatibility for older object-based image strategy presets.
+          lines.push('Image strategy:');
+          if (dr.images.style) lines.push(`  - Visual style: ${dr.images.style}`);
+          if (dr.images.direction) lines.push(`  - Direction: ${dr.images.direction}`);
+          if (dr.images.composition) lines.push(`  - Composition: ${dr.images.composition}`);
+          if (dr.images.subject) lines.push(`  - Subject: ${dr.images.subject}`);
+          if (dr.images.mood) lines.push(`  - Mood: ${dr.images.mood}`);
+          if (dr.images.lighting) lines.push(`  - Lighting: ${dr.images.lighting}`);
+          if (dr.images.texture) lines.push(`  - Texture: ${dr.images.texture}`);
+        }
       }
 
       if (lines.length > 0) {
@@ -411,6 +435,18 @@ async function enhancePrompt(options) {
         styleBlock = `\n\n## CREATIVE DIRECTION\nThe user has specified this artistic intent. Treat it as your primary design brief:\n\n${styleLines.join('\n')}`;
       }
     }
+
+    let pagesBlock = '';
+    if (Array.isArray(systemContext?.pages) && systemContext.pages.length > 0) {
+      const pageLines = systemContext.pages.map((page, idx) => {
+        const flags = [];
+        if (page.overridesEnabled) flags.push('overrides-enabled');
+        if (page.content && typeof page.content === 'object') flags.push('page-content');
+        const suffix = flags.length ? ` [${flags.join(', ')}]` : '';
+        return `${idx + 1}. ${page.title || `Page ${idx + 1}`} (${page.type || 'custom'})${suffix}`;
+      });
+      pagesBlock = `\n\n## PAGE INTENT MAP\nRespect page boundaries while writing content suggestions. Keep each page context-specific and do not leak contact content into non-contact pages.\n\n${pageLines.join('\n')}`;
+    }
     ensureDirsExist();
 
     const originalPayload = {
@@ -446,7 +482,7 @@ async function enhancePrompt(options) {
       install: c.install || '',
     }));
 
-    const dynamicSystemBlock = [clientBriefBlock, styleBlock, designBlock, layoutBlock,
+    const dynamicSystemBlock = [clientBriefBlock, styleBlock, designBlock, pagesBlock, layoutBlock,
       "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object."
     ].filter(Boolean).join('');
 
