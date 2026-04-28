@@ -102,6 +102,22 @@ const COMPONENT_JSX_OVERRIDES = {
   />
 </nav>`,
 
+  PillNav: `<nav style={{ position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 999, pointerEvents: 'auto' }}>
+  <PillNav
+    items={[
+      { label: 'Home', href: '/' },
+      { label: 'About', href: '/about' },
+      { label: 'Services', href: '/services' },
+      { label: 'Contact', href: '/contact' },
+    ]}
+    activeHref="/"
+    baseColor="var(--color-text)"
+    pillColor="var(--color-surface)"
+    pillTextColor="var(--color-text)"
+    hoveredPillTextColor="var(--color-bg)"
+  />
+</nav>`,
+
   GlassIcons: `<GlassIcons
   items={[
     { icon: <span style={{ fontSize: '1.4rem' }}>◈</span>, color: 'blue', label: 'Design' },

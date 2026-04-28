@@ -176,8 +176,20 @@ function buildNavJsxForPages(navName, pages) {
   />
 </nav>`;
     }
+    case 'FlowingMenu': {
+      const itemsStr = items
+        .map(it => `      { link: '${it.href}', text: '${it.label}', image: '/joker-square.jpg' }`)
+        .join(',\n');
+      return `<div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', zIndex: 999, pointerEvents: 'none' }}>
+  <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto' }}>
+    <FlowingMenu
+      items={[\n${itemsStr}\n      ]}
+    />
+  </div>
+</div>`;
+    }
     default: {
-      // FlowingMenu and unknown types: fall back to component-mapper static JSX
+      // Unknown nav types: fall back to component-mapper static JSX
       return getComponent(navName).jsx;
     }
   }

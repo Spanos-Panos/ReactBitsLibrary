@@ -232,23 +232,23 @@ const COMPONENT_COMBOS = {
     ["Backgrounds/Silk", "TextAnimations/DecryptedText", "Animations/GlareHover", "Components/TiltedCard", "TextAnimations/SplitText"],
   ],
   "Futuristic|SaaS": [
-    ["TextAnimations/CountUp", "TextAnimations/SplitText", "Components/Stepper", "Animations/GlareHover", "Backgrounds/DotGrid"],
-    ["TextAnimations/GradientText", "Components/SpotlightCard", "Components/MagicBento", "Animations/GlareHover"],
+    ["Components/FlowingMenu", "TextAnimations/CountUp", "TextAnimations/SplitText", "Components/Stepper", "Animations/GlareHover", "Backgrounds/DotGrid"],
+    ["Components/Dock", "TextAnimations/GradientText", "Components/SpotlightCard", "Components/MagicBento", "Animations/GlareHover"],
     ["Backgrounds/GridMotion", "TextAnimations/SplitText", "Components/Counter", "Components/Stepper"],
-    ["TextAnimations/DecryptedText", "Components/MagicBento", "Animations/SplashCursor", "TextAnimations/CountUp"],
+    ["Components/FlowingMenu", "TextAnimations/DecryptedText", "Components/MagicBento", "Animations/SplashCursor", "TextAnimations/CountUp"],
     ["Backgrounds/Beams", "TextAnimations/SplitText", "Components/SpotlightCard", "TextAnimations/GradientText"],
-    ["Backgrounds/DotGrid", "Components/Stepper", "TextAnimations/GlitchText", "Animations/GlareHover", "TextAnimations/CountUp"],
+    ["Components/Dock", "Backgrounds/DotGrid", "Components/Stepper", "TextAnimations/GlitchText", "Animations/GlareHover", "TextAnimations/CountUp"],
   ],
   "Futuristic|Portfolio": [
-    ["TextAnimations/SplitText", "Animations/ImageTrail", "Components/CircularGallery", "Backgrounds/Silk"],
-    ["TextAnimations/GlitchText", "Components/MagicBento", "Animations/SplashCursor", "TextAnimations/DecryptedText"],
+    ["Components/FlowingMenu", "TextAnimations/SplitText", "Animations/ImageTrail", "Components/CircularGallery", "Backgrounds/Silk"],
+    ["Components/Dock", "TextAnimations/GlitchText", "Components/MagicBento", "Animations/SplashCursor", "TextAnimations/DecryptedText"],
     ["Backgrounds/Aurora", "TextAnimations/SplitText", "Components/ScrollStack", "Animations/GlareHover"],
-    ["TextAnimations/GradientText", "Components/TiltedCard", "Animations/PixelTrail", "Components/SpotlightCard"],
+    ["Components/FlowingMenu", "TextAnimations/GradientText", "Components/TiltedCard", "Animations/PixelTrail", "Components/SpotlightCard"],
   ],
   "Futuristic|Agency": [
-    ["Backgrounds/Beams", "TextAnimations/SplitText", "Components/Stepper", "Animations/GlareHover"],
-    ["TextAnimations/GlitchText", "Components/MagicBento", "TextAnimations/CountUp", "Animations/SplashCursor"],
-    ["Backgrounds/DotGrid", "TextAnimations/DecryptedText", "Components/AnimatedList", "Animations/GlareHover"],
+    ["Components/FlowingMenu", "Backgrounds/Beams", "TextAnimations/SplitText", "Components/Stepper", "Animations/GlareHover"],
+    ["Components/Dock", "TextAnimations/GlitchText", "Components/MagicBento", "TextAnimations/CountUp", "Animations/SplashCursor"],
+    ["Components/FlowingMenu", "Backgrounds/DotGrid", "TextAnimations/DecryptedText", "Components/AnimatedList", "Animations/GlareHover"],
   ],
   "Editorial|Landing": [
     ["Backgrounds/Silk", "TextAnimations/SplitText", "Components/RollingGallery", "Animations/GradualBlur"],
@@ -259,17 +259,17 @@ const COMPONENT_COMBOS = {
     ["TextAnimations/SplitText", "Components/TiltedCard", "Animations/GradualBlur", "TextAnimations/ScrollFloat"],
   ],
   "Editorial|Portfolio": [
-    ["TextAnimations/ScrollReveal", "Components/CircularGallery", "Animations/ImageTrail", "TextAnimations/SplitText"],
-    ["TextAnimations/SplitText", "Components/RollingGallery", "Animations/GradualBlur", "Components/TiltedCard"],
+    ["Components/CardNav", "TextAnimations/ScrollReveal", "Components/CircularGallery", "Animations/ImageTrail", "TextAnimations/SplitText"],
+    ["Components/GooeyNav", "TextAnimations/SplitText", "Components/RollingGallery", "Animations/GradualBlur", "Components/TiltedCard"],
     ["Backgrounds/Silk", "TextAnimations/ScrollReveal", "Components/MagicBento", "Animations/FadeContent"],
-    ["TextAnimations/ScrollFloat", "Components/CircularGallery", "Animations/ImageTrail", "TextAnimations/BlurText"],
-    ["TextAnimations/SplitText", "Components/ScrollStack", "Animations/GradualBlur", "Components/TiltedCard"],
+    ["Components/CardNav", "TextAnimations/ScrollFloat", "Components/CircularGallery", "Animations/ImageTrail", "TextAnimations/BlurText"],
+    ["Components/GooeyNav", "TextAnimations/SplitText", "Components/ScrollStack", "Animations/GradualBlur", "Components/TiltedCard"],
   ],
   "Editorial|Agency": [
-    ["TextAnimations/SplitText", "Components/AnimatedList", "Animations/GradualBlur", "TextAnimations/ScrollReveal"],
-    ["Backgrounds/Silk", "TextAnimations/ScrollReveal", "Components/Stepper", "Animations/FadeContent"],
-    ["TextAnimations/BlurText", "Components/AnimatedList", "Animations/GradualBlur", "Components/TiltedCard"],
-    ["TextAnimations/SplitText", "Components/RollingGallery", "Animations/FadeContent", "TextAnimations/ScrollReveal"],
+    ["Components/CardNav", "TextAnimations/SplitText", "Components/AnimatedList", "Animations/GradualBlur", "TextAnimations/ScrollReveal"],
+    ["Components/GooeyNav", "Backgrounds/Silk", "TextAnimations/ScrollReveal", "Components/Stepper", "Animations/FadeContent"],
+    ["Components/CardNav", "TextAnimations/BlurText", "Components/AnimatedList", "Animations/GradualBlur", "Components/TiltedCard"],
+    ["Components/GooeyNav", "TextAnimations/SplitText", "Components/RollingGallery", "Animations/FadeContent", "TextAnimations/ScrollReveal"],
   ],
   "Minimal|Landing": [
     ["TextAnimations/BlurText", "Animations/FadeContent", "Components/Counter", "Backgrounds/DotGrid"],
@@ -280,23 +280,23 @@ const COMPONENT_COMBOS = {
     ["TextAnimations/SplitText", "Animations/FadeContent", "Components/TiltedCard"],
   ],
   "Minimal|Agency": [
-    ["TextAnimations/SplitText", "Components/AnimatedList", "Animations/FadeContent", "Components/Stepper"],
-    ["TextAnimations/ScrollReveal", "Components/Stepper", "Animations/GradualBlur"],
-    ["TextAnimations/BlurText", "Components/AnimatedList", "Animations/FadeContent"],
-    ["TextAnimations/SplitText", "Components/SpotlightCard", "Animations/GradualBlur", "Components/Stepper"],
-    ["TextAnimations/ScrollReveal", "Components/AnimatedList", "Animations/FadeContent", "TextAnimations/SplitText"],
+    ["Components/PillNav", "TextAnimations/SplitText", "Components/AnimatedList", "Animations/FadeContent", "Components/Stepper"],
+    ["Components/Dock", "TextAnimations/ScrollReveal", "Components/Stepper", "Animations/GradualBlur"],
+    ["Components/PillNav", "TextAnimations/BlurText", "Components/AnimatedList", "Animations/FadeContent"],
+    ["Components/Dock", "TextAnimations/SplitText", "Components/SpotlightCard", "Animations/GradualBlur", "Components/Stepper"],
+    ["Components/PillNav", "TextAnimations/ScrollReveal", "Components/AnimatedList", "Animations/FadeContent", "TextAnimations/SplitText"],
   ],
   "Minimal|Portfolio": [
-    ["TextAnimations/SplitText", "Components/CircularGallery", "Animations/FadeContent"],
-    ["TextAnimations/BlurText", "Components/TiltedCard", "Animations/GradualBlur", "Components/RollingGallery"],
-    ["TextAnimations/ScrollReveal", "Components/CircularGallery", "Animations/FadeContent", "Components/ScrollStack"],
-    ["TextAnimations/SplitText", "Components/RollingGallery", "Animations/GradualBlur"],
-    ["TextAnimations/BlurText", "Components/MagicBento", "Animations/FadeContent"],
+    ["Components/PillNav", "TextAnimations/SplitText", "Components/CircularGallery", "Animations/FadeContent"],
+    ["Components/Dock", "TextAnimations/BlurText", "Components/TiltedCard", "Animations/GradualBlur", "Components/RollingGallery"],
+    ["Components/PillNav", "TextAnimations/ScrollReveal", "Components/CircularGallery", "Animations/FadeContent", "Components/ScrollStack"],
+    ["Components/Dock", "TextAnimations/SplitText", "Components/RollingGallery", "Animations/GradualBlur"],
+    ["Components/PillNav", "TextAnimations/BlurText", "Components/MagicBento", "Animations/FadeContent"],
   ],
   "Minimal|SaaS": [
-    ["TextAnimations/SplitText", "Components/Stepper", "Animations/FadeContent", "Components/Counter"],
-    ["TextAnimations/ScrollReveal", "Components/AnimatedList", "Animations/GradualBlur", "Components/Stepper"],
-    ["TextAnimations/BlurText", "Components/SpotlightCard", "Animations/FadeContent", "Components/Counter"],
+    ["Components/PillNav", "TextAnimations/SplitText", "Components/Stepper", "Animations/FadeContent", "Components/Counter"],
+    ["Components/Dock", "TextAnimations/ScrollReveal", "Components/AnimatedList", "Animations/GradualBlur", "Components/Stepper"],
+    ["Components/PillNav", "TextAnimations/BlurText", "Components/SpotlightCard", "Animations/FadeContent", "Components/Counter"],
   ],
   "Brutalist|Landing": [
     ["TextAnimations/GlitchText", "Animations/ClickSpark", "Components/ScrollStack", "Backgrounds/DotGrid"],
@@ -306,16 +306,16 @@ const COMPONENT_COMBOS = {
     ["TextAnimations/ASCIIText", "Animations/ClickSpark", "Components/ScrollStack"],
   ],
   "Brutalist|Portfolio": [
-    ["TextAnimations/GlitchText", "Components/ScrollStack", "Animations/SplashCursor", "TextAnimations/ScrambleText"],
-    ["Backgrounds/DotGrid", "TextAnimations/ASCIIText", "Animations/ClickSpark", "Components/ScrollStack"],
-    ["TextAnimations/FallingText", "Animations/SplashCursor", "TextAnimations/GlitchText"],
-    ["Backgrounds/Dither", "TextAnimations/ScrambleText", "Animations/ClickSpark", "Components/ScrollStack"],
-    ["TextAnimations/ASCIIText", "Components/ScrollStack", "Animations/SplashCursor", "TextAnimations/GlitchText"],
+    ["Components/StaggeredMenu", "TextAnimations/GlitchText", "Components/ScrollStack", "Animations/SplashCursor", "TextAnimations/ScrambleText"],
+    ["Components/Dock", "Backgrounds/DotGrid", "TextAnimations/ASCIIText", "Animations/ClickSpark", "Components/ScrollStack"],
+    ["Components/StaggeredMenu", "TextAnimations/FallingText", "Animations/SplashCursor", "TextAnimations/GlitchText"],
+    ["Components/Dock", "Backgrounds/Dither", "TextAnimations/ScrambleText", "Animations/ClickSpark", "Components/ScrollStack"],
+    ["Components/StaggeredMenu", "TextAnimations/ASCIIText", "Components/ScrollStack", "Animations/SplashCursor", "TextAnimations/GlitchText"],
   ],
   "Brutalist|Agency": [
-    ["TextAnimations/GlitchText", "Components/AnimatedList", "Animations/ClickSpark"],
-    ["Backgrounds/DotGrid", "TextAnimations/ScrambleText", "Components/ScrollStack", "Animations/ClickSpark"],
-    ["TextAnimations/ASCIIText", "Animations/SplashCursor", "Components/AnimatedList"],
+    ["Components/StaggeredMenu", "TextAnimations/GlitchText", "Components/AnimatedList", "Animations/ClickSpark"],
+    ["Components/Dock", "Backgrounds/DotGrid", "TextAnimations/ScrambleText", "Components/ScrollStack", "Animations/ClickSpark"],
+    ["Components/StaggeredMenu", "TextAnimations/ASCIIText", "Animations/SplashCursor", "Components/AnimatedList"],
   ],
 };
 
@@ -1411,6 +1411,19 @@ function buildProjectPrompt(brandName, copy, archetype) {
   );
 }
 
+// Nav components — must be injected for multi-page sites
+var NAV_COMPONENTS = [
+  "Components/CardNav", "Components/StaggeredMenu", "Components/GooeyNav",
+  "Components/Dock", "Components/PillNav", "Components/FlowingMenu",
+];
+var NAV_BY_AESTHETIC = {
+  Editorial:   "Components/CardNav",
+  Minimal:     "Components/PillNav",
+  Futuristic:  "Components/FlowingMenu",
+  Brutalist:   "Components/StaggeredMenu",
+  colorful:    "Components/GooeyNav",
+};
+
 async function generateClient(archetype) {
   var brandName   = generateBrandName(archetype);
   var projectName = generateProjectName(brandName);
@@ -1420,9 +1433,23 @@ async function generateClient(archetype) {
   var copy        = generateCopy(archetype, brandName);
   var contactData = await fetchContactData();
   var contact     = generateContact(brandName, contactData);
-  var reasoning   = buildReasoning(archetype, brandName, fonts, componentIds);
   var pages       = buildPages(archetype.siteType);
   var projectPrompt = buildProjectPrompt(brandName, copy, archetype);
+
+  // ── Nav enforcement: multi-page sites MUST have a nav component ──────────
+  var isMultiPage = pages.length > 1;
+  if (isMultiPage) {
+    var hasNav = componentIds.some(function(id) {
+      return NAV_COMPONENTS.indexOf(id) !== -1;
+    });
+    if (!hasNav) {
+      var navId = NAV_BY_AESTHETIC[archetype.aesthetic] || "Components/PillNav";
+      componentIds.push(navId);
+      console.log('[LocalGen] Multi-page site (' + archetype.siteType + ') had no nav — injected ' + navId);
+    }
+  }
+
+  var reasoning   = buildReasoning(archetype, brandName, fonts, componentIds);
 
   return {
     clientBrief: {
