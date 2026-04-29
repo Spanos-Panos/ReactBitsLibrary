@@ -5,6 +5,7 @@ const ipcMain = electron.ipcMain;
 const dialog = electron.dialog;
 
 const path = require("node:path");
+const fs = require("fs");
 
 // Load .env configuration
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -16,6 +17,7 @@ const activeProcesses = new Map(); // Map<taskId, { proc, fullPath }>
 const { exec, spawn, execSync } = require('child_process');
 let appIsQuitting = false; // Guards before-quit to prevent re-entrancy loops
 let mainWindow = null;
+const presetWatchers = new Map(); // Map<webContents.id, { watcher, debounceTimer }>
 
 // ─── Survivor Registry ────────────────────────────────────────────────────────
 // Writes every running dev-server PID + path to a temp JSON file so that
@@ -275,7 +277,6 @@ app.on("activate", () => {
 });
 
 // Generator IPC Setup
-const fs = require("fs");
 const {
   validationFailure,
   shapeFailure,
@@ -471,6 +472,50 @@ ipcMain.handle("preset-save",   (_event, preset) => savePreset(preset));
 ipcMain.handle("preset-list",   ()               => listPresets());
 ipcMain.handle("preset-delete", (_event, id)     => deletePreset(id));
 ipcMain.handle("preset-open-folder", ()          => openPresetsFolder());
+ipcMain.handle("preset-watch-start", (event) => {
+  const sender = event.sender;
+  const senderId = sender.id;
+  if (presetWatchers.has(senderId)) return { success: true };
+
+  const presetsDir = path.join(app.getPath('documents'), '.reactBitsExplorer', 'presets');
+  fs.mkdirSync(presetsDir, { recursive: true });
+
+  const emitChange = () => {
+    try {
+      sender.send('preset-directory-changed', { changedAt: Date.now() });
+    } catch {}
+  };
+
+  const state = { watcher: null, debounceTimer: null };
+  const watcher = fs.watch(presetsDir, (_eventType, filename) => {
+    // Only react to preset json file operations.
+    if (filename && !String(filename).toLowerCase().endsWith('.json')) return;
+    if (state.debounceTimer) clearTimeout(state.debounceTimer);
+    state.debounceTimer = setTimeout(emitChange, 140);
+  });
+  state.watcher = watcher;
+  presetWatchers.set(senderId, state);
+
+  sender.once('destroyed', () => {
+    const existing = presetWatchers.get(senderId);
+    if (!existing) return;
+    if (existing.debounceTimer) clearTimeout(existing.debounceTimer);
+    try { existing.watcher?.close(); } catch {}
+    presetWatchers.delete(senderId);
+  });
+
+  return { success: true };
+});
+
+ipcMain.handle("preset-watch-stop", (event) => {
+  const senderId = event.sender.id;
+  const existing = presetWatchers.get(senderId);
+  if (!existing) return { success: true };
+  if (existing.debounceTimer) clearTimeout(existing.debounceTimer);
+  try { existing.watcher?.close(); } catch {}
+  presetWatchers.delete(senderId);
+  return { success: true };
+});
 ipcMain.handle("preset-import", async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const presetsDir = path.join(app.getPath('documents'), '.reactBitsExplorer', 'presets');

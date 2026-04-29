@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import "../../shared/types/api";
 import type { DesignRules, StyleDirection, ClientBrief, ScrollbarStyle } from '../project-builder/ProjectBuilderPanel';
@@ -81,6 +81,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   const [infoPanelVisible, setInfoPanelVisible] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
   const inputRef = useRef<HTMLInputElement>(null);
+  const refreshTimerRef = useRef<number | null>(null);
   const SUBPANEL_CLOSE_MS = 240;
   const MAIN_CLOSE_MS = 260;
 
@@ -105,18 +106,22 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
 
   /* ── data loading ─────────────────────────────────────────── */
 
-  const loadPresets = async () => {
+  const loadPresets = useCallback(async () => {
     const list = (await api()?.listPresets?.() ?? []) as SavedPreset[];
     setPresets(list);
+  }, []);
+
+  const loadRecentIds = useCallback(() => {
     try {
       const stored = localStorage.getItem('rb_recent_presets');
       if (stored) setRecentIds(JSON.parse(stored));
     } catch { /* ignore */ }
-  };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       loadPresets();
+      loadRecentIds();
       setTimeout(() => inputRef.current?.focus(), 200);
     } else {
       setInfoId(null);
@@ -124,7 +129,43 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
       setConfirmDeleteId(null);
       setHoveredId(null);
     }
-  }, [isOpen]);
+  }, [isOpen, loadPresets, loadRecentIds]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isDisposed = false;
+    let removeListener: (() => void) | undefined;
+
+    const clearRefreshTimer = () => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
+
+    const scheduleRefresh = () => {
+      clearRefreshTimer();
+      refreshTimerRef.current = window.setTimeout(async () => {
+        if (isDisposed) return;
+        await loadPresets();
+      }, 180);
+    };
+
+    (async () => {
+      await api()?.startPresetWatch?.();
+      removeListener = api()?.onPresetDirectoryChanged?.(() => {
+        scheduleRefresh();
+      });
+    })();
+
+    return () => {
+      isDisposed = true;
+      clearRefreshTimer();
+      removeListener?.();
+      api()?.stopPresetWatch?.();
+    };
+  }, [isOpen, loadPresets]);
 
 
   const pushRecent = (id: string) => {

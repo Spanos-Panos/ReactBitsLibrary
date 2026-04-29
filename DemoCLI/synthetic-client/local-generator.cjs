@@ -373,6 +373,48 @@ const COMPONENT_COMBOS = {
 
 const RECENT_COMPONENT_SIGNATURES = [];
 const MAX_SIGNATURE_HISTORY = 30;
+const HEAVY_COMPONENTS = new Set([
+  'Backgrounds/Ballpit',
+  'Backgrounds/GridDistortion',
+  'Backgrounds/PlasmaWave',
+  'Backgrounds/Threads',
+  'Backgrounds/GridMotion',
+  'Backgrounds/Beams',
+  'Components/FlowingMenu',
+  'Components/ScrollStack',
+  'Components/FlyingPosters',
+  'Components/CircularGallery',
+  'Animations/ImageTrail',
+  'Animations/PixelTrail',
+  'Animations/SplashCursor',
+  'Animations/Noise',
+]);
+
+function enforcePerformanceBudget(combo) {
+  var source = Array.isArray(combo) ? combo.slice() : [];
+  var maxHeavy = 2;
+  var heavyCount = 0;
+  var filtered = [];
+
+  for (var i = 0; i < source.length; i++) {
+    var id = source[i];
+    var isHeavy = HEAVY_COMPONENTS.has(id);
+    if (!isHeavy) {
+      filtered.push(id);
+      continue;
+    }
+    if (heavyCount < maxHeavy) {
+      filtered.push(id);
+      heavyCount++;
+    }
+  }
+
+  var hasBackground = filtered.some(function(id) { return id.indexOf('Backgrounds/') === 0; });
+  if (!hasBackground) filtered.unshift('Backgrounds/DotGrid');
+
+  if (filtered.length > 6) filtered = filtered.slice(0, 6);
+  return filtered;
+}
 
 function comboSignature(combo) {
   return (combo || []).slice().sort().join('|');
@@ -388,21 +430,21 @@ function pickComponents(archetype) {
       if (!RECENT_COMPONENT_SIGNATURES.includes(sig)) {
         RECENT_COMPONENT_SIGNATURES.push(sig);
         if (RECENT_COMPONENT_SIGNATURES.length > MAX_SIGNATURE_HISTORY) RECENT_COMPONENT_SIGNATURES.shift();
-        return shuffled[i];
+        return enforcePerformanceBudget(shuffled[i]);
       }
     }
     var fallback = pick(pool);
     var fallbackSig = comboSignature(fallback);
     RECENT_COMPONENT_SIGNATURES.push(fallbackSig);
     if (RECENT_COMPONENT_SIGNATURES.length > MAX_SIGNATURE_HISTORY) RECENT_COMPONENT_SIGNATURES.shift();
-    return fallback;
+    return enforcePerformanceBudget(fallback);
   }
 
   if (!combos || combos.length === 0) {
     const fallbackKey = Object.keys(COMPONENT_COMBOS).find(k => k.startsWith(archetype.aesthetic));
     return fallbackKey
       ? pickWithDiversity(COMPONENT_COMBOS[fallbackKey])
-      : ["TextAnimations/SplitText", "Animations/FadeContent", "Components/Counter"];
+      : enforcePerformanceBudget(["TextAnimations/SplitText", "Animations/FadeContent", "Components/Counter", "Backgrounds/DotGrid"]);
   }
   return pickWithDiversity(combos);
 }

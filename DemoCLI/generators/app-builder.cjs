@@ -16,6 +16,7 @@ const { buildContent } = require('./content-builder.cjs');
 const CURSOR_NAMES = new Set([
   'BlobCursor', 'Crosshair', 'ImageTrail', 'PixelTrail', 'SplashCursor', 'TargetCursor',
 ]);
+const DEFAULT_LOGO_DATA_URI = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 48%22%3E%3Crect width=%22160%22 height=%2248%22 rx=%2210%22 fill=%22%2311151a%22/%3E%3Ctext x=%2280%22 y=%2230%22 text-anchor=%22middle%22 fill=%22%23f8fafc%22 font-family=%22Inter,Arial,sans-serif%22 font-size=%2216%22 font-weight=%22700%22%3EBITFORGE%3C/text%3E%3C/svg%3E';
 
 /**
  * Splits selectedComponents into fixed (backgrounds + cursors), navs, and in-flow.
@@ -68,11 +69,11 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
   // Fixed layer JSX (backgrounds + cursors)
   const fixedLayers = fixed.map(c => {
     const data = getComponent(c.name);
-    const pointerEvents = c.isCursor ? 'auto' : 'none';
-    const jsx = data.isFixed
-      ? data.jsx
-      : `<${c.name} style={{ position: 'fixed', inset: 0, zIndex: ${c.zIndex}, pointerEvents: '${pointerEvents}' }} />`;
-    return `      ${jsx}`;
+    const pointerEvents = 'none';
+    const layerZ = c.isCursor ? 9999 : c.zIndex;
+    return `      <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: ${layerZ}, pointerEvents: '${pointerEvents}', transform: 'translateZ(0)' }}>
+        ${data.jsx}
+      </div>`;
   }).join('\n');
 
   // Nav layer JSX — overrides already contain fixed positioning
@@ -83,8 +84,8 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
 
   // Add top padding when nav exists so content clears the fixed navbar
   const wrapperStyle = hasNav
-    ? `position: 'relative', minHeight: '100vh', paddingTop: '4.5rem'`
-    : `position: 'relative', minHeight: '100vh'`;
+    ? `position: 'relative', minHeight: '100vh', paddingTop: '4.5rem', isolation: 'isolate', background: 'var(--color-bg)'`
+    : `position: 'relative', minHeight: '100vh', isolation: 'isolate', background: 'var(--color-bg)'`;
 
   const appContent = `${allImports}
 
@@ -93,7 +94,9 @@ export default function App() {
     <div style={{ ${wrapperStyle} }}>
 ${fixedLayers ? `      {/* Fixed ambient layers */}\n${fixedLayers}\n` : ''}${navLayers ? `      {/* Navigation */}\n${navLayers}\n` : ''}
       {/* Page sections */}
+      <div style={{ position: 'relative', zIndex: 40 }}>
 ${sections.join('\n')}
+      </div>
     </div>
   );
 }
@@ -144,10 +147,15 @@ function buildNavJsxForPages(navName, pages) {
     }
     case 'CardNav': {
       const itemsStr = items
-        .map(it => `      { label: '${it.label}', href: '${it.href}' }`)
+        .map((it, idx) => {
+          const bg = ['#0D0716', '#170D27', '#0D1A27'][idx % 3];
+          return `      { label: '${it.label}', bgColor: '${bg}', textColor: '#fff', links: [{ label: '${it.label}', href: '${it.href}', ariaLabel: 'Go to ${it.label}' }] }`;
+        })
         .join(',\n');
       return `<div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, pointerEvents: 'auto' }}>
   <CardNav
+    logo="${DEFAULT_LOGO_DATA_URI}"
+    logoAlt="Site logo"
     items={[\n${itemsStr}\n    ]}
   />
 </div>`;
@@ -172,6 +180,8 @@ function buildNavJsxForPages(navName, pages) {
         .join(',\n');
       return `<nav style={{ position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 999, pointerEvents: 'auto' }}>
   <PillNav
+    logo="${DEFAULT_LOGO_DATA_URI}"
+    logoAlt="Site logo"
     items={[\n${itemsStr}\n    ]}
   />
 </nav>`;
@@ -180,8 +190,8 @@ function buildNavJsxForPages(navName, pages) {
       const itemsStr = items
         .map(it => `      { link: '${it.href}', text: '${it.label}', image: '/joker-square.jpg' }`)
         .join(',\n');
-      return `<div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', zIndex: 999, pointerEvents: 'none' }}>
-  <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto' }}>
+      return `<div style={{ position: 'relative', width: '100%', height: '160px', zIndex: 999, pointerEvents: 'auto', overflow: 'hidden', borderBottom: '1px solid var(--color-border)' }}>
+  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
     <FlowingMenu
       items={[\n${itemsStr}\n      ]}
     />
@@ -222,8 +232,11 @@ async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clie
 
   const fixedLayers = fixed.map(c => {
     const data = getComponent(c.name);
-    const pointerEvents = c.isCursor ? 'auto' : 'none';
-    return `        ${data.isFixed ? data.jsx : `<${c.name} style={{ position: 'fixed', inset: 0, zIndex: ${c.zIndex}, pointerEvents: '${pointerEvents}' }} />`}`;
+    const pointerEvents = 'none';
+    const layerZ = c.isCursor ? 9999 : c.zIndex;
+    return `        <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: ${layerZ}, pointerEvents: '${pointerEvents}', transform: 'translateZ(0)' }}>
+          ${data.jsx}
+        </div>`;
   }).join('\n');
 
   // Nav layer JSX — fixed overlays with links matching the actual pages
@@ -264,8 +277,8 @@ ${autoNavLinks}
     : `import { BrowserRouter, Routes, Route } from 'react-router-dom';`;
 
   const wrapperStyle = (hasNav || needsAutoNav)
-    ? `position: 'relative', minHeight: '100vh', paddingTop: '3.5rem'`
-    : `position: 'relative', minHeight: '100vh'`;
+    ? `position: 'relative', minHeight: '100vh', paddingTop: '3.5rem', isolation: 'isolate', background: 'var(--color-bg)'`
+    : `position: 'relative', minHeight: '100vh', isolation: 'isolate', background: 'var(--color-bg)'`;
 
   const scrollToTop = needsAutoNav ? `
 function ScrollToTop() {
@@ -285,9 +298,11 @@ export default function App() {
     <BrowserRouter>
 ${needsAutoNav ? '      <ScrollToTop />\n' : ''}      <div style={{ ${wrapperStyle} }}>
 ${fixedLayers ? `        {/* Fixed ambient layers */}\n${fixedLayers}\n` : ''}${autoNavJsx ? `${autoNavJsx}\n` : ''}${navLayers ? `        {/* Navigation */}\n${navLayers}\n` : ''}
+        <div style={{ position: 'relative', zIndex: 40 }}>
         <Routes>
 ${routeElements}
         </Routes>
+        </div>
       </div>
     </BrowserRouter>
   );
@@ -302,7 +317,9 @@ ${routeElements}
  * used to create this project: components, brief, style, colors, fonts, pages.
  */
 async function writeBriefMd({ targetDir, selectedComponents, styleDirection, designRules, clientBrief, pages, presetName }) {
-  const date = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+  const generatedAt = now.toISOString();
   const brand = clientBrief.brandName || 'Project';
   const aesthetic = (styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'Minimal';
   const siteType = styleDirection.siteType || 'Landing';
@@ -314,6 +331,10 @@ async function writeBriefMd({ targetDir, selectedComponents, styleDirection, des
     if (!byCategory[cat]) byCategory[cat] = [];
     byCategory[cat].push(c.name);
   }
+  const totalComponents = selectedComponents.length;
+  const categoryStats = Object.entries(byCategory)
+    .map(([cat, names]) => `| ${cat} | ${names.length} |`)
+    .join('\n') || '| None | 0 |';
   const componentSection = Object.entries(byCategory)
     .map(([cat, names]) => `### ${cat}\n${names.map(n => `- ${n}`).join('\n')}`)
     .join('\n\n');
@@ -321,73 +342,87 @@ async function writeBriefMd({ targetDir, selectedComponents, styleDirection, des
   // Colors
   const colors = (designRules.colors || []);
   const colorRows = colors.length > 0
-    ? colors.map(c => `| ${c.role || '—'} | ${c.hex || c.value || '—'} | ${c.label || '—'} |`).join('\n')
-    : '| — | — | — |';
+    ? colors.map(c => {
+      const hex = c.value || c.hex || '—';
+      const swatch = hex && hex.startsWith('#')
+        ? `<span style="display:inline-block;width:12px;height:12px;border-radius:999px;background:${hex};border:1px solid rgba(255,255,255,.25);vertical-align:middle;"></span>`
+        : '—';
+      return `| ${c.role || 'auto'} | ${hex} | ${swatch} |`;
+    }).join('\n')
+    : '| auto | — | — |';
 
   // Fonts
   const fonts = (designRules.fonts || []);
   const fontLines = fonts.length > 0
-    ? fonts.map(f => `- **${f.role || f.family}**: ${f.family}${f.weight ? ` (weight: ${f.weight})` : ''}`).join('\n')
+    ? fonts.map(f => `- **${f.role || 'auto'}**: ${f.family || f.value}${f.weight ? ` (weight: ${f.weight})` : ''}`).join('\n')
     : '- Default system font';
 
   // Layout / sizes
   const sizes = designRules.sizes || {};
   const optimTarget = sizes.optimizationTarget || 'adaptive';
   const spacing = sizes.spacingScale || '—';
+  const radius = sizes.borderRadius || '—';
 
   // Pages
-  const pagesSection = Array.isArray(pages) && pages.length > 1
-    ? pages.map((p, i) => `- **${p.title || p.name || `Page ${i + 1}`}** (${p.type || 'custom'}) → \`/${(p.title || '').toLowerCase().replace(/\s+/g, '-') || i}\``).join('\n')
-    : '- Single page';
+  const pagesSection = Array.isArray(pages) && pages.length > 0
+    ? pages.map((p, i) => `| ${i + 1} | ${p.title || p.name || `Page ${i + 1}`} | ${p.type || 'custom'} | \`${pageTypeToRoute(p.type || 'custom', p.title || p.name || `Page ${i + 1}`)}\` |`).join('\n')
+    : '| 1 | Home | home | `/` |';
 
   const lines = [
-    `# Brief — ${brand}`,
-    `> Generated by BitForge · ${date}${presetName ? ` · Preset: **${presetName}**` : ''}`,
+    `# Project Brief: ${brand}`,
+    ``,
+    `> Generated by BitForge`,
+    `> Date: ${date}`,
+    `> Timestamp: ${generatedAt}${presetName ? `\n> Preset: ${presetName}` : ''}`,
     ``,
     `---`,
     ``,
-    `## Overview`,
+    `## Snapshot`,
     ``,
-    `| Field | Value |`,
-    `|---|---|`,
-    `| Brand | ${brand} |`,
+    `| Key | Value |`,
+    `| --- | --- |`,
+    `| Project | ${brand} |`,
     `| Tagline | ${clientBrief.tagline || '—'} |`,
     `| Site Type | ${siteType} |`,
     `| Aesthetic | ${aesthetic} |`,
+    `| Color Strategy | ${styleDirection.colorStrategy || '—'} |`,
     `| Industry | ${clientBrief.industry || '—'} |`,
     `| Call to Action | ${clientBrief.callToAction || '—'} |`,
+    `| Total Components | ${totalComponents} |`,
+    `| Total Pages | ${Array.isArray(pages) ? pages.length : 1} |`,
     ``,
     `---`,
     ``,
-    `## Client Brief`,
+    `## Brand Narrative`,
     ``,
     clientBrief.description
       ? `> ${clientBrief.description.replace(/\n/g, '\n> ')}`
       : '> (no description provided)',
     ``,
     clientBrief.targetAudience ? `**Target Audience:** ${clientBrief.targetAudience}` : '',
-    clientBrief.uniqueValue    ? `**Unique Value:** ${clientBrief.uniqueValue}` : '',
+    clientBrief.usp            ? `**Unique Value:** ${clientBrief.usp}` : '',
     clientBrief.tone           ? `**Tone:** ${clientBrief.tone}` : '',
+    clientBrief.personality    ? `**Personality:** ${clientBrief.personality}` : '',
     ``,
     `---`,
     ``,
     `## Style Direction`,
     ``,
     `| Setting | Value |`,
-    `|---|---|`,
+    `| --- | --- |`,
     `| Aesthetics | ${(styleDirection.aesthetics || []).join(', ') || '—'} |`,
-    `| Vibe | ${(styleDirection.vibe || []).join(', ') || '—'} |`,
-    `| Color Mode | ${styleDirection.colorMode || '—'} |`,
-    `| Motion Level | ${styleDirection.motionLevel || '—'} |`,
+    `| Typography Intensity | ${styleDirection.typographyIntensity || '—'} |`,
+    `| Visual Effects | ${(styleDirection.visualEffects || []).join(', ') || '—'} |`,
+    `| Audience Hint | ${styleDirection.audience || '—'} |`,
     ``,
     `---`,
     ``,
-    `## Design Rules`,
+    `## Design System`,
     ``,
     `### Colors`,
     ``,
-    `| Role | Hex | Label |`,
-    `|---|---|---|`,
+    `| Role | Value | Swatch |`,
+    `| --- | --- | --- |`,
     colorRows,
     ``,
     `### Fonts`,
@@ -398,18 +433,34 @@ async function writeBriefMd({ targetDir, selectedComponents, styleDirection, des
     ``,
     `- Optimization Target: **${optimTarget}**`,
     spacing !== '—' ? `- Spacing Scale: **${spacing}**` : '',
+    radius !== '—' ? `- Border Radius: **${radius}**` : '',
     ``,
     `---`,
     ``,
-    `## Selected Components`,
+    `## Component Inventory`,
+    ``,
+    `| Category | Count |`,
+    `| --- | ---: |`,
+    categoryStats,
     ``,
     componentSection || '- (none)',
     ``,
     `---`,
     ``,
-    `## Pages`,
+    `## Page Map`,
     ``,
+    `| # | Name | Type | Route |`,
+    `| ---: | --- | --- | --- |`,
     pagesSection,
+    ``,
+    `---`,
+    ``,
+    `## Quick Start`,
+    ``,
+    `\`\`\`bash`,
+    `npm install`,
+    `npm run dev`,
+    `\`\`\``,
     ``,
   ].filter(l => l !== undefined).join('\n');
 

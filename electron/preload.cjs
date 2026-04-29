@@ -108,6 +108,17 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
   importPreset() {
     return ipcRenderer.invoke("preset-import");
   },
+  startPresetWatch() {
+    return ipcRenderer.invoke("preset-watch-start");
+  },
+  stopPresetWatch() {
+    return ipcRenderer.invoke("preset-watch-stop");
+  },
+  onPresetDirectoryChanged(callback) {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on("preset-directory-changed", handler);
+    return () => ipcRenderer.removeListener("preset-directory-changed", handler);
+  },
   addComponent(payload) {
     return ipcRenderer.invoke("add-component", payload);
   },

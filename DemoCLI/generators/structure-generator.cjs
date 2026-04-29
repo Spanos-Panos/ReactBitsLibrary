@@ -3,6 +3,16 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs/promises');
 
+const CURSOR_NAMES = new Set([
+  'BlobCursor', 'Crosshair', 'ImageTrail', 'PixelTrail', 'SplashCursor', 'TargetCursor',
+]);
+const DEFAULT_LOGO_DATA_URI = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 48%22%3E%3Crect width=%22160%22 height=%2248%22 rx=%2210%22 fill=%22%2311151a%22/%3E%3Ctext x=%2280%22 y=%2230%22 text-anchor=%22middle%22 fill=%22%23f8fafc%22 font-family=%22Inter,Arial,sans-serif%22 font-size=%2216%22 font-weight=%22700%22%3EBITFORGE%3C/text%3E%3C/svg%3E';
+
+function isGlobalFixedComponent(comp) {
+  if (!comp) return false;
+  return comp.category === 'Backgrounds' || CURSOR_NAMES.has(comp.name);
+}
+
 // ── Shell runner (same pattern as vite-react.cjs) ─────────────────────────────
 function runCommand(command, args, cwd, onLog) {
   return new Promise((resolve, reject) => {
@@ -61,7 +71,7 @@ function detectNavLinksProps(navbarSrc) {
  */
 function isOverlayNavbar(navbarSrc, navName) {
   if (!navbarSrc && !navName) return false;
-  const overlayNames = ['StaggeredMenu', 'FlowingMenu'];
+  const overlayNames = ['StaggeredMenu'];
   if (overlayNames.some(n => navName && navName.toLowerCase().includes(n.toLowerCase()))) return true;
   // Heuristic: component uses position:absolute on its panel + height:100%
   if (
@@ -74,21 +84,57 @@ function isOverlayNavbar(navbarSrc, navName) {
 
 // ── File content builders ─────────────────────────────────────────────────────
 
-function buildMainLayout(navbarComponent, pages, navbarSrc) {
+function buildMainLayout(navbarComponent, pages, navbarSrc, fixedComponents) {
   const navName = navbarComponent.name;
   const importPath = `../components/${navbarComponent.category}/${navName}/${navName}`;
+  const fixed = Array.isArray(fixedComponents) ? fixedComponents : [];
 
   const routes = pages.map(p => ({ label: p.title, href: pageTypeToRoute(p.type, p.title) }));
   const linksProp = detectNavLinksProps(navbarSrc);
   const overlayNav = isOverlayNavbar(navbarSrc, navName);
+  const fixedImports = fixed
+    .map(c => `import ${c.name} from '../components/${c.category}/${c.name}/${c.name}';`)
+    .join('\n');
+  const fixedLayersJsx = fixed
+    .map((c, idx) => {
+      const isCursor = CURSOR_NAMES.has(c.name);
+      const zIndex = isCursor ? 9999 : idx;
+      const pointerEvents = 'none';
+    return `      <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: ${zIndex}, pointerEvents: '${pointerEvents}', transform: 'translateZ(0)' }}>
+        <${c.name} />
+      </div>`;
+    })
+    .join('\n');
 
   // Build the props string to forward to the navbar
   let propsStr = '';
+  if (navName === 'CardNav') {
+    const cardItemsLiteral = routes
+      .slice(0, 3)
+      .map((r, idx) => {
+        const bg = ['#0D0716', '#170D27', '#0D1A27'][idx % 3];
+        return `{ label: '${r.label}', bgColor: '${bg}', textColor: '#fff', links: [{ label: '${r.label}', href: '${r.href}', ariaLabel: 'Go to ${r.label}' }] }`;
+      })
+      .join(', ');
+    propsStr = ` logo="${DEFAULT_LOGO_DATA_URI}" logoAlt="Site logo" items={[${cardItemsLiteral}]}`;
+  }
+  if (navName === 'PillNav') {
+    const pillItemsLiteral = routes
+      .map(r => `{ label: '${r.label}', href: '${r.href}', ariaLabel: 'Go to ${r.label}' }`)
+      .join(', ');
+    propsStr = ` logo="${DEFAULT_LOGO_DATA_URI}" logoAlt="Site logo" items={[${pillItemsLiteral}]}`;
+  }
+  if (navName === 'FlowingMenu') {
+    const itemsLiteral = routes
+      .map(r => `{ link: '${r.href}', text: '${r.label}', image: '/joker-square.jpg' }`)
+      .join(', ');
+    propsStr = ` items={[${itemsLiteral}]}`;
+  }
   if (linksProp) {
     const linksLiteral = routes
       .map(r => `{ label: '${r.label}', link: '${r.href}', href: '${r.href}', ariaLabel: 'Go to ${r.label}' }`)
       .join(', ');
-    propsStr += ` ${linksProp}={[${linksLiteral}]}`;
+    if (!propsStr) propsStr += ` ${linksProp}={[${linksLiteral}]}`;
   }
   // StaggeredMenu also needs 'items' (its actual prop) and a safe logoUrl
   if (navName === 'StaggeredMenu') {
@@ -103,27 +149,32 @@ function buildMainLayout(navbarComponent, pages, navbarSrc) {
   const navbarJsx = propsStr
     ? `      <${navName}${propsStr} />`
     : `      ${todoComment}\n      <${navName} />`;
+  const finalNavbarJsx = navName === 'FlowingMenu'
+    ? `      <div style={{ width: '100%', height: '160px', overflow: 'hidden', borderBottom: '1px solid var(--color-border)' }}>\n${navbarJsx}\n      </div>`
+    : navbarJsx;
 
   if (overlayNav) {
     // Overlay navbars use position:absolute inside a height:100vh container.
     // Wrap in a fixed viewport shell so the panel and GSAP animations work.
     return `import { Outlet } from 'react-router-dom';
 import ${navName} from '${importPath}';
+${fixedImports}
 
 export default function MainLayout() {
   return (
-    <>
+    <div style={{ position: 'relative', minHeight: '100vh', isolation: 'isolate', background: 'var(--color-bg)' }}>
+${fixedLayersJsx ? `      {/* Global fixed layers (backgrounds/cursors) */}\n${fixedLayersJsx}\n` : ''}      {/* Navigation */}
       {/* Overlay navbar — fixed viewport shell required */}
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', zIndex: 40, pointerEvents: 'none' }}>
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', zIndex: 120, pointerEvents: 'none' }}>
         <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto' }}>
-${navbarJsx}
+${finalNavbarJsx}
         </div>
       </div>
       {/* Page content — top padding reserves space under the header bar */}
-      <main style={{ paddingTop: '5rem' }}>
+      <main style={{ position: 'relative', zIndex: 40, paddingTop: '5rem' }}>
         <Outlet />
       </main>
-    </>
+    </div>
   );
 }
 `;
@@ -132,12 +183,16 @@ ${navbarJsx}
   // Standard inline navbar (top of flex column)
   return `import { Outlet } from 'react-router-dom';
 import ${navName} from '${importPath}';
+${fixedImports}
 
 export default function MainLayout() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-${navbarJsx}
-      <main style={{ flex: 1 }}>
+    <div style={{ position: 'relative', minHeight: '100vh', isolation: 'isolate', background: 'var(--color-bg)' }}>
+${fixedLayersJsx ? `      {/* Global fixed layers (backgrounds/cursors) */}\n${fixedLayersJsx}\n` : ''}      {/* Navigation */}
+      <div style={{ position: 'relative', zIndex: 120 }}>
+${finalNavbarJsx}
+      </div>
+      <main style={{ position: 'relative', zIndex: 40, flex: 1 }}>
         <Outlet />
       </main>
     </div>
@@ -154,7 +209,8 @@ function buildPageComponent(page, allSelectedComponents) {
     .map(id => allSelectedComponents.find(c =>
       `${c.category}/${c.name}` === id || c.id === id || c.name === id
     ))
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter(c => !isGlobalFixedComponent(c));
 
   const importLines = pageComps
     .map(c => `import ${c.name} from '../components/${c.category}/${c.name}/${c.name}';`)
@@ -256,6 +312,97 @@ img, svg {
 `;
 }
 
+async function writeStructureBriefMd({
+  targetDir,
+  projectName,
+  outputPath,
+  packageManager,
+  pages,
+  navbarComponent,
+  selectedComponents,
+}) {
+  const now = new Date();
+  const generatedAt = now.toISOString();
+  const byCategory = {};
+  for (const c of selectedComponents || []) {
+    const cat = c.category || 'Other';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(c.name);
+  }
+
+  const categoryRows = Object.entries(byCategory)
+    .map(([cat, names]) => `| ${cat} | ${names.length} |`)
+    .join('\n') || '| None | 0 |';
+
+  const componentsByCategory = Object.entries(byCategory)
+    .map(([cat, names]) => `### ${cat}\n${names.map(n => `- ${n}`).join('\n')}`)
+    .join('\n\n');
+
+  const pageRows = (Array.isArray(pages) && pages.length > 0
+    ? pages
+    : [{ title: 'Home', type: 'home' }]
+  ).map((p, i) => `| ${i + 1} | ${p.title || `Page ${i + 1}`} | ${p.type || 'custom'} | \`${pageTypeToRoute(p.type || 'custom', p.title || `Page ${i + 1}`)}\` |`).join('\n');
+
+  const lines = [
+    `# Structure Brief: ${projectName}`,
+    ``,
+    `> Generated by BitForge Structure Generator`,
+    `> Timestamp: ${generatedAt}`,
+    ``,
+    `---`,
+    ``,
+    `## Build Snapshot`,
+    ``,
+    `| Key | Value |`,
+    `| --- | --- |`,
+    `| Project Name | ${projectName} |`,
+    `| Output Path | \`${outputPath}\` |`,
+    `| Package Manager | ${packageManager} |`,
+    `| Navigation Component | ${navbarComponent?.name || 'None'} |`,
+    `| Total Components | ${(selectedComponents || []).length} |`,
+    `| Total Pages | ${(pages || []).length || 1} |`,
+    ``,
+    `---`,
+    ``,
+    `## Architecture`,
+    ``,
+    `- Multi-page routing scaffolded with \`react-router-dom\``,
+    `- Navigation rendered via \`${navbarComponent?.name || 'selected navbar'}\``,
+    `- Backgrounds/cursors mounted globally as fixed layers`,
+    `- Page components generated into \`src/pages\``,
+    ``,
+    `---`,
+    ``,
+    `## Component Inventory`,
+    ``,
+    `| Category | Count |`,
+    `| --- | ---: |`,
+    categoryRows,
+    ``,
+    componentsByCategory || '- No components selected',
+    ``,
+    `---`,
+    ``,
+    `## Page Map`,
+    ``,
+    `| # | Name | Type | Route |`,
+    `| ---: | --- | --- | --- |`,
+    pageRows,
+    ``,
+    `---`,
+    ``,
+    `## Run Locally`,
+    ``,
+    `\`\`\`bash`,
+    `${packageManager} install`,
+    `${packageManager} run dev`,
+    `\`\`\``,
+    ``,
+  ].join('\n');
+
+  await fs.writeFile(path.join(targetDir, 'Brief.md'), lines, 'utf-8');
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 async function generateStructure(payload, event, taskId) {
@@ -344,7 +491,8 @@ async function generateStructure(payload, event, taskId) {
     notify(`Generating MainLayout...`);
     await fs.mkdir(path.join(targetDir, 'src', 'layouts'), { recursive: true });
     const navbarTsxFile = navbarComponent.files?.find(f => f.name.endsWith('.tsx') || f.name.endsWith('.ts'));
-    const mainLayoutContent = buildMainLayout(navbarComponent, pages, navbarTsxFile?.content || '');
+    const fixedComponents = selectedComponents.filter(isGlobalFixedComponent);
+    const mainLayoutContent = buildMainLayout(navbarComponent, pages, navbarTsxFile?.content || '', fixedComponents);
     await fs.writeFile(path.join(targetDir, 'src', 'layouts', 'MainLayout.tsx'), mainLayoutContent, 'utf-8');
 
     // ── Step 6: Create pages/ ────────────────────────────────────────────────
@@ -393,6 +541,18 @@ async function generateStructure(payload, event, taskId) {
       `@echo off\necho Starting ${safeProjectName}...\nPowerShell -ExecutionPolicy Bypass -Command "${packageManager} run dev"\npause`,
       'utf-8'
     );
+
+    // ── Step 10.5: Project brief ─────────────────────────────────────────────
+    notify(`Writing Brief.md...`);
+    await writeStructureBriefMd({
+      targetDir,
+      projectName: safeProjectName,
+      outputPath: parentDir,
+      packageManager,
+      pages,
+      navbarComponent,
+      selectedComponents,
+    });
 
     // ── Step 11: TypeScript verification ─────────────────────────────────────
     notify(`Verifying TypeScript (tsc --noEmit)...`);

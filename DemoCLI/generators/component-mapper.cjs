@@ -20,6 +20,8 @@ const CURSOR_NAMES = new Set([
   'BlobCursor', 'Crosshair', 'ImageTrail', 'PixelTrail', 'SplashCursor', 'TargetCursor',
 ]);
 
+const DEFAULT_LOGO_DATA_URI = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 48%22%3E%3Crect width=%22160%22 height=%2248%22 rx=%2210%22 fill=%22%2311151a%22/%3E%3Ctext x=%2280%22 y=%2230%22 text-anchor=%22middle%22 fill=%22%23f8fafc%22 font-family=%22Inter,Arial,sans-serif%22 font-size=%2216%22 font-weight=%22700%22%3EBITFORGE%3C/text%3E%3C/svg%3E';
+
 /**
  * Hand-crafted JSX overrides for components whose usageMarkdown can't be cleanly extracted.
  * Use these when the example requires variable declarations, external libraries, or complex setup.
@@ -104,6 +106,8 @@ const COMPONENT_JSX_OVERRIDES = {
 
   PillNav: `<nav style={{ position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 999, pointerEvents: 'auto' }}>
   <PillNav
+    logo="${DEFAULT_LOGO_DATA_URI}"
+    logoAlt="Site logo"
     items={[
       { label: 'Home', href: '/' },
       { label: 'About', href: '/about' },
@@ -128,7 +132,7 @@ const COMPONENT_JSX_OVERRIDES = {
   ]}
 />`,
 
-  ImageTrail: `<div style={{ height: '500px', width: '100%', position: 'relative', overflow: 'hidden' }}>
+  ImageTrail: `<div style={{ height: '320px', width: '100%', maxWidth: '960px', margin: '0 auto', position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
   <ImageTrail
     items={['/joker-square.jpg', '/joker-portrait.jpg', '/joker-landscape.jpg', '/joker-square.jpg', '/joker-portrait.jpg']}
     variant={1}
@@ -154,12 +158,12 @@ const COMPONENT_JSX_OVERRIDES = {
 
   CardNav: `<div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, pointerEvents: 'auto' }}>
   <CardNav
-    logo="/joker-square.jpg"
+    logo="${DEFAULT_LOGO_DATA_URI}"
     logoAlt="Logo"
     items={[
-      { label: 'About', bgColor: '#0D0716', textColor: '#fff', links: [{ label: 'Company', href: '#', ariaLabel: 'About Company' }, { label: 'Team', href: '#', ariaLabel: 'Our Team' }] },
-      { label: 'Work', bgColor: '#170D27', textColor: '#fff', links: [{ label: 'Projects', href: '#', ariaLabel: 'Our Projects' }, { label: 'Case Studies', href: '#', ariaLabel: 'Case Studies' }] },
-      { label: 'Contact', bgColor: '#0D1A27', textColor: '#fff', links: [{ label: 'Get in Touch', href: '#', ariaLabel: 'Contact Us' }] },
+      { label: 'Home', bgColor: '#0D0716', textColor: '#fff', links: [{ label: 'Overview', href: '/', ariaLabel: 'Go to Home' }, { label: 'Highlights', href: '/', ariaLabel: 'View home highlights' }] },
+      { label: 'Work', bgColor: '#170D27', textColor: '#fff', links: [{ label: 'Projects', href: '/work', ariaLabel: 'Go to Work' }, { label: 'Case Studies', href: '/work', ariaLabel: 'View case studies' }] },
+      { label: 'About', bgColor: '#0D1A27', textColor: '#fff', links: [{ label: 'Studio', href: '/about', ariaLabel: 'Go to About' }, { label: 'Contact', href: '/contact', ariaLabel: 'Go to Contact' }] },
     ]}
     baseColor="var(--color-text)"
     menuColor="var(--color-bg)"
@@ -168,9 +172,19 @@ const COMPONENT_JSX_OVERRIDES = {
   />
 </div>`,
 
+  SpotlightCard: `<div style={{ maxWidth: '860px', margin: '0 auto', padding: '1rem' }}>
+  <style>{\`.generated-spotlight-card.card-spotlight{position:relative!important;top:auto!important;left:auto!important;transform:none!important;width:100%!important;height:auto!important;min-height:220px!important;}\`}</style>
+  <SpotlightCard className="generated-spotlight-card" spotlightColor="rgba(101, 202, 228, 0.38)">
+    <div style={{ color: '#f8fafc', textAlign: 'left' }}>
+      <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.35rem', color: '#f8fafc' }}>Focused Value</h3>
+      <p style={{ margin: 0, opacity: 0.78, lineHeight: 1.7, color: '#e2e8f0' }}>Use this spotlight area for one key message, offer, or product highlight.</p>
+    </div>
+  </SpotlightCard>
+</div>`,
+
   PlasmaWave: `<div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
   <PlasmaWave
-    colors={['#7C3AED', '#22D3EE']}
+    colors={['var(--color-primary, #7C3AED)', 'var(--color-accent, #22D3EE)']}
     speed1={0.018}
     speed2={0.026}
     focalLength={1.05}
@@ -197,6 +211,21 @@ const COMPONENT_JSX_OVERRIDES = {
 
   RippleGrid: `<div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
   <RippleGrid enableRainbow={true} rippleColor={[0.3, 0.6, 1]} />
+</div>`,
+
+  DotGrid: `<div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.28, overflow: 'hidden' }}>
+  <DotGrid
+    dotSize={8}
+    gap={22}
+    baseColor="#7f83a8"
+    activeColor="#635bff"
+    proximity={95}
+    shockRadius={160}
+    shockStrength={2}
+    resistance={900}
+    returnDuration={1.2}
+    style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', minHeight: '100dvh', pointerEvents: 'none' }}
+  />
 </div>`,
 
   Folder: `<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
@@ -278,13 +307,15 @@ const COMPONENT_JSX_OVERRIDES = {
 
   // AnimatedList: usageMarkdown has `const items = [...]` which gets stripped,
   // leaving the list empty. Override provides real content items.
-  AnimatedList: `<AnimatedList
-  items={['Strategy', 'Design', 'Development', 'Testing', 'Launch', 'Support', 'Analytics', 'Optimization']}
+  AnimatedList: `<div style={{ maxWidth: '840px', margin: '0 auto', border: '1px solid var(--color-border)', borderRadius: 12, background: 'var(--color-surface)', boxShadow: '0 20px 40px rgba(0,0,0,0.22)', padding: '0.25rem' }}>
+  <AnimatedList
+  items={['Discovery session', 'Concept direction', 'Design pass', 'Prototype review', 'Build iteration', 'Launch support']}
   onItemSelect={(item, index) => console.log(item, index)}
   showGradients={true}
   enableArrowNavigation={true}
   displayScrollbar={true}
-/>`,
+  />
+</div>`,
 
   // BounceCards: usageMarkdown has `const images = [...]` and `const transformStyles = [...]`
   // which both get stripped, leaving the component with no images to show.
@@ -375,19 +406,33 @@ const COMPONENT_JSX_OVERRIDES = {
   nextButtonText="Next"
 >
   <Step>
-    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Getting Started</h2>
-    <p style={{ color: 'var(--color-text)', opacity: 0.65, margin: 0 }}>Welcome. Follow the steps below to continue.</p>
+    <h2 style={{ color: '#f8fafc', margin: '0 0 0.5rem' }}>Getting Started</h2>
+    <p style={{ color: '#cbd5e1', opacity: 0.9, margin: 0 }}>Welcome. Follow the steps below to continue.</p>
   </Step>
   <Step>
-    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Configure</h2>
-    <p style={{ color: 'var(--color-text)', opacity: 0.65, margin: 0 }}>Adjust your preferences and settings here.</p>
+    <h2 style={{ color: '#f8fafc', margin: '0 0 0.5rem' }}>Configure</h2>
+    <p style={{ color: '#cbd5e1', opacity: 0.9, margin: 0 }}>Adjust your preferences and settings here.</p>
   </Step>
   <Step>
-    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Complete</h2>
-    <p style={{ color: 'var(--color-text)', opacity: 0.65, margin: 0 }}>You are all set. Everything is ready to go.</p>
+    <h2 style={{ color: '#f8fafc', margin: '0 0 0.5rem' }}>Complete</h2>
+    <p style={{ color: '#cbd5e1', opacity: 0.9, margin: 0 }}>You are all set. Everything is ready to go.</p>
   </Step>
 </Stepper>`,
   },
+
+  ScrollFloat: `<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '180px', textAlign: 'center' }}>
+  <ScrollFloat animationDuration={1} ease='power2.out' scrollStart='top bottom-=10%' scrollEnd='bottom center' stagger={0.025}>
+    Crafted with clarity and intention.
+  </ScrollFloat>
+</div>`,
+
+  GradualBlur: `<div style={{ position: 'relative', overflow: 'hidden', borderRadius: 14, background: 'var(--color-surface)' }}>
+  <div style={{ padding: '2.5rem 1.5rem', color: 'var(--color-text)', opacity: 0.78 }}>
+    <h3 style={{ margin: 0, fontSize: '1.3rem' }}>Smooth Focus Transition</h3>
+    <p style={{ margin: '0.65rem 0 0', lineHeight: 1.7 }}>Use gradual blur to gently fade long content blocks and create depth without hard edges.</p>
+  </div>
+  <GradualBlur target="parent" position="bottom" height="22vh" strength={2} divCount={6} curve="bezier" exponential={true} opacity={0.85} />
+</div>`,
 
   // FadeContent: usageMarkdown wraps content in backgroundColor:'#111' which gets stripped,
   // but inner color:'white' and color:'#888' survive — invisible on light-background sites.
@@ -666,8 +711,7 @@ function buildFixedWrapper(name, content, zIndex, isCursor) {
   const selfClosing = content.match(/^<(\w+)([^>]*?)\/>\s*$/s);
   if (selfClosing) {
     const attrs = selfClosing[2].trim();
-    const pointerEvents = isCursor ? 'auto' : 'none';
-    return `<${name} ${attrs} style={{ position: 'fixed', inset: 0, zIndex: ${zIndex}, pointerEvents: '${pointerEvents}' }} />`;
+    return `<${name} ${attrs} style={{ position: 'fixed', inset: 0, zIndex: ${zIndex}, pointerEvents: 'none' }} />`;
   }
 
   return content;

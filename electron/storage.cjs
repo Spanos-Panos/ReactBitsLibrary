@@ -114,12 +114,34 @@ function listPresets() {
   }
 }
 
+function resolvePresetFilePathById(id) {
+  ensurePresetsDir();
+
+  // Fast path for canonical filename format.
+  const canonicalPath = path.join(PRESETS_DIR, `${id}.json`);
+  if (fs.existsSync(canonicalPath)) return canonicalPath;
+
+  // Legacy/alternate filename fallback: find a JSON whose payload id matches.
+  const files = fs.readdirSync(PRESETS_DIR).filter(f => f.endsWith('.json'));
+  for (const file of files) {
+    const fullPath = path.join(PRESETS_DIR, file);
+    try {
+      const data = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+      if (String(data?.id ?? '') === String(id)) return fullPath;
+    } catch {
+      // Ignore malformed JSON and continue scanning.
+    }
+  }
+
+  return canonicalPath;
+}
+
 // Resolved once so every deletePreset call can use it as a fallback root.
 const SYNTH_OUTPUT_ROOT = path.join(__dirname, '..', 'DemoCLI', 'synthetic-client', 'output');
 
 function deletePreset(id) {
   try {
-    const filePath = path.join(PRESETS_DIR, `${id}.json`);
+    const filePath = resolvePresetFilePathById(id);
 
     // Read the preset before deleting so we can find the output folder
     let outputPath = null;

@@ -64,19 +64,16 @@ function pickSectionVariant(pageType, siteType, seedKey) {
 // ── Image placeholder helper ──────────────────────────────────────────────────
 
 function buildImagePlaceholder(label, aspectRatio = '16/9') {
-  return `{/* img: ${label} */}
-              <div style={{ width: '100%', aspectRatio: '${aspectRatio}', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text)', opacity: 0.35, fontSize: '0.8rem', letterSpacing: '0.05em' }}>
-                [ ${label} ]
-              </div>`;
+  return `<div aria-hidden="true" style={{ width: '100%', aspectRatio: '${aspectRatio}', background: 'var(--color-surface)', borderRadius: '10px', opacity: 0.35 }} />`;
 }
 
 // ── Layout personality per aesthetic ─────────────────────────────────────────
 
 const LAYOUT = {
-  minimal:    { heroAlign: 'left',   maxWidth: '720px',  sectionPad: '8rem 0',   headingSize: 'clamp(3rem,8vw,6rem)',   bodyWeight: '300' },
-  editorial:  { heroAlign: 'left',   maxWidth: '1100px', sectionPad: '8rem 0',   headingSize: 'clamp(4rem,12vw,10rem)', bodyWeight: '300' },
-  brutalist:  { heroAlign: 'left',   maxWidth: '100%',   sectionPad: '5rem 0',   headingSize: 'clamp(3rem,10vw,9rem)',  bodyWeight: '900' },
-  futuristic: { heroAlign: 'center', maxWidth: '1280px', sectionPad: '7rem 0',   headingSize: 'clamp(2.5rem,8vw,7rem)', bodyWeight: '700' },
+  minimal:    { heroAlign: 'left',   maxWidth: '720px',  sectionPad: '6rem 0',   headingSize: 'clamp(2.4rem,6.5vw,4.8rem)', bodyWeight: '300' },
+  editorial:  { heroAlign: 'left',   maxWidth: '1100px', sectionPad: '6.5rem 0', headingSize: 'clamp(3rem,9vw,7rem)',      bodyWeight: '300' },
+  brutalist:  { heroAlign: 'left',   maxWidth: '100%',   sectionPad: '4.5rem 0', headingSize: 'clamp(2.8rem,8.5vw,6.5rem)', bodyWeight: '900' },
+  futuristic: { heroAlign: 'center', maxWidth: '1280px', sectionPad: '5.5rem 0', headingSize: 'clamp(2.2rem,6.5vw,5.5rem)', bodyWeight: '700' },
 };
 
 function getLayout(aesthetic) {
@@ -267,8 +264,6 @@ function buildHeroSection(content, aesthetic, layout, componentName, hasNav = fa
     ? layout.sectionPad.replace(/^[\d.]+rem/, m => `${Math.max(2, parseFloat(m) - 4)}rem`)
     : layout.sectionPad;
 
-  const heroBanner = buildImagePlaceholder('hero-banner — full-width atmospheric photo', '21/9');
-
   return `      <section style={{ padding: '${heroPad}', position: 'relative', zIndex: 1, minHeight: '80vh', display: 'flex', alignItems: 'center' }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
           <div style={{ textAlign: '${align}', maxWidth: '${align === 'left' ? '680px' : '100%'}' }}>
@@ -282,9 +277,6 @@ function buildHeroSection(content, aesthetic, layout, componentName, hasNav = fa
               <button style={{ padding: '0.85em 2.2em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', letterSpacing: '0.05em' }}>${cta}</button>
               <button style={{ padding: '0.85em 2.2em', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-text)', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem' }}>${ctaSecondary}</button>
             </div>${compJsx}
-          </div>
-          <div style={{ marginTop: '3rem' }}>
-            ${heroBanner}
           </div>
         </div>
       </section>`;
@@ -546,8 +538,14 @@ function buildContactSection(content, aesthetic, layout, componentName) {
  * Guarantees no selected component is silently dropped from the output.
  */
 function buildShowcaseSection(unplacedNames, aesthetic, layout) {
+  const BLOCKED_SHOWCASE_COMPONENTS = new Set([
+    'ImageTrail',
+    'GradualBlur',
+    'ScrollFloat',
+  ]);
   const blocks = unplacedNames
     .map(name => {
+      if (BLOCKED_SHOWCASE_COMPONENTS.has(name)) return null;
       const comp = getComponent(name);
       if (comp.isFixed) return null;
       return `        <div style={{ marginBottom: '4rem' }}>\n          ${comp.jsx}\n        </div>`;
@@ -558,7 +556,6 @@ function buildShowcaseSection(unplacedNames, aesthetic, layout) {
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
-          <h2 style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '3rem' }}>Explore More</h2>
 ${blocks.join('\n')}
         </div>
       </section>`;
