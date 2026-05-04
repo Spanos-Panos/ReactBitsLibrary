@@ -12,7 +12,19 @@ const BASE_DIR = path.join(DOCUMENTS_PATH, ".reactBitsExplorer", "prompts");
 
 const ORIGINAL_DIR = path.join(BASE_DIR, "originalPrompts");
 const ENHANCED_DIR = path.join(BASE_DIR, "enhancedPrompts");
+const TELEMETRY_DIR = path.join(BASE_DIR, "telemetry");
+const FRONTEND_SKILL_PATH = path.resolve(__dirname, '..', '.agents', 'skills', 'frontend-design', 'SKILL.md');
 const QUALITY_ATTEMPTS = 2;
+const DRAFT_PARSE_ATTEMPTS = 2;
+const DRAFT_MAX_TOKENS = 1400;
+const REFINE_MAX_TOKENS = 2600;
+const DRAFT_MODELS = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"];
+const REFINE_MODELS = ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"];
+const MODEL_COST_ESTIMATES = {
+  "claude-haiku-4-5-20251001": { inputPerMillion: 0.8, outputPerMillion: 4.0 },
+  "claude-sonnet-4-6": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
+};
+let cachedFrontendSkillSnippet = null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,7 +39,7 @@ function getTimestampedFilename() {
 }
 
 function ensureDirsExist() {
-  [BASE_DIR, ORIGINAL_DIR, ENHANCED_DIR].forEach((dir) => {
+  [BASE_DIR, ORIGINAL_DIR, ENHANCED_DIR, TELEMETRY_DIR].forEach((dir) => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
@@ -42,6 +54,157 @@ function saveFile(dir, filename, content) {
 
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function loadFrontendDesignSkillSnippet() {
+  if (cachedFrontendSkillSnippet != null) return cachedFrontendSkillSnippet;
+  try {
+    const raw = fs.readFileSync(FRONTEND_SKILL_PATH, "utf8");
+    const withoutFrontmatter = raw.replace(/^---[\s\S]*?---\s*/m, '');
+    cachedFrontendSkillSnippet = withoutFrontmatter
+      .split(/\r?\n/)
+      .filter((line) => line.trim())
+      .slice(0, 45)
+      .join('\n');
+    return cachedFrontendSkillSnippet;
+  } catch (_) {
+    cachedFrontendSkillSnippet = "";
+    return "";
+  }
+}
+
+function normalizeUsage(usage) {
+  const u = usage || {};
+  return {
+    inputTokens: Number(u.input_tokens || 0),
+    outputTokens: Number(u.output_tokens || 0),
+    cacheReadTokens: Number(u.cache_read_input_tokens || 0),
+    cacheWriteTokens: Number(u.cache_creation_input_tokens || 0),
+  };
+}
+
+function estimateCostUsd(modelId, usage) {
+  const pricing = MODEL_COST_ESTIMATES[modelId];
+  if (!pricing) return null;
+  const totalInput = usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
+  const inputCost = (totalInput / 1_000_000) * pricing.inputPerMillion;
+  const outputCost = (usage.outputTokens / 1_000_000) * pricing.outputPerMillion;
+  return Number((inputCost + outputCost).toFixed(5));
+}
+
+function parseClaudeJson(responseText) {
+  const startIdx = responseText.indexOf('{');
+  const endIdx = responseText.lastIndexOf('}');
+  if (startIdx === -1 || endIdx === -1) throw new Error("No JSON object found in response");
+  let jsonCandidate = responseText.substring(startIdx, endIdx + 1);
+  jsonCandidate = jsonCandidate
+    .replace(/^\s*"[^"]+"\s*:\s*(?:\([^)]*\)\s*=>|function\s*\()[^\n]*,?\n/gm, '')
+    .replace(/^\s*"[^"]+"\s*:\s*<[A-Z][^>]*\/>\s*,?\n/gm, '');
+  {
+    let sanitized = '';
+    let inString = false;
+    let i = 0;
+    while (i < jsonCandidate.length) {
+      const ch = jsonCandidate[i];
+      if (inString) {
+        if (ch === '\\') {
+          sanitized += ch + (jsonCandidate[i + 1] || '');
+          i += 2;
+          continue;
+        }
+        if (ch === '"') { inString = false; sanitized += ch; }
+        else if (ch === '\n') { sanitized += '\\n'; }
+        else if (ch === '\r') { sanitized += '\\r'; }
+        else if (ch === '\t') { sanitized += '\\t'; }
+        else { sanitized += ch; }
+      } else {
+        if (ch === '"') inString = true;
+        sanitized += ch;
+      }
+      i++;
+    }
+    jsonCandidate = sanitized;
+  }
+  jsonCandidate = jsonCandidate
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, '$1');
+  return JSON.parse(jsonCandidate);
+}
+
+function buildFallbackDraftPrompt(rawPrompt, systemContext) {
+  const brand = systemContext?.clientBrief?.brandName?.trim() || "Project";
+  const mood = systemContext?.styleDirection?.aesthetics?.[0] || "distinctive";
+  return {
+    projectMeta: {
+      title: brand,
+      theme: `Focused, production-grade direction for: ${rawPrompt || brand}`,
+      mood,
+    },
+    designTokens: {
+      colors: {
+        primary: "#111827",
+        secondary: "#374151",
+        background: "#0B0F1A",
+        text: "#F8FAFC",
+        accent: "#22D3EE",
+      },
+      typography: {
+        heading: "Sora",
+        body: "Manrope",
+      },
+      borderRadius: "8px",
+    },
+    contentOverrides: {
+      "hero.headline": `${brand} made unmistakable`,
+      "hero.subheadline": `A clear, premium experience tailored to your audience.`,
+      "hero.cta": "Get Started",
+    },
+  };
+}
+
+async function callClaudeStage({
+  anthropic,
+  stageName,
+  modelIds,
+  maxTokens,
+  temperature,
+  system,
+  messages,
+  onLog,
+}) {
+  let lastError = null;
+  for (const modelId of modelIds) {
+    try {
+      const message = await anthropic.messages.create({
+        model: modelId,
+        max_tokens: maxTokens,
+        temperature,
+        system,
+        messages,
+      });
+      const usage = normalizeUsage(message.usage);
+      const estimatedCostUsd = estimateCostUsd(modelId, usage);
+      if (typeof onLog === "function") {
+        const summary = [
+          `[Enhancer][${stageName}] model=${modelId}`,
+          `tokens(in=${usage.inputTokens}, out=${usage.outputTokens}, cacheR=${usage.cacheReadTokens}, cacheW=${usage.cacheWriteTokens})`,
+          estimatedCostUsd != null ? `est=$${estimatedCostUsd.toFixed(5)}` : "est=unknown",
+        ].join(" | ");
+        onLog(`${summary}\n`);
+      }
+      return { message, modelId, usage, estimatedCostUsd };
+    } catch (error) {
+      lastError = error;
+      if (typeof onLog === "function") {
+        onLog(`[Enhancer][${stageName}] model=${modelId} failed: ${error.message}\n`);
+      }
+      if (!error.message.toLowerCase().includes("not found") && !error.message.toLowerCase().includes("not_found")) {
+        break;
+      }
+    }
+  }
+  throw new Error(`[Enhancer][${stageName}] all models failed: ${lastError?.message || "Unknown error"}`);
 }
 
 function validateEnhancedPromptShape(prompt, selectedComponents) {
@@ -223,8 +386,10 @@ When a CREATIVE DIRECTION block is present in this prompt, it is your primary de
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-async function enhancePrompt(options) {
+async function enhancePrompt(options, hooks = {}) {
   try {
+    const onProgress = typeof hooks.onProgress === "function" ? hooks.onProgress : () => {};
+    const onLog = typeof hooks.onLog === "function" ? hooks.onLog : () => {};
     const { rawPrompt, selectedComponents, systemContext } = options;
     const dr = systemContext?.designRules;
 
@@ -465,14 +630,6 @@ async function enhancePrompt(options) {
 
     const anthropic = new Anthropic({ apiKey });
 
-    // ─── Model Discovery Loop ──────────────────────────────────────────────
-    const candidateModels = [
-      "claude-haiku-4-5-20251001",
-      "claude-sonnet-4-6",
-    ];
-
-    let successfulModel = "";
-
     // Strip full source files — enhancer only needs usage docs to understand component API.
     // Source code is for Claude Code to read from disk, not for the enhancer.
     const strippedComponents = (selectedComponents || []).map(c => ({
@@ -485,92 +642,123 @@ async function enhancePrompt(options) {
     const dynamicSystemBlock = [clientBriefBlock, styleBlock, designBlock, pagesBlock, layoutBlock,
       "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object."
     ].filter(Boolean).join('');
+    const frontendSkillSnippet = loadFrontendDesignSkillSnippet();
 
     let enhancedPrompt = null;
     let qualityReport = null;
     let qualityFeedback = "";
+    const stageReports = [];
 
-    for (let qualityAttempt = 1; qualityAttempt <= QUALITY_ATTEMPTS; qualityAttempt++) {
-      let message = null;
-      let lastError = null;
-      successfulModel = "";
+    let draftPrompt;
+    for (let draftAttempt = 1; draftAttempt <= DRAFT_PARSE_ATTEMPTS; draftAttempt++) {
+      onProgress(`Enhancer stage 1/2: drafting design brief (attempt ${draftAttempt}/${DRAFT_PARSE_ATTEMPTS})...`);
+      const draftStage = await callClaudeStage({
+        anthropic,
+        stageName: `draft-${draftAttempt}`,
+        modelIds: DRAFT_MODELS,
+        maxTokens: DRAFT_MAX_TOKENS,
+        temperature: 0,
+        onLog,
+        system: [
+          { type: "text", text: PROMPT_ENHANCER_SKILL, cache_control: { type: "ephemeral" } },
+          {
+            type: "text",
+            text: `${dynamicSystemBlock}
 
-      for (const modelId of candidateModels) {
-        try {
-          console.log(`[Claude Enhancer] Attempting enhancement with: ${modelId}...`);
-          message = await anthropic.messages.create({
-            model: modelId,
-            max_tokens: 4096,
-            temperature: 0,
-            system: [
-              { type: "text", text: PROMPT_ENHANCER_SKILL, cache_control: { type: "ephemeral" } },
-              { type: "text", text: `${dynamicSystemBlock}${qualityFeedback}` },
-            ],
-            messages: [
+STAGE MODE: DRAFT
+Return a compact first draft JSON with concise values and only the most useful keys.
+JSON VALIDITY IS CRITICAL: Output only strict JSON with double-quoted keys/strings and no trailing commas.`
+          },
+        ],
+        messages: [
+          {
+            role: "user",
+            content: [
               {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: `USER PROMPT: "${rawPrompt}"\n\nCOMPONENT CONTEXT:\n${JSON.stringify(strippedComponents, null, 2)}`
-                  }
-                ]
+                type: "text",
+                text: `USER PROMPT: "${rawPrompt}"\n\nCOMPONENT CONTEXT:\n${JSON.stringify(strippedComponents, null, 2)}`
               }
             ]
-          });
-          successfulModel = modelId;
+          }
+        ],
+      });
+      stageReports.push({
+        stage: `draft-${draftAttempt}`,
+        model: draftStage.modelId,
+        usage: draftStage.usage,
+        estimatedCostUsd: draftStage.estimatedCostUsd,
+      });
+      try {
+        const draftText = draftStage.message.content?.[0]?.text || "";
+        draftPrompt = parseClaudeJson(draftText);
+        break;
+      } catch (parseErr) {
+        if (draftAttempt >= DRAFT_PARSE_ATTEMPTS) {
+          if (typeof onLog === "function") {
+            onLog(`[Enhancer][draft] Parse failed after ${DRAFT_PARSE_ATTEMPTS} attempts. Using fallback draft scaffold.\n`);
+          }
+          draftPrompt = buildFallbackDraftPrompt(rawPrompt, systemContext);
           break;
-        } catch (e) {
-          lastError = e;
-          console.warn(`[Claude Enhancer] Model ${modelId} failed: ${e.message}`);
-          if (!e.message.toLowerCase().includes("not found") && !e.message.toLowerCase().includes("not_found")) break;
         }
       }
+    }
 
-      if (!message) {
-        throw new Error(`All Claude models failed. Last error: ${lastError?.message || "Unknown error"}`);
-      }
+    for (let qualityAttempt = 1; qualityAttempt <= QUALITY_ATTEMPTS; qualityAttempt++) {
+      onProgress(`Enhancer stage 2/2: refining brief (attempt ${qualityAttempt}/${QUALITY_ATTEMPTS})...`);
 
-      console.log(`[Claude Enhancer] Successfully used: ${successfulModel}`);
-      const responseText = message.content[0].text;
+      const refineStage = await callClaudeStage({
+        anthropic,
+        stageName: `refine-${qualityAttempt}`,
+        modelIds: REFINE_MODELS,
+        maxTokens: REFINE_MAX_TOKENS,
+        temperature: 0,
+        onLog,
+        system: [
+          { type: "text", text: PROMPT_ENHANCER_SKILL, cache_control: { type: "ephemeral" } },
+          {
+            type: "text",
+            text: `${dynamicSystemBlock}
+
+STAGE MODE: REFINE
+You are refining an existing draft JSON.
+Apply frontend-design principles to improve copy/design direction quality, but keep output strictly within the required JSON schema.
+${frontendSkillSnippet ? `\nFRONTEND-DESIGN SKILL EXCERPT:\n${frontendSkillSnippet}` : ''}
+${qualityFeedback}`
+          },
+        ],
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: [
+                  `USER PROMPT: "${rawPrompt}"`,
+                  `COMPONENT CONTEXT:\n${JSON.stringify(strippedComponents, null, 2)}`,
+                  `DRAFT JSON TO IMPROVE:\n${JSON.stringify(draftPrompt, null, 2)}`,
+                  `Return the final improved JSON object only.`,
+                ].join("\n\n"),
+              }
+            ]
+          }
+        ],
+      });
+      stageReports.push({
+        stage: `refine-${qualityAttempt}`,
+        model: refineStage.modelId,
+        usage: refineStage.usage,
+        estimatedCostUsd: refineStage.estimatedCostUsd,
+      });
 
       try {
-        const startIdx = responseText.indexOf('{');
-        const endIdx = responseText.lastIndexOf('}');
-        if (startIdx === -1 || endIdx === -1) throw new Error("No JSON object found in response");
-        let jsonCandidate = responseText.substring(startIdx, endIdx + 1);
-        jsonCandidate = jsonCandidate
-          .replace(/^\s*"[^"]+"\s*:\s*(?:\([^)]*\)\s*=>|function\s*\()[^\n]*,?\n/gm, '')
-          .replace(/^\s*"[^"]+"\s*:\s*<[A-Z][^>]*\/>\s*,?\n/gm, '');
-        {
-          let sanitized = '';
-          let inString = false;
-          let i = 0;
-          while (i < jsonCandidate.length) {
-            const ch = jsonCandidate[i];
-            if (inString) {
-              if (ch === '\\') {
-                sanitized += ch + (jsonCandidate[i + 1] || '');
-                i += 2;
-                continue;
-              }
-              if (ch === '"') { inString = false; sanitized += ch; }
-              else if (ch === '\n') { sanitized += '\\n'; }
-              else if (ch === '\r') { sanitized += '\\r'; }
-              else if (ch === '\t') { sanitized += '\\t'; }
-              else { sanitized += ch; }
-            } else {
-              if (ch === '"') inString = true;
-              sanitized += ch;
-            }
-            i++;
-          }
-          jsonCandidate = sanitized;
-        }
-        enhancedPrompt = JSON.parse(jsonCandidate);
+        const refineText = refineStage.message.content?.[0]?.text || "";
+        enhancedPrompt = parseClaudeJson(refineText);
       } catch (parseErr) {
-        console.error("[Claude Enhancer] JSON Parse Failed. Raw text was:", responseText);
-        throw new Error(`Claude returned invalid JSON: ${parseErr.message}`);
+        qualityFeedback = `\n\n## QUALITY FEEDBACK FROM PREVIOUS ATTEMPT\nYou returned invalid JSON. Fix JSON validity only.\n- ${parseErr.message}`;
+        if (qualityAttempt >= QUALITY_ATTEMPTS) {
+          throw new Error(`Refine stage returned invalid JSON: ${parseErr.message}`);
+        }
+        continue;
       }
 
       const shape = validateEnhancedPromptShape(enhancedPrompt, strippedComponents);
@@ -591,7 +779,7 @@ async function enhancePrompt(options) {
         throw new Error(`Enhanced prompt quality gate failed: ${(shape.issues || []).concat(quality.penalties || []).join(" | ")}`);
       }
       qualityFeedback = `\n\n## QUALITY FEEDBACK FROM PREVIOUS ATTEMPT\nYou must fix the following issues in your next JSON response:\n- ${(shape.issues || []).concat(quality.penalties || []).join('\n- ')}`;
-      console.warn(`[Claude Enhancer] Quality gate failed on attempt ${qualityAttempt}. Retrying...`);
+      console.warn(`[Claude Enhancer] Quality gate failed on refine attempt ${qualityAttempt}. Retrying refine stage...`);
     }
 
     // ─── Post-parse: normalise contentOverrides (Phase 4.8) ──────────────────
@@ -630,14 +818,24 @@ async function enhancePrompt(options) {
     }
 
     const enhancedPath = saveFile(ENHANCED_DIR, filename, enhancedPrompt);
+    const totalEstimatedCostUsd = Number(stageReports.reduce((sum, stage) => sum + (stage.estimatedCostUsd || 0), 0).toFixed(5));
+    const telemetryPayload = {
+      createdAt: new Date().toISOString(),
+      qualityReport,
+      totalEstimatedCostUsd,
+      stages: stageReports,
+    };
+    const telemetryPath = saveFile(TELEMETRY_DIR, filename, telemetryPayload);
 
     return {
       success: true,
       enhancedPrompt,
       qualityReport,
+      telemetry: telemetryPayload,
       savedPaths: {
         original: originalPath,
         enhanced: enhancedPath,
+        telemetry: telemetryPath,
       },
     };
   } catch (error) {

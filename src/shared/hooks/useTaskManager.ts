@@ -17,6 +17,8 @@ export function useTaskManager() {
 
   // Register IPC listeners for task progress and log lines
   useEffect(() => {
+    const isTelemetryProgress = (msg: string) => msg.includes('[Reviewer]') || msg.includes('[Enhancer]');
+
     const cleanupProgress = window.reactBitsApi?.onGenerateProgress?.((msg: string, taskId: string) => {
       if (msg === '!ERROR_KILL') {
         window.reactBitsApi?.terminateTask?.(taskId);
@@ -30,7 +32,16 @@ export function useTaskManager() {
       }
       setTasks(prev =>
         prev[taskId]
-          ? { ...prev, [taskId]: { ...prev[taskId], progress: msg } }
+          ? {
+              ...prev,
+              [taskId]: {
+                ...prev[taskId],
+                progress: msg,
+                logs: isTelemetryProgress(msg)
+                  ? [...prev[taskId].logs.slice(-300), `${msg}\n`]
+                  : prev[taskId].logs,
+              }
+            }
           : prev
       );
     });

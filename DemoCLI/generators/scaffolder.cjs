@@ -13,6 +13,7 @@
 const path = require('path');
 const fs   = require('fs/promises');
 const { runCommand } = require('../utils/spawn.cjs');
+const { getScaffoldCmd, getInstallCmd, patchPackageJson } = require('../utils/pm.cjs');
 const { buildTokensCSS, buildGlobalsCSS, buildGoogleFontsLink } = require('./style-builder.cjs');
 
 const BASE_DEPS = [
@@ -65,19 +66,6 @@ function extractComponentDeps(selectedComponents) {
   return extra;
 }
 
-function getScaffoldCmd(packageManager, projectName) {
-  switch (packageManager) {
-    case 'pnpm': return `pnpm create vite ${projectName} --template react-ts`;
-    case 'yarn': return `yarn create vite ${projectName} --template react-ts`;
-    case 'bun':  return `bun create vite ${projectName} --template react-ts`;
-    default:     return `npm create vite@latest ${projectName} -- --template react-ts`;
-  }
-}
-
-function getInstallCmd(packageManager) {
-  return packageManager === 'npm' ? 'install --no-audit --no-fund' : 'install';
-}
-
 /**
  * buildScaffold(options)
  * Runs Vite scaffold, injects deps, installs, writes base files.
@@ -119,19 +107,7 @@ async function buildScaffold({
     log(`[Scaffolder] Auto-detected component dep: ${dep}\n`);
   }
 
-  const pkgJsonPath = path.join(targetDir, 'package.json');
-  try {
-    const pkgJson = JSON.parse(await fs.readFile(pkgJsonPath, 'utf-8'));
-    pkgJson.dependencies = pkgJson.dependencies || {};
-    for (const dep of deps) {
-      if (!pkgJson.dependencies[dep] && !pkgJson.devDependencies?.[dep]) {
-        pkgJson.dependencies[dep] = 'latest';
-      }
-    }
-    await fs.writeFile(pkgJsonPath, JSON.stringify(pkgJson, null, 2), 'utf-8');
-  } catch (e) {
-    log(`[Scaffolder] Warning: Could not patch package.json: ${e.message}\n`);
-  }
+  await patchPackageJson(path.join(targetDir, 'package.json'), deps, msg => log(`[Scaffolder] ${msg}`));
 
   // ── 3. Install all dependencies ──────────────────────────────────────────────
   notify(`Installing dependencies via ${packageManager}...`);

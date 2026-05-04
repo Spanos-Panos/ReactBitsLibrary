@@ -10,6 +10,33 @@ export interface Task {
   path?: string;
   runWhenDoneUsed?: boolean;
   hasTerminalError?: boolean;
+  createdAt?: number;
+  completedAt?: number;
+  aiAnalytics?: {
+    rawPrompt?: string;
+    enhancedPrompt?: Record<string, unknown> | null;
+    qualityScore?: number;
+    reviewerSummary?: {
+      attempts?: number;
+      escalations?: number;
+      finalGate?: 'PASS' | 'FAIL' | 'unknown';
+    };
+    enhancerTelemetry?: {
+      createdAt: string;
+      totalEstimatedCostUsd: number;
+      stages: Array<{
+        stage: string;
+        model: string;
+        usage: {
+          inputTokens: number;
+          outputTokens: number;
+          cacheReadTokens: number;
+          cacheWriteTokens: number;
+        };
+        estimatedCostUsd: number | null;
+      }>;
+    };
+  };
 }
 
 export interface ComponentFile {

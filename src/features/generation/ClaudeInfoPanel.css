@@ -1,0 +1,131 @@
+.claude-info-wrap {
+  width: 160px;
+  height: var(--top-bar-control-size);
+  position: relative;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: var(--top-bar-actions-offset);
+}
+
+.claude-info-btn {
+  width: 100%;
+  height: var(--top-bar-control-size);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(9, 12, 20, 0.62);
+  color: rgba(226, 232, 240, 0.95);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.claude-info-btn:hover,
+.claude-info-btn--active {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.16);
+}
+
+.claude-info-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 560px;
+  max-height: 58vh;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 12, 24, 0.96);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.5);
+  padding: 12px;
+  z-index: 120;
+}
+
+.claude-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.claude-info-header h4 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.claude-info-header span {
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.claude-info-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.claude-info-summary > div {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  color: rgba(226, 232, 240, 0.95);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.claude-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.claude-info-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.claude-info-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+}
+
+.claude-status {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.claude-status--running { color: #fbbf24; }
+.claude-status--success { color: #34d399; }
+.claude-status--error { color: #f87171; }
+
+.claude-info-grid {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 4px 8px;
+  font-size: 0.7rem;
+}
+
+.claude-info-grid > span:nth-child(odd) {
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.claude-info-grid > span:nth-child(even) {
+  color: rgba(226, 232, 240, 0.98);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.claude-info-empty {
+  margin: 8px 0;
+  font-size: 0.74rem;
+  color: rgba(148, 163, 184, 0.95);
+}

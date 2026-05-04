@@ -382,7 +382,7 @@ ipcMain.handle("generate-playground", async (event, ...args) => {
       const [category, name, usageCode, componentFiles, options] = args;
       return generatePlayground({
         category, name, usageCode, componentFiles, options,
-        selectedComponents: [{ category, name, files: componentFiles, usageMarkdown: usageCode }]
+        selectedComponents: []
       }, event, taskId);
     }, {
       retries: 1,
@@ -580,7 +580,14 @@ ipcMain.handle("enhance-prompt", async (event, payload) => {
   const validationError = validateEnhancePromptPayload(payload);
   if (validationError) return validationFailure("validation", validationError);
   try {
-    return await runWithRetry("enhance-prompt", () => enhancePrompt(payload), {
+    return await runWithRetry("enhance-prompt", () => enhancePrompt(payload, {
+      onProgress: (msg) => {
+        if (event?.sender) event.sender.send("generate-progress", `[Enhancer] ${msg}`, "enhance");
+      },
+      onLog: (msg) => {
+        if (event?.sender) event.sender.send("generate-log", msg, "enhance");
+      },
+    }), {
       retries: 2,
       timeoutMs: 2 * 60 * 1000,
       shouldRetry: (msg) => /timeout|network|econn|etimedout|429|rate limit|temporarily unavailable/i.test(msg),

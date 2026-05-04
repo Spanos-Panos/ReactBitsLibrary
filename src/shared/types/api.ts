@@ -72,13 +72,28 @@ export interface EnhancePromptPayload {
 export interface EnhancePromptResult {
   success: boolean;
   enhancedPrompt?: Record<string, unknown>;
-  savedPaths?: { original: string; enhanced: string };
+  savedPaths?: { original: string; enhanced: string; telemetry?: string };
   qualityReport?: {
     attempt: number;
     shapeOk: boolean;
     shapeIssues: string[];
     qualityScore: number;
     qualityPenalties: string[];
+  };
+  telemetry?: {
+    createdAt: string;
+    totalEstimatedCostUsd: number;
+    stages: Array<{
+      stage: string;
+      model: string;
+      usage: {
+        inputTokens: number;
+        outputTokens: number;
+        cacheReadTokens: number;
+        cacheWriteTokens: number;
+      };
+      estimatedCostUsd: number | null;
+    }>;
   };
   error?: string;
   stage?: string;
@@ -111,6 +126,7 @@ export interface GeneratePlaygroundOptions {
   designRules?: DesignRules;
   clientBrief?: ClientBrief;
   presetName?: string;
+  enhancerQualityScore?: number;
 }
 
 export interface GeneratePlaygroundPayload {

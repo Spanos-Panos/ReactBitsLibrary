@@ -16,6 +16,7 @@ import ComponentInspector from "./features/inspector/ComponentInspector";
 import GenerationQueue from "./features/generation/GenerationQueue/GenerationQueue";
 import GenerateWizard from "./features/generation/GenerateWizard";
 import StructureWizard from "./features/generation/StructureWizard";
+import ClaudeInfoPanel from "./features/generation/ClaudeInfoPanel";
 import { useStructureWizard } from "./shared/hooks/useStructureWizard";
 import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
@@ -60,7 +61,7 @@ function getEnhancedProjectTitle(prompt: EnhancedPromptData | null, fallback: st
 }
 
 function normalizePresetPages(rawPages: SavedPreset['pages'] | undefined): PageConfig[] {
-  const fallback = [{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] as string[] }];
+  const fallback: PageConfig[] = [{ id: 'page-1', title: 'Home', type: 'home', componentIds: [] }];
   if (!Array.isArray(rawPages) || rawPages.length === 0) return fallback;
   return rawPages.map((page, idx) => ({
     id: page.id || `page-${idx + 1}`,
@@ -118,6 +119,8 @@ function App() {
   const structureWizard = useStructureWizard();
 
   const [lastEnhancedPrompt,   setLastEnhancedPrompt]   = useState<EnhancedPromptData | null>(null);
+  const [lastEnhancerQualityScore, setLastEnhancerQualityScore] = useState<number | undefined>(undefined);
+  const [lastEnhancerTelemetry, setLastEnhancerTelemetry] = useState<EnhancePromptResult["telemetry"] | undefined>(undefined);
   const [generateStatus,       setGenerateStatus]       = useState("");
   const [toastType,            setToastType]            = useState<"info" | "warning" | "success">("info");
 
@@ -236,19 +239,102 @@ function App() {
     setActiveTaskId(null);
   };
 
+  const buildEnhancePayload = async (preloadedComponents?: ComponentContext[]) => {
+    const componentsWithContext = preloadedComponents ?? await Promise.all(
+      selectedComponents.map(async (comp) => {
+        try { return await window.reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id); }
+        catch (e) {
+          console.warn(`Failed to gather context for ${comp.name}`, e);
+          return { id: comp.id, name: comp.name, category: comp.category, files: [], usage: '', install: '' };
+        }
+      })
+    );
+    const componentRoleContext = selectedComponents.map(c => {
+      const role = getRoleData(c.name);
+      return { name: c.name, role: role?.roles[0] ?? 'ui', footprint: role?.footprint ?? 'contained', behaviors: role?.behavior ?? [] };
+    });
+    const responsiveDirective = (() => {
+      switch (designRules.sizes.optimizationTarget) {
+        case 'mobile':
+          return "CRITICAL: Design this EXCLUSIVELY for Mobile viewports (max-width: 480px). Assume the canvas is a phone screen. Use 100% width, large touch targets (min 44px), stacked `flex-col` layouts. DO NOT write media queries for larger screens. Use mobile typography (14px-18px).";
+        case 'tablet':
+          return "CRITICAL: Design this EXCLUSIVELY for medium screens (768px - 1024px). Balance grid layouts with touch-friendly spacing. DO NOT optimize for tiny phones or massive monitors.";
+        case 'desktop':
+          return "CRITICAL: Design this EXCLUSIVELY for large monitors (1024px+). Utilize advanced CSS grid (3-4 columns), sidebars, horizontal layouts, and complex hover states. Enforce a max-width container (e.g., `mx-auto max-w-7xl`). DO NOT add mobile media queries or stack layouts. Force a desktop-first structure.";
+        case 'adaptive':
+        default:
+          return `RESPONSIVE & LAYOUT RULES:
+- Mobile First Base (0-767px): 100% width, padding 12px-16px. Flex column layouts. Use font-size: clamp(14px, 4vw, 18px); for body. Spacing vars: --space-sm: 6px, --space-md: 12px, --space-lg: 20px.
+- Tablet (min-width: 768px): 2-column grids allowed. font-size: clamp(15px, 2.5vw, 20px);. Spacing vars: --space-sm: 8px, --space-md: 16px, --space-lg: 28px.
+- Monitor (min-width: 1024px): 3-4 column grids. Typography clamp(16px, 1.5vw, 22px);. Spacing vars: --space-sm: 10px, --space-md: 20px, --space-lg: 40px.
+- Container: Apply max-width: 1200px; margin: 0 auto; at the Monitor breakpoint. Use Tailwind responsive prefixes (md:, lg:) to enforce these rules.`;
+      }
+    })();
+
+    return {
+      rawPrompt: projectPrompt,
+      selectedComponents: componentsWithContext,
+      systemContext: {
+        framework: "Vite + React (TypeScript)",
+        styling: "Tailwind CSS v4",
+        icons: "Inline SVG or Unicode where needed",
+        animations: ["Framer Motion", "GSAP"],
+        architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Avoid introducing new icon-library imports in App.tsx."],
+        designRules,
+        responsiveDirective,
+        styleDirection,
+        clientBrief,
+        componentRoleContext,
+        pages: resolvedPageIntents.map(p => ({
+          id: p.id,
+          title: p.title,
+          type: p.type,
+          overridesEnabled: p.overridesEnabled,
+          content: p.content,
+        })),
+      },
+    };
+  };
+
   const confirmGenerate = async () => {
     if (!projectPath || !window.reactBitsApi?.generatePlayground) return;
-    const isBuilderGeneration = builderModeRef.current || selectedComponents.length > 0;
+    const isBuilderGeneration = builderModeRef.current;
     builderModeRef.current = false;
     if (!isBuilderGeneration && !selected) return;
     if (Object.values(tasks).filter(t => t.status === 'running').length >= 5) {
       showStatus("warning", "Task limit reached (max 5 running). Please wait for some to finish!");
       return;
     }
+    let effectiveEnhancedPrompt = lastEnhancedPrompt;
+    let effectiveEnhancerQualityScore = lastEnhancerQualityScore;
+    let effectiveEnhancerTelemetry = lastEnhancerTelemetry;
+
+    if (isBuilderGeneration && aiSupport && !effectiveEnhancedPrompt) {
+      setGenerateStatus("AI Support enabled: generating design brief...");
+      try {
+        const enhancePayload = await buildEnhancePayload();
+        const enhanceResult = await window.reactBitsApi.enhancePrompt(enhancePayload);
+        const enhanceData = enhanceResult as EnhancePromptResult;
+        if (!enhanceData.success || !enhanceData.enhancedPrompt) {
+          showStatus("warning", `AI Error: ${enhanceData.error ?? "Enhancer returned no prompt."}`, 5000);
+          return;
+        }
+        effectiveEnhancedPrompt = enhanceData.enhancedPrompt;
+        effectiveEnhancerQualityScore = enhanceData.qualityReport?.qualityScore;
+        effectiveEnhancerTelemetry = enhanceData.telemetry;
+        setLastEnhancedPrompt(enhanceData.enhancedPrompt);
+        setLastEnhancerQualityScore(enhanceData.qualityReport?.qualityScore);
+        setLastEnhancerTelemetry(enhanceData.telemetry);
+      } catch (err: unknown) {
+        showStatus("warning", `AI Error: ${getErrorMessage(err)}`, 5000);
+        return;
+      }
+    }
     const taskId = Date.now().toString();
+    const createdAt = Date.now();
     const uniqueProjectName = await getUniqueProjectName(projectName, projectPath);
-    const taskLabel = lastEnhancedPrompt
-      ? getEnhancedProjectTitle(lastEnhancedPrompt, "AI Project")
+    const taskLabel = effectiveEnhancedPrompt
+      ? getEnhancedProjectTitle(effectiveEnhancedPrompt, "AI Project")
       : (clientBrief.brandName || (selectedComponents[0]?.name ?? selected?.name ?? "Project"));
     setTasks(prev => ({
       ...prev,
@@ -256,10 +342,19 @@ function App() {
         id: taskId,
         name: taskLabel,
         type: isBuilderGeneration ? 'web' : 'component',
+        createdAt,
         projectName: uniqueProjectName, progress: "Initializing project generation...",
         logs: ["Initializing Build Environment...\n"], status: 'running',
         runWhenDoneUsed: runWhenDone,
         hasTerminalError: false,
+        aiAnalytics: isBuilderGeneration && aiSupport
+          ? {
+              rawPrompt: projectPrompt,
+              enhancedPrompt: effectiveEnhancedPrompt,
+              qualityScore: effectiveEnhancerQualityScore,
+              enhancerTelemetry: effectiveEnhancerTelemetry,
+            }
+          : undefined,
       },
     }));
     setActiveTaskId(null);
@@ -280,9 +375,10 @@ function App() {
             designRules,
             clientBrief,
             presetName: loadedPresetName,
+            enhancerQualityScore: effectiveEnhancerQualityScore,
           },
           selectedComponents: await Promise.all(selectedComponents.map(c => window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
-          enhancedPrompt: lastEnhancedPrompt,
+          enhancedPrompt: effectiveEnhancedPrompt,
         }, null, taskId);
       } else {
         result = await window.reactBitsApi.generatePlayground(
@@ -292,17 +388,19 @@ function App() {
         );
       }
       if (result.success) {
-        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'success', progress: runWhenDone ? "Generation Complete! Auto Run Enabled." : "Generation Complete!", path: result.path, hasTerminalError: false } }));
+        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'success', progress: runWhenDone ? "Generation Complete! Auto Run Enabled." : "Generation Complete!", path: result.path, hasTerminalError: false, completedAt: Date.now() } }));
         setGenerateStatus(result.message || "Success!");
 
         if (lastEnhancedPrompt) setLastEnhancedPrompt(null);
+        setLastEnhancerQualityScore(undefined);
+        setLastEnhancerTelemetry(undefined);
       } else {
-        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error, hasTerminalError: true } }));
+        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error, hasTerminalError: true, completedAt: Date.now() } }));
         setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
       }
     } catch (e: unknown) {
       const message = getErrorMessage(e);
-      setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: message, hasTerminalError: true } }));
+      setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Crash!", error: message, hasTerminalError: true, completedAt: Date.now() } }));
       setGenerateStatus(`Error: ${message}`);
     }
     setTimeout(() => setGenerateStatus(""), 8000);
@@ -390,6 +488,8 @@ function App() {
 
     if (!aiSupport) {
       setLastEnhancedPrompt(null);
+      setLastEnhancerQualityScore(undefined);
+      setLastEnhancerTelemetry(undefined);
       // Default project name: use brand name > selected component > site type
       const defaultName = clientBrief.brandName
         ? clientBrief.brandName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -403,58 +503,20 @@ function App() {
     }
 
     setGenerateStatus("Scavenging component source code...");
+    setLastEnhancerQualityScore(undefined);
+    setLastEnhancerTelemetry(undefined);
     try {
       const componentsWithContext = await Promise.all(
         selectedComponents.map(async (comp) => {
           try { return await window.reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id); }
-          catch (e) { console.warn(`Failed to gather context for ${comp.name}`, e); return { id: comp.id, name: comp.name, category: comp.category }; }
+          catch (e) {
+            console.warn(`Failed to gather context for ${comp.name}`, e);
+            return { id: comp.id, name: comp.name, category: comp.category, files: [], usage: '', install: '' };
+          }
         })
       );
       setGenerateStatus("AI Architect is designing your project...");
-      const componentRoleContext = selectedComponents.map(c => {
-        const role = getRoleData(c.name);
-        return { name: c.name, role: role?.roles[0] ?? 'ui', footprint: role?.footprint ?? 'contained', behaviors: role?.behavior ?? [] };
-      });
-      const responsiveDirective = (() => {
-        switch (designRules.sizes.optimizationTarget) {
-          case 'mobile':
-            return "CRITICAL: Design this EXCLUSIVELY for Mobile viewports (max-width: 480px). Assume the canvas is a phone screen. Use 100% width, large touch targets (min 44px), stacked `flex-col` layouts. DO NOT write media queries for larger screens. Use mobile typography (14px-18px).";
-          case 'tablet':
-            return "CRITICAL: Design this EXCLUSIVELY for medium screens (768px - 1024px). Balance grid layouts with touch-friendly spacing. DO NOT optimize for tiny phones or massive monitors.";
-          case 'desktop':
-            return "CRITICAL: Design this EXCLUSIVELY for large monitors (1024px+). Utilize advanced CSS grid (3-4 columns), sidebars, horizontal layouts, and complex hover states. Enforce a max-width container (e.g., `mx-auto max-w-7xl`). DO NOT add mobile media queries or stack layouts. Force a desktop-first structure.";
-          case 'adaptive':
-          default:
-            return `RESPONSIVE & LAYOUT RULES:
-- Mobile First Base (0-767px): 100% width, padding 12px-16px. Flex column layouts. Use font-size: clamp(14px, 4vw, 18px); for body. Spacing vars: --space-sm: 6px, --space-md: 12px, --space-lg: 20px.
-- Tablet (min-width: 768px): 2-column grids allowed. font-size: clamp(15px, 2.5vw, 20px);. Spacing vars: --space-sm: 8px, --space-md: 16px, --space-lg: 28px.
-- Monitor (min-width: 1024px): 3-4 column grids. Typography clamp(16px, 1.5vw, 22px);. Spacing vars: --space-sm: 10px, --space-md: 20px, --space-lg: 40px.
-- Container: Apply max-width: 1200px; margin: 0 auto; at the Monitor breakpoint. Use Tailwind responsive prefixes (md:, lg:) to enforce these rules.`;
-        }
-      })();
-
-      const enhanceResult = await window.reactBitsApi.enhancePrompt({
-        rawPrompt: projectPrompt, selectedComponents: componentsWithContext,
-        systemContext: {
-          framework: "Vite + React (TypeScript)",
-          styling: "Tailwind CSS v4",
-          icons: "Inline SVG or Unicode where needed",
-          animations: ["Framer Motion", "GSAP"],
-          architectureRules: ["Use literal HEX codes (#XXXXXX) for WebGL/Canvas component props.", "Maintain a Z-Index strategy where Backgrounds stay at Z:0.", "Avoid introducing new icon-library imports in App.tsx."],
-          designRules,
-          responsiveDirective,
-          styleDirection,
-          clientBrief,
-          componentRoleContext,
-          pages: resolvedPageIntents.map(p => ({
-            id: p.id,
-            title: p.title,
-            type: p.type,
-            overridesEnabled: p.overridesEnabled,
-            content: p.content,
-          })),
-        },
-      });
+      const enhanceResult = await window.reactBitsApi.enhancePrompt(await buildEnhancePayload(componentsWithContext));
       const enhanceData = enhanceResult as EnhancePromptResult;
       if (enhanceData.success) {
         const enhancedPrompt = enhanceData.enhancedPrompt ?? null;
@@ -465,9 +527,12 @@ function App() {
         setToastType("success");
         setGenerateStatus("Project Design Ready!");
         setLastEnhancedPrompt(enhancedPrompt);
+        setLastEnhancerQualityScore(enhanceData.qualityReport?.qualityScore);
+        setLastEnhancerTelemetry(enhanceData.telemetry);
         setProjectName(typeof enhancedPrompt.projectMeta === "object" && enhancedPrompt.projectMeta && "title" in enhancedPrompt.projectMeta
           ? String((enhancedPrompt.projectMeta as { title?: string }).title || "reactbits-ai-project")
           : "reactbits-ai-project");
+        builderModeRef.current = true;
         setShowGenerateWizard(true);
       } else {
         showStatus("warning", `AI Error: ${enhanceData.error ?? "Unknown error"}`, 5000);
@@ -499,6 +564,7 @@ function App() {
     const task = { 
       id: taskId, 
       name: 'Structure', 
+      createdAt: Date.now(),
       projectName: uniqueProjectName, 
       progress: 'Starting...', 
       logs: [
@@ -547,7 +613,8 @@ function App() {
         status: result.success ? 'success' : 'error', 
         progress: result.success ? successMsg : (result.error ?? 'Failed'), 
         path: result.success ? (result.path || `${structureWizard.outputPath}/${uniqueProjectName}`) : prev[taskId].path,
-        hasTerminalError: !result.success 
+        hasTerminalError: !result.success,
+        completedAt: Date.now(),
       },
     }));
 
@@ -604,7 +671,7 @@ function App() {
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
           />
-          <div className="top-bar-spacer" />
+          <ClaudeInfoPanel tasks={tasks} />
         </div>
 
         <section className="scene">
