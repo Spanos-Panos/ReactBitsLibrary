@@ -1,4 +1,4 @@
-/**
+﻿/**
  * app-builder.cjs
  * Generates src/App.tsx from:
  *   - Fixed layer components (Backgrounds, Cursors)
@@ -9,7 +9,7 @@
 
 const path = require('path');
 const fs   = require('fs/promises');
-const { getComponent, isNavComponent } = require('./component-mapper.cjs');
+const { getComponent, isNavComponent } = require('../shared/component-mapper.cjs');
 const { buildSinglePageSections, writePageFiles } = require('./page-builder.cjs');
 const { buildContent } = require('./content-builder.cjs');
 

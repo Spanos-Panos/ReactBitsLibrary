@@ -1,4 +1,4 @@
-/**
+﻿/**
  * component-mapper.cjs
  * Maps every ReactBits component to its import line + working JSX snippet.
  * Uses the manifest usageMarkdown as the source of truth — those demos are proven.
@@ -14,7 +14,7 @@
  */
 
 const path = require('path');
-const MANIFEST_PATH = path.join(__dirname, '../../src/reactbits-manifest.json');
+const MANIFEST_PATH = path.join(__dirname, '../../../src/reactbits-manifest.json');
 
 const CURSOR_NAMES = new Set([
   'BlobCursor', 'Crosshair', 'ImageTrail', 'PixelTrail', 'SplashCursor', 'TargetCursor',

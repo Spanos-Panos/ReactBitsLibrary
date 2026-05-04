@@ -1,4 +1,4 @@
-/**
+﻿/**
  * page-builder.cjs
  * Generates complete page/section TSX files from content + style + component data.
  * No placeholder comments — every section gets real text from content-builder.
@@ -9,7 +9,7 @@
 
 const path = require('path');
 const fs   = require('fs/promises');
-const { getComponent } = require('./component-mapper.cjs');
+const { getComponent } = require('../shared/component-mapper.cjs');
 const { buildContent, buildPageContent } = require('./content-builder.cjs');
 const { selectPolicySections } = require('./page-policy.cjs');
 

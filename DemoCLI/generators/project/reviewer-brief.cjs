@@ -1,4 +1,4 @@
-/**
+﻿/**
  * reviewer-brief.cjs
  * Builds and writes REVIEWER_BRIEF.md — the mission document read by the AI
  * reviewer before it patches the generated project.
@@ -6,7 +6,7 @@
 
 const path = require('path');
 const fs   = require('fs/promises');
-const { isComponentMapped, getMappedNames } = require('./component-mapper.cjs');
+const { isComponentMapped, getMappedNames } = require('../shared/component-mapper.cjs');
 
 /**
  * Builds the plain-object context that feeds both REVIEWER_BRIEF.md and

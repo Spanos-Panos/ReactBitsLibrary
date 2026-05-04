@@ -1,10 +1,10 @@
-/**
+﻿/**
  * style-builder.cjs
  * Generates tokens.css and globals.css from designRules + styleDirection.
  * Produces aesthetic-specific CSS that is always injected — never depends on AI.
  */
 
-const { getContrastColor, getContrastRatio } = require('../utils/colorContrast.cjs');
+const { getContrastColor, getContrastRatio } = require('../../utils/colorContrast.cjs');
 
 const AESTHETIC_GLOBALS = {
   minimal: `

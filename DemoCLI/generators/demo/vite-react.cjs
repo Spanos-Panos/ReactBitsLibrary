@@ -1,7 +1,7 @@
-const path = require('path');
+﻿const path = require('path');
 const fs = require('fs/promises');
-const { runCommand } = require('../utils/spawn.cjs');
-const { getScaffoldCmd, getInstallCmd, patchPackageJson } = require('../utils/pm.cjs');
+const { runCommand } = require('../../utils/spawn.cjs');
+const { getScaffoldCmd, getInstallCmd, patchPackageJson } = require('../../utils/pm.cjs');
 
 /**
  * Legacy generator for single-component demos.

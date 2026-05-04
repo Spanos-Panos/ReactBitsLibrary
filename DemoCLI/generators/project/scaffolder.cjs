@@ -1,4 +1,4 @@
-/**
+﻿/**
  * scaffolder.cjs
  * Writes the project skeleton to disk:
  *   - Creates the Vite+React+TS project via CLI
@@ -12,9 +12,9 @@
 
 const path = require('path');
 const fs   = require('fs/promises');
-const { runCommand } = require('../utils/spawn.cjs');
-const { getScaffoldCmd, getInstallCmd, patchPackageJson } = require('../utils/pm.cjs');
-const { buildTokensCSS, buildGlobalsCSS, buildGoogleFontsLink } = require('./style-builder.cjs');
+const { runCommand } = require('../../utils/spawn.cjs');
+const { getScaffoldCmd, getInstallCmd, patchPackageJson } = require('../../utils/pm.cjs');
+const { buildTokensCSS, buildGlobalsCSS, buildGoogleFontsLink } = require('../shared/style-builder.cjs');
 
 const BASE_DEPS = [
   'framer-motion', 'motion', 'gsap', 'ogl',
@@ -220,7 +220,7 @@ export default defineConfig({
 
   // ── 8. Copy joker placeholder assets ────────────────────────────────────────
   notify('Copying placeholder assets...');
-  const jokerSrc = path.join(__dirname, '..', 'joker-assets');
+  const jokerSrc = path.join(__dirname, '..', '..', 'joker-assets');
   const publicDir = path.join(targetDir, 'public');
   const assets3dDir = path.join(publicDir, 'assets', '3d');
   try {
@@ -275,7 +275,7 @@ export default defineConfig({
 
 async function setupLanyard(targetDir, selectedComponents, log) {
   const lanyardDir = path.join(targetDir, 'src', 'components', 'Components', 'Lanyard');
-  const jokerSrc = path.join(__dirname, '..', 'joker-assets');
+  const jokerSrc = path.join(__dirname, '..', '..', 'joker-assets');
   for (const asset of ['card.glb', 'lanyard.png']) {
     try { await fs.copyFile(path.join(jokerSrc, asset), path.join(lanyardDir, asset)); }
     catch (e) { log(`[Scaffolder] Warning: Could not copy ${asset}: ${e.message}\n`); }

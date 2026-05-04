@@ -1,15 +1,15 @@
-const path   = require('path');
+﻿const path   = require('path');
 const fs     = require('fs/promises');
 const { exec, spawn }  = require('child_process');
 const { promisify }    = require('util');
-const { buildScaffold }       = require('./generators/scaffolder.cjs');
-const { buildApp }            = require('./generators/app-builder.cjs');
-const { buildContent }        = require('./generators/content-builder.cjs');
-const { generateStructure: _generateStructure } = require('./generators/structure-generator.cjs');
-const { ensureBriefFile }     = require('./generators/brief-writer.cjs');
-const { buildBriefContext, writeReviewerBrief } = require('./generators/reviewer-brief.cjs');
+const { buildScaffold }       = require('./generators/project/scaffolder.cjs');
+const { buildApp }            = require('./generators/project/app-builder.cjs');
+const { buildContent }        = require('./generators/project/content-builder.cjs');
+const { generateStructure: _generateStructure } = require('./generators/project/structure-generator.cjs');
+const { ensureBriefFile }     = require('./generators/project/brief-writer.cjs');
+const { buildBriefContext, writeReviewerBrief } = require('./generators/project/reviewer-brief.cjs');
 const { reviewCode }          = require('../electron/aiReviewer.cjs');
-const { isComponentMapped }   = require('./generators/component-mapper.cjs');
+const { isComponentMapped }   = require('./generators/shared/component-mapper.cjs');
 
 const execAsync = promisify(exec);
 
@@ -167,7 +167,7 @@ async function generatePlayground(payload, event, taskId) {
 
     // ── LEGACY: single-component demo ─────────────────────────────────────
     if (!selectedComponents.length && name) {
-      const { generateViteReact } = require('./generators/vite-react.cjs');
+      const { generateViteReact } = require('./generators/demo/vite-react.cjs');
       await generateViteReact({
         targetDir: fullPath,
         projectName: safeProjectName,
