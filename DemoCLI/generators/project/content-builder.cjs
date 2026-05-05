@@ -177,13 +177,64 @@ function buildFooterContent(brief, brandName, services) {
  * Main export: buildContent(brief, siteType)
  * Returns a structured content object consumed by page-builder.
  */
-function buildContent(brief, siteType = 'Landing') {
+function applyEnhancedOverrides(base, enhancedPrompt) {
+  const overrides = enhancedPrompt?.contentOverrides;
+  if (!overrides || typeof overrides !== 'object') return base;
+
+  const merged = {
+    ...base,
+    hero: { ...base.hero },
+    about: { ...base.about },
+    features: { ...base.features, items: Array.isArray(base.features?.items) ? [...base.features.items] : [] },
+    cta: { ...base.cta },
+    contact: { ...base.contact },
+    footer: { ...base.footer },
+  };
+
+  if (typeof overrides.brandName === 'string' && overrides.brandName.trim()) merged.brandName = overrides.brandName.trim();
+
+  if (overrides.hero && typeof overrides.hero === 'object') {
+    Object.assign(merged.hero, overrides.hero);
+  }
+  if (overrides.about && typeof overrides.about === 'object') {
+    Object.assign(merged.about, overrides.about);
+  }
+  if (overrides.features && typeof overrides.features === 'object') {
+    const nextFeatures = { ...overrides.features };
+    if (Array.isArray(nextFeatures.items)) {
+      merged.features.items = nextFeatures.items
+        .map((item) => ({
+          title: item?.title || item?.name || '',
+          body: item?.body || item?.description || '',
+        }))
+        .filter((item) => item.title);
+      delete nextFeatures.items;
+    }
+    Object.assign(merged.features, nextFeatures);
+  }
+  if (Array.isArray(overrides.benefits) && overrides.benefits.length > 0) {
+    merged.benefits = overrides.benefits.filter(Boolean).slice(0, 8);
+  }
+  if (overrides.cta && typeof overrides.cta === 'object') {
+    Object.assign(merged.cta, overrides.cta);
+  }
+  if (overrides.contact && typeof overrides.contact === 'object') {
+    Object.assign(merged.contact, overrides.contact);
+  }
+  if (overrides.footer && typeof overrides.footer === 'object') {
+    Object.assign(merged.footer, overrides.footer);
+  }
+
+  return merged;
+}
+
+function buildContent(brief, siteType = 'Landing', enhancedPrompt = null) {
   brief = brief || {};
   const brandName = parseBrandName(brief, siteType);
   const services = parseServices(brief, siteType);
   const keyBenefits = parseKeyBenefits(brief);
 
-  return {
+  const base = {
     brandName,
     hero: buildHeroContent(brief, brandName),
     about: buildAboutContent(brief, brandName),
@@ -193,6 +244,7 @@ function buildContent(brief, siteType = 'Landing') {
     contact: buildContactContent(brief, brandName),
     footer: buildFooterContent(brief, brandName, services),
   };
+  return applyEnhancedOverrides(base, enhancedPrompt);
 }
 
 /**
@@ -252,4 +304,4 @@ function buildPageContent(baseContent, pageData) {
   return result;
 }
 
-module.exports = { buildContent, buildPageContent };
+module.exports = { buildContent, buildPageContent, applyEnhancedOverrides };

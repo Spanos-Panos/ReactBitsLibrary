@@ -41,7 +41,7 @@ export default function GenerateWizard({
 }: GenerateWizardProps) {
 
   const isAiBuild = !!lastEnhancedPrompt;
-  const titleText = isAiBuild ? 'AI-Enhanced Generation' : builderMode ? 'Generate Project' : 'Generate Demo';
+  const titleText = isAiBuild ? 'AI-First Generation' : builderMode ? 'Generate Project' : 'Generate Demo';
   const shouldShow = open && (selected || lastEnhancedPrompt || builderMode);
 
   const [isConfirming, setIsConfirming] = useState(false);
@@ -231,10 +231,10 @@ export default function GenerateWizard({
                   }}>
                     <div>
                       <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>
-                        AI Design Support
+                        AI-First Composer
                       </div>
                       <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
-                        Faster & free — or let AI craft a full design brief
+                        Primary generation mode for sellable output quality
                       </div>
                     </div>
                     <button

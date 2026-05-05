@@ -1,7 +1,7 @@
 /**
  * Formats Claude's output into the final preset.json and brief.md files.
  */
-const { validatePageContentBoundary } = require('../generators/page-policy.cjs');
+const { validatePageContentBoundary } = require('../generators/project/page-policy.cjs');
 
 const SAFE_FONTS = [
   "Inter", "Space Grotesk", "Playfair Display", "Neue Haas Grotesk", "IBM Plex Mono",

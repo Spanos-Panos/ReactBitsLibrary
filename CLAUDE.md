@@ -70,7 +70,9 @@ All `.cjs` files are **hand-written source** — Electron's main process cannot 
 | `main.cjs` | Window creation, IPC handler registration, app lifecycle |
 | `preload.cjs` | Exposes `window.reactBitsApi` bridge to renderer |
 | `promptEnhancer.cjs` | Calls Claude Sonnet 4.6 to turn raw user prompt → structured JSON design brief |
-| `codeGenerator.cjs` | Calls Claude Code (Sonnet) to generate project files from the JSON brief |
+| `aiComposer.cjs` | Primary AI-first project composer (Claude Code) for major layout/copy/style generation |
+| `aiReviewer.cjs` | AI repair/polish passes used by quality-gate loop |
+| `codeGenerator.cjs` | Legacy generator wrapper (kept for compatibility, not the primary runtime path) |
 | `storage.cjs` | Preset persistence via `electron-store` |
 | `watchdog.cjs` / `watchdog-launcher.cjs` | Keeps long-running Claude Code generation alive |
 
@@ -99,8 +101,10 @@ ProjectBuilderPanel (features/project-builder/)
       → structured JSON brief (projectMeta, components, design, layout)
   → GenerateWizard modal (features/generation/)
   → window.reactBitsApi.generatePlayground
-      → electron/codeGenerator.cjs
-      → Claude Code (Sonnet)
+      → DemoCLI/index.cjs
+      → scaffolder + AI-first composer (electron/aiComposer.cjs)
+      → quality gates + AI repair loop (electron/aiReviewer.cjs)
+      → fallback deterministic app-builder if composer fails
       → files written to disk
   → GenerationQueue / TaskOverlay (live logs via IPC)
 ```
@@ -112,7 +116,9 @@ ProjectBuilderPanel (features/project-builder/)
 | Location | Model | Purpose |
 |---|---|---|
 | `electron/promptEnhancer.cjs` | `claude-sonnet-4-6` | Enhance raw prompt into structured design brief |
-| `electron/codeGenerator.cjs` | Claude Code (Sonnet) | Generate full project source files |
+| `electron/aiComposer.cjs` | Claude Code (Sonnet) | Primary AI-first project composition |
+| `electron/aiReviewer.cjs` | Claude Code (Sonnet) | Repair/polish passes for quality gates |
+| `electron/codeGenerator.cjs` | Claude Code (Sonnet) | Legacy compatibility path |
 
 ---
 

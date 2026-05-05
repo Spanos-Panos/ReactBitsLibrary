@@ -9,6 +9,7 @@ const { generateStructure: _generateStructure } = require('./generators/project/
 const { ensureBriefFile }     = require('./generators/project/brief-writer.cjs');
 const { buildBriefContext, writeReviewerBrief } = require('./generators/project/reviewer-brief.cjs');
 const { reviewCode }          = require('../electron/aiReviewer.cjs');
+const { composeProject }      = require('../electron/aiComposer.cjs');
 const { isComponentMapped }   = require('./generators/shared/component-mapper.cjs');
 
 const execAsync = promisify(exec);
@@ -19,9 +20,15 @@ const PLACEHOLDER_PATTERNS = [
   /\breact bits\b/i,
   /\blorem ipsum\b/i,
   /\bbrand studio\b/i,
-  /\bplaceholder\b/i,
 ];
 const CTA_KEYWORDS = /(get started|book now|contact us|start now|listen now|request demo|join now|discover now)/i;
+const CTA_SIGNAL = /(book|schedule|contact|start|join|buy|request|consult|demo|talk)/i;
+const CONTACT_SIGNAL = /(contact|email|phone|@|form|reach out|message us)/i;
+const SECTION_SIGNAL_MAP = {
+  hero: /(hero|headline|above the fold|welcome)/i,
+  features: /(feature|service|benefit|offering|capability)/i,
+  cta: /(cta|call to action|get started|book now|request demo|contact us)/i,
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -48,6 +55,30 @@ async function collectFilesRecursive(dir, matcher, out = []) {
   return out;
 }
 
+function getVisibleCopyText(source) {
+  return String(source || '')
+    .replace(/placeholder\s*=\s*["'`][\s\S]*?["'`]/gi, ' ')
+    .replace(/className\s*=\s*["'`][\s\S]*?["'`]/gi, ' ')
+    .replace(/id\s*=\s*["'`][\s\S]*?["'`]/gi, ' ')
+    .replace(/aria-[a-z-]+\s*=\s*["'`][\s\S]*?["'`]/gi, ' ')
+    .replace(/\b[A-Za-z0-9_-]+\.(tsx?|jsx?|css|html?)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function detectSectionSignals(source) {
+  const lowered = String(source || '').toLowerCase();
+  const hitCount = Object.values(SECTION_SIGNAL_MAP).reduce((acc, pattern) => acc + (pattern.test(lowered) ? 1 : 0), 0);
+  return hitCount;
+}
+
+function extractEnhancerPageContents(enhancedPrompt) {
+  if (!enhancedPrompt || typeof enhancedPrompt !== 'object') return [];
+  if (Array.isArray(enhancedPrompt.pageContents)) return enhancedPrompt.pageContents;
+  if (Array.isArray(enhancedPrompt.pages)) return enhancedPrompt.pages;
+  return [];
+}
+
 async function runQualityGates({ fullPath, onProgress }) {
   const issues = [];
 
@@ -58,19 +89,34 @@ async function runQualityGates({ fullPath, onProgress }) {
   const sourceFiles = await collectFilesRecursive(srcDir, f => /\.(tsx?|jsx?|css|html)$/i.test(f));
   const contents   = await Promise.all(sourceFiles.map(f => fs.readFile(f, 'utf8').catch(() => '')));
   const joined     = contents.join('\n');
+  const visibleCopy = getVisibleCopyText(joined);
 
   const placeholderHits = PLACEHOLDER_PATTERNS
-    .map(p => p.test(joined) ? p.source : null)
+    .map(p => p.test(visibleCopy) ? p.source : null)
     .filter(Boolean);
   if (placeholderHits.length > 0) {
     issues.push(`Placeholder/generic copy detected (${placeholderHits.join(', ')}).`);
   }
 
+  const headingCount = (joined.match(/<h[1-6][\s>]/gi) || []).length;
+  const sectionSignalCount = detectSectionSignals(joined);
   if (!/<h1[\s>]/i.test(joined) && !/hero\.headline/i.test(joined)) {
     issues.push('No strong hero heading signal detected.');
   }
+  if (headingCount < 3) {
+    issues.push('Weak visual hierarchy: fewer than 3 heading elements found.');
+  }
+  if (sectionSignalCount < 2) {
+    issues.push('Section completeness risk: missing clear hero/features/cta signals.');
+  }
   if (!CTA_KEYWORDS.test(joined)) {
     issues.push('No clear CTA keyword detected in generated content.');
+  }
+  if (!CTA_SIGNAL.test(visibleCopy)) {
+    issues.push('CTA language is too weak for a sellable conversion flow.');
+  }
+  if (!CONTACT_SIGNAL.test(visibleCopy)) {
+    issues.push('No clear contact signal detected (email/form/phone/contact copy).');
   }
 
   const indexCss     = contents[sourceFiles.findIndex(f => /src[\\/]+index\.css$/i.test(f))] || '';
@@ -183,14 +229,15 @@ async function generatePlayground(payload, event, taskId) {
       return await finalize({ fullPath, options, onProgress, onLog, taskId, event });
     }
 
-    // ── BUILDER: full project pipeline ────────────────────────────────────
-    const styleDirection      = options.styleDirection    || {};
-    const designRules         = options.designRules       || {};
-    const clientBrief         = options.clientBrief       || {};
-    const pages               = options.pages             || [];
-    const resolvedPages       = options.resolvedPages     || [];
-    const presetName          = options.presetName        || '';
-    const aiSupport           = !!(options.aiSupport);
+    // ── BUILDER: AI-first project pipeline ─────────────────────────────────
+    const styleDirection       = options.styleDirection || {};
+    const designRules          = options.designRules || {};
+    const clientBrief          = options.clientBrief || {};
+    const pages                = options.pages || [];
+    const resolvedPages        = options.resolvedPages || [];
+    const presetName           = options.presetName || '';
+    const aiSupport            = !!(options.aiSupport);
+    const aiBudgetUsd          = Number.isFinite(options.aiBudgetUsd) ? Number(options.aiBudgetUsd) : null;
     const enhancerQualityScore = Number.isFinite(options.enhancerQualityScore)
       ? Number(options.enhancerQualityScore)
       : null;
@@ -215,23 +262,60 @@ async function generatePlayground(payload, event, taskId) {
       throw new Error(`[Scaffolder] Failed: ${scaffoldErr.message}`);
     }
 
-    // Step 2 — Build content
-    onProgress('Building content from client brief...');
+    onProgress('Building content from client brief + enhanced prompt...');
     let content;
     try {
-      content = buildContent(clientBrief, styleDirection.siteType || 'Landing');
+      content = buildContent(clientBrief, styleDirection.siteType || 'Landing', enhancedPrompt);
     } catch (contentErr) {
       onProgress(`[content-builder] Warning: ${contentErr.message} — using defaults.`);
-      content = buildContent({}, styleDirection.siteType || 'Landing');
+      content = buildContent({}, styleDirection.siteType || 'Landing', enhancedPrompt);
     }
 
-    // Step 3 — Generate App.tsx + page files
-    onProgress('Generating application code...');
-    try {
-      await buildApp({ targetDir: fullPath, selectedComponents, styleDirection, designRules, clientBrief, pages, resolvedPages, presetName });
-    } catch (appErr) {
-      onProgress(`[app-builder] Warning: ${appErr.message} — project may need manual fix.`);
-    }
+    const safeAiBudget = Number.isFinite(aiBudgetUsd) ? Math.max(0.6, aiBudgetUsd) : null;
+    const composerBudget = Number.isFinite(safeAiBudget)
+      ? Number(Math.max(0.45, (safeAiBudget * 0.72)).toFixed(2))
+      : 1.8;
+    const reviewerBudgetCap = Number.isFinite(safeAiBudget)
+      ? Number(Math.max(0.18, (safeAiBudget - composerBudget)).toFixed(2))
+      : 0.95;
+    const mappedNames = selectedComponents.filter(c => isComponentMapped(c.name)).map(c => c.name);
+    const unmappedNames = selectedComponents.map(c => c.name).filter(n => !mappedNames.includes(n));
+    const reviewerBaseContext = {
+      brandName: clientBrief.brandName || content.brandName,
+      tagline: clientBrief.tagline || '',
+      industry: clientBrief.industry || '',
+      aesthetic: styleDirection.aesthetics?.[0] || 'Minimal',
+      siteType: styleDirection.siteType || 'Landing',
+      callToAction: clientBrief.callToAction || 'Get Started',
+      componentList: selectedComponents.map(c => c.name),
+      mappedComponents: mappedNames,
+      unmappedComponents: unmappedNames,
+      contentOverrides: enhancedPrompt?.contentOverrides || {},
+      designTokens: enhancedPrompt?.designTokens || {},
+      pageContents: extractEnhancerPageContents(enhancedPrompt),
+      pages,
+      enhancerQualityScore,
+    };
+
+    const buildDeterministicFallback = async (reason) => {
+      if (reason) onProgress(`[AI-first fallback] ${reason}`);
+      onProgress('Generating deterministic baseline (fallback)...');
+      try {
+        await buildApp({
+          targetDir: fullPath,
+          selectedComponents,
+          styleDirection,
+          designRules,
+          clientBrief,
+          pages,
+          resolvedPages,
+          presetName,
+          enhancedPrompt,
+        });
+      } catch (appErr) {
+        onProgress(`[app-builder] Warning: ${appErr.message} — project may need manual fix.`);
+      }
+    };
 
     // Safety net: ensure Brief.md exists
     await ensureBriefFile({
@@ -240,26 +324,16 @@ async function generatePlayground(payload, event, taskId) {
       onProgress,
     });
 
-    // Step 4 — TypeScript check (never aborts)
-    onProgress('Running TypeScript check...');
+    let usedFallback = false;
     let tsErrors = '';
-    const initialTs = await runTypeScriptCheck(fullPath);
-    if (initialTs.ok) {
-      onProgress('✓ TypeScript clean — no errors found.');
-    } else {
-      tsErrors = initialTs.output;
-      const count = initialTs.errorCount;
-      if (aiSupport) {
-        onProgress(`TypeScript: ${count} error(s) found — AI reviewer will fix them.`);
-      } else {
-        onProgress(`TypeScript: ${count} error(s) found (AI OFF — review manually). First errors:\n${tsErrors.slice(0, 500)}`);
-      }
-    }
+    let qa = { passed: false, issues: [], tsErrorCount: 0 };
 
-    // Step 5 — AI Reviewer (optional)
     if (aiSupport) {
       if (enhancerQualityScore != null) {
-        onProgress(`Enhancer quality score: ${enhancerQualityScore}/100 (used for adaptive review budget).`);
+        onProgress(`Enhancer quality score: ${enhancerQualityScore}/100 (used for adaptive generation).`);
+      }
+      if (Number.isFinite(safeAiBudget)) {
+        onProgress(`AI generation budget cap: $${safeAiBudget.toFixed(2)} (composer=$${composerBudget.toFixed(2)}, repair=$${reviewerBudgetCap.toFixed(2)}).`);
       }
 
       try {
@@ -271,41 +345,74 @@ async function generatePlayground(payload, event, taskId) {
       }
 
       try {
-        const mappedNames   = selectedComponents.filter(c => isComponentMapped(c.name)).map(c => c.name);
-        const unmappedNames = selectedComponents.map(c => c.name).filter(n => !mappedNames.includes(n));
-
-        const reviewerBaseContext = {
-          brandName:          clientBrief.brandName || content.brandName,
-          tagline:            clientBrief.tagline || '',
-          industry:           clientBrief.industry || '',
-          aesthetic:          styleDirection.aesthetics?.[0] || 'Minimal',
-          siteType:           styleDirection.siteType || 'Landing',
-          callToAction:       clientBrief.callToAction || 'Get Started',
-          componentList:      selectedComponents.map(c => c.name),
-          mappedComponents:   mappedNames,
-          unmappedComponents: unmappedNames,
-          contentOverrides:   enhancedPrompt?.contentOverrides || {},
-          pages,
-          enhancerQualityScore,
-        };
-
-        onProgress('Starting AI reviewer Pass A (makeover)...');
-        await reviewCode({ projectPath: fullPath, tsErrors, briefContext: reviewerBaseContext, reviewPass: 'makeover', onProgress });
-
-        let qa = await runQualityGates({ fullPath, onProgress });
-        if (!qa.passed) {
-          onProgress('Starting AI reviewer Pass B (polish / gate-fixes)...');
-          await reviewCode({ projectPath: fullPath, tsErrors, briefContext: { ...reviewerBaseContext, qaIssues: qa.issues }, reviewPass: 'polish', onProgress });
-          qa = await runQualityGates({ fullPath, onProgress });
-        }
-        if (!qa.passed) {
-          onProgress('[QA] Final gate still failing after reviewer passes. Project may require manual polishing.');
-        }
-
-        try { await fs.unlink(path.join(fullPath, 'REVIEWER_BRIEF.md')); } catch (_) {}
-      } catch (reviewErr) {
-        onProgress(`AI reviewer error: ${reviewErr.message}. Continuing without review.`);
+        onProgress('Starting AI-first Composer pass...');
+        await composeProject({
+          projectPath: fullPath,
+          briefContext: reviewerBaseContext,
+          onProgress,
+          maxBudgetUsd: composerBudget,
+          maxTurns: 52,
+        });
+      } catch (composeErr) {
+        usedFallback = true;
+        await buildDeterministicFallback(`Composer failed (${composeErr.message}).`);
       }
+
+      if (!usedFallback) {
+        onProgress('Running TypeScript check after AI composition...');
+      } else {
+        onProgress('Running TypeScript check after deterministic fallback...');
+      }
+      const initialTs = await runTypeScriptCheck(fullPath);
+      let hasTsIssues = !initialTs.ok;
+      tsErrors = initialTs.ok ? '' : initialTs.output;
+      if (initialTs.ok) {
+        onProgress('✓ TypeScript clean — no errors found.');
+      } else {
+        onProgress(`TypeScript: ${initialTs.errorCount} error(s) found — running repair passes.`);
+      }
+
+      qa = await runQualityGates({ fullPath, onProgress });
+      let repairAttempt = 0;
+      const maxRepairPasses = 3;
+      while (repairAttempt < maxRepairPasses && (!qa.passed || hasTsIssues)) {
+        repairAttempt += 1;
+        onProgress(`Starting AI repair pass ${repairAttempt}/${maxRepairPasses}...`);
+        try {
+          await reviewCode({
+            projectPath: fullPath,
+            tsErrors,
+            briefContext: { ...reviewerBaseContext, qaIssues: qa.issues },
+            reviewPass: usedFallback ? 'makeover' : 'polish',
+            onProgress,
+            budgetCapUsd: reviewerBudgetCap,
+          });
+        } catch (repairErr) {
+          onProgress(`AI repair pass ${repairAttempt} failed: ${repairErr.message}`);
+        }
+
+        const tsAfterRepair = await runTypeScriptCheck(fullPath);
+        hasTsIssues = !tsAfterRepair.ok;
+        tsErrors = tsAfterRepair.ok ? '' : tsAfterRepair.output;
+        qa = await runQualityGates({ fullPath, onProgress });
+        if (qa.passed && !hasTsIssues) break;
+      }
+
+      if (!qa.passed) {
+        onProgress('[QA] Final gate still failing after AI repair loop. Manual polish may still be needed.');
+      }
+
+      try { await fs.unlink(path.join(fullPath, 'REVIEWER_BRIEF.md')); } catch (_) {}
+    } else {
+      await buildDeterministicFallback('');
+      onProgress('Running TypeScript check...');
+      const initialTs = await runTypeScriptCheck(fullPath);
+      if (initialTs.ok) {
+        onProgress('✓ TypeScript clean — no errors found.');
+      } else {
+        onProgress(`TypeScript: ${initialTs.errorCount} error(s) found (AI OFF — review manually). First errors:\n${initialTs.output.slice(0, 500)}`);
+      }
+      await runQualityGates({ fullPath, onProgress });
     }
 
     return await finalize({ fullPath, options, onProgress, onLog, taskId, event });

@@ -471,8 +471,8 @@ async function writeBriefMd({ targetDir, selectedComponents, styleDirection, des
  * Main export: buildApp(options)
  * Decides single vs multi-page and generates App.tsx (+ page files if multi-page).
  */
-async function buildApp({ targetDir, selectedComponents, styleDirection, designRules, clientBrief, pages, presetName, resolvedPages = [] }) {
-  const content = buildContent(clientBrief, styleDirection && styleDirection.siteType);
+async function buildApp({ targetDir, selectedComponents, styleDirection, designRules, clientBrief, pages, presetName, resolvedPages = [], enhancedPrompt = null }) {
+  const content = buildContent(clientBrief, styleDirection && styleDirection.siteType, enhancedPrompt);
 
   // Safety net: write a minimal valid App.tsx first — overwritten below if generation succeeds.
   // Prevents the Vite template default (with broken svg/png imports) from remaining on failure.

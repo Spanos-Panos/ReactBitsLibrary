@@ -5,8 +5,8 @@ const GLOBAL_TASK_CAP_USD = 3.0;
 
 // Fixed budget split — these three must sum to 1.0.
 const ENHANCE_FRACTION    = 0.10; // prompt enhancement
-const GENERATION_FRACTION = 0.50; // Claude Code code generation
-const REWORK_FRACTION     = 0.40; // vision rework pass
+const GENERATION_FRACTION = 0.70; // AI-first generation + repair
+const REWORK_FRACTION     = 0.20; // reserved for follow-up rework
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));

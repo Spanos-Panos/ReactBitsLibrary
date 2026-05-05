@@ -75,7 +75,7 @@ async function writeReviewerBrief(projectPath, briefContext, tsErrors) {
     `5. **Z-index** — backgrounds: z:0, content: z:10+, nav: z:100+`,
     ``,
     `## Rules`,
-    `- DO NOT rewrite files that have no issues`,
+    `- Prefer focused edits, but you may rewrite files when needed to deliver a cohesive, sellable result`,
     `- DO NOT add new dependencies — all packages are already installed`,
     `- DO NOT add placeholder comments or TODO comments`,
     `- Use CSS variables from \`:root\` (--color-bg, --color-text, --color-accent, --color-primary)`,

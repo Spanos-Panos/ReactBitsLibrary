@@ -113,7 +113,7 @@ function App() {
   const [designRules,          setDesignRules]          = useState<DesignRules>(DEFAULT_DESIGN_RULES);
   const [styleDirection,       setStyleDirection]       = useState<StyleDirection>(DEFAULT_STYLE_DIRECTION);
   const [clientBrief,          setClientBrief]          = useState<ClientBrief>(DEFAULT_CLIENT_BRIEF);
-  const [aiSupport,            setAiSupport]            = useState(false);
+  const [aiSupport,            setAiSupport]            = useState(true);
   const [pages,                setPages]                = useState<PageConfig[]>([{ id: 'home', title: 'Home', type: 'home', componentIds: [] }]);
   const [scrollbarStyle,       setScrollbarStyle]       = useState<ScrollbarStyle>({ mode: 'custom' });
   const structureWizard = useStructureWizard();

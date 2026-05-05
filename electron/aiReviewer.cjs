@@ -44,9 +44,9 @@ function loadFrontendDesignSkillSnippet() {
   }
 }
 
-function getEscalatedBudget(currentBudgetUsd) {
+function getEscalatedBudget(currentBudgetUsd, capBudgetUsd = REVIEWER_CONFIG.maxBudgetUsd) {
   for (const candidate of REVIEWER_CONFIG.escalationBudgetsUsd) {
-    if (candidate > currentBudgetUsd) return candidate;
+    if (candidate > currentBudgetUsd && candidate <= capBudgetUsd) return candidate;
   }
   return null;
 }
@@ -258,7 +258,11 @@ function buildReviewerPrompt(briefContext, executionPlan, reviewPass = 'makeover
  * @param {function} params.onProgress
  * @param {'makeover'|'polish'} [params.reviewPass]
  */
-async function reviewCode({ projectPath, tsErrors, briefContext, onProgress, reviewPass = 'makeover' }, _attempt = 0, _forcedBudgetUsd = null) {
+async function reviewCode(
+  { projectPath, tsErrors, briefContext, onProgress, reviewPass = 'makeover', budgetCapUsd = null },
+  _attempt = 0,
+  _forcedBudgetUsd = null
+) {
   const notify = (msg) => { if (onProgress) onProgress(msg); };
   const basePlan = deriveReviewerExecutionPlan({
     tsErrors,
@@ -266,9 +270,12 @@ async function reviewCode({ projectPath, tsErrors, briefContext, onProgress, rev
     enhancerQualityScore: briefContext?.enhancerQualityScore,
     reviewPass,
   });
+  const hardCap = Number.isFinite(budgetCapUsd)
+    ? Math.min(REVIEWER_CONFIG.maxBudgetUsd, Math.max(REVIEWER_CONFIG.minBudgetUsd, Number(budgetCapUsd)))
+    : REVIEWER_CONFIG.maxBudgetUsd;
   const effectiveBudget = Number.isFinite(_forcedBudgetUsd)
-    ? Math.min(REVIEWER_CONFIG.maxBudgetUsd, Math.max(REVIEWER_CONFIG.minBudgetUsd, Number(_forcedBudgetUsd)))
-    : basePlan.maxBudgetUsd;
+    ? Math.min(hardCap, Math.max(REVIEWER_CONFIG.minBudgetUsd, Number(_forcedBudgetUsd)))
+    : Math.min(basePlan.maxBudgetUsd, hardCap);
   const executionPlan = {
     ...basePlan,
     maxBudgetUsd: Number(effectiveBudget.toFixed(2)),
@@ -370,15 +377,15 @@ async function reviewCode({ projectPath, tsErrors, briefContext, onProgress, rev
       } else if (saw429 && _attempt < 1) {
         notify(`[Reviewer] Rate limit hit — retrying in 65s...`);
         setTimeout(() => {
-          reviewCode({ projectPath, tsErrors, briefContext, onProgress, reviewPass }, _attempt + 1, executionPlan.maxBudgetUsd)
+          reviewCode({ projectPath, tsErrors, briefContext, onProgress, reviewPass, budgetCapUsd: hardCap }, _attempt + 1, executionPlan.maxBudgetUsd)
             .then(resolve).catch(reject);
         }, 65000);
       } else if (sawBudgetExhausted) {
-        const nextBudget = getEscalatedBudget(executionPlan.maxBudgetUsd);
+        const nextBudget = getEscalatedBudget(executionPlan.maxBudgetUsd, hardCap);
         if (nextBudget != null) {
           notify(`[Reviewer] Budget exhausted at $${executionPlan.maxBudgetUsd.toFixed(2)} — escalating to $${nextBudget.toFixed(2)} and retrying.`);
           setTimeout(() => {
-            reviewCode({ projectPath, tsErrors, briefContext, onProgress, reviewPass }, _attempt + 1, nextBudget)
+            reviewCode({ projectPath, tsErrors, briefContext, onProgress, reviewPass, budgetCapUsd: hardCap }, _attempt + 1, nextBudget)
               .then(resolve).catch(reject);
           }, 1200);
           return;
