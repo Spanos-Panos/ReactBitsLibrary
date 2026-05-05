@@ -388,7 +388,7 @@
     "id": "Animations/StarBorder",
     "name": "StarBorder",
     "category": "Animations",
-    "usageMarkdown": "import StarBorder from './StarBorder'\r\n  \r\n<StarBorder\r\n  as=\"button\"\r\n  className=\"custom-class\"\r\n  color=\"cyan\"\r\n  speed=\"5s\"\r\n>\r\n  // content\r\n</StarBorder>",
+    "usageMarkdown": "import StarBorder from './components/Animations/StarBorder/StarBorder'\r\n\r\nexport default function App() {\r\n  return (\r\n    <div\r\n      style={{\r\n        width: '100vw',\r\n        height: '100vh',\r\n        display: 'flex',\r\n        alignItems: 'center',\r\n        justifyContent: 'center',\r\n        background: '#000',\r\n        margin: 0,\r\n        padding: 0\r\n      }}\r\n    >\r\n      <StarBorder\r\n        as=\"button\"\r\n        color=\"#f43f5e\"\r\n        speed=\"5s\"\r\n        starCount={3}\r\n        fullPath={true}\r\n        thickness={1}\r\n        trailLength={30}\r\n        glowIntensity={1}\r\n      >\r\n        Get Started\r\n      </StarBorder>\r\n    </div>\r\n  );\r\n}\r\n",
     "relativePath": "ReactBitsComponents/Animations/StarBorder/UsageStarBorder.md"
   },
   {
