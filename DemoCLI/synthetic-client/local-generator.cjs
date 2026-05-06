@@ -1,5 +1,12 @@
 'use strict';
 const { ensureNavForPages } = require('./nav-rules.cjs');
+const {
+  getProfile,
+  filterToBudget,
+  tallyWeights,
+  getWeight,
+  DEFAULT_PROFILE_ID,
+} = require('../generators/shared/component-weights.cjs');
 
 // ─────────────────────────────────────────────────────────────
 // Section A: Utility helpers
@@ -390,27 +397,18 @@ const HEAVY_COMPONENTS = new Set([
   'Animations/Noise',
 ]);
 
-function enforcePerformanceBudget(combo) {
+function enforcePerformanceBudget(combo, profileId) {
   var source = Array.isArray(combo) ? combo.slice() : [];
-  var maxHeavy = 2;
-  var heavyCount = 0;
-  var filtered = [];
 
-  for (var i = 0; i < source.length; i++) {
-    var id = source[i];
-    var isHeavy = HEAVY_COMPONENTS.has(id);
-    if (!isHeavy) {
-      filtered.push(id);
-      continue;
-    }
-    if (heavyCount < maxHeavy) {
-      filtered.push(id);
-      heavyCount++;
-    }
-  }
+  // Profile-aware budget filtering — uses the new weight tag system.
+  var filtered = filterToBudget(source, profileId || DEFAULT_PROFILE_ID);
 
+  // Always keep at least one Background unless the profile is so strict it cannot.
   var hasBackground = filtered.some(function(id) { return id.indexOf('Backgrounds/') === 0; });
-  if (!hasBackground) filtered.unshift('Backgrounds/DotGrid');
+  if (!hasBackground) {
+    var lightBg = profileId === 'low-end' ? 'Backgrounds/DarkVeil' : 'Backgrounds/DotGrid';
+    filtered.unshift(lightBg);
+  }
 
   if (filtered.length > 6) filtered = filtered.slice(0, 6);
   return filtered;
@@ -420,7 +418,7 @@ function comboSignature(combo) {
   return (combo || []).slice().sort().join('|');
 }
 
-function pickComponents(archetype) {
+function pickComponents(archetype, profileId) {
   const key = archetype.aesthetic + "|" + archetype.siteType;
   const combos = COMPONENT_COMBOS[key];
   function pickWithDiversity(pool) {
@@ -430,21 +428,21 @@ function pickComponents(archetype) {
       if (!RECENT_COMPONENT_SIGNATURES.includes(sig)) {
         RECENT_COMPONENT_SIGNATURES.push(sig);
         if (RECENT_COMPONENT_SIGNATURES.length > MAX_SIGNATURE_HISTORY) RECENT_COMPONENT_SIGNATURES.shift();
-        return enforcePerformanceBudget(shuffled[i]);
+        return enforcePerformanceBudget(shuffled[i], profileId);
       }
     }
     var fallback = pick(pool);
     var fallbackSig = comboSignature(fallback);
     RECENT_COMPONENT_SIGNATURES.push(fallbackSig);
     if (RECENT_COMPONENT_SIGNATURES.length > MAX_SIGNATURE_HISTORY) RECENT_COMPONENT_SIGNATURES.shift();
-    return enforcePerformanceBudget(fallback);
+    return enforcePerformanceBudget(fallback, profileId);
   }
 
   if (!combos || combos.length === 0) {
     const fallbackKey = Object.keys(COMPONENT_COMBOS).find(k => k.startsWith(archetype.aesthetic));
     return fallbackKey
       ? pickWithDiversity(COMPONENT_COMBOS[fallbackKey])
-      : enforcePerformanceBudget(["TextAnimations/SplitText", "Animations/FadeContent", "Components/Counter", "Backgrounds/DotGrid"]);
+      : enforcePerformanceBudget(["TextAnimations/SplitText", "Animations/FadeContent", "Components/Counter", "Backgrounds/DotGrid"], profileId);
   }
   return pickWithDiversity(combos);
 }
@@ -1644,13 +1642,15 @@ function buildProjectPrompt(brandName, copy, archetype) {
 async function generateClient(archetype, options) {
   var opts = options || {};
   var seed = opts.seed || (archetype.name + ':' + Date.now());
+  var profileId = opts.performanceProfileId || archetype.performanceProfileId || DEFAULT_PROFILE_ID;
+  var profile = getProfile(profileId);
 
   return await withRng(createSeededRng(seed), async function() {
     var brandName   = generateBrandName(archetype);
     var projectName = generateProjectName(brandName);
     var colors      = pickColors(archetype.colorStrategy);
     var fonts       = pickFonts(archetype.aesthetic);
-    var componentIds = pickComponents(archetype);
+    var componentIds = pickComponents(archetype, profileId);
     var copy        = generateCopy(archetype, brandName);
     var quality = ['low', 'medium', 'high'].includes(opts.quality) ? opts.quality : 'high';
     var contactData = await fetchContactData();
@@ -1664,6 +1664,7 @@ async function generateClient(archetype, options) {
       console.log('[LocalGen] Multi-page site (' + archetype.siteType + ') had no nav — injected ' + navResult.injectedNavId);
     }
 
+    var weightTally = tallyWeights(componentIds);
     var reasoning   = buildReasoning(archetype, brandName, fonts, componentIds);
 
     return {
@@ -1691,6 +1692,7 @@ async function generateClient(archetype, options) {
         visualEffects:       sampleItems(copy.visualEffects || [], 1, Math.min(3, (copy.visualEffects || []).length)),
         colorStrategy:       archetype.colorStrategy,
         audience:            copy.audience,
+        performanceProfileId: profile.id,
       },
       designRules: {
         fonts:  fonts,
@@ -1707,6 +1709,13 @@ async function generateClient(archetype, options) {
       projectPrompt: projectPrompt,
       projectName:   projectName,
       reasoning:     reasoning,
+      performanceProfile: {
+        id: profile.id,
+        label: profile.label,
+        heavyMax: profile.heavyMax,
+        mediumMax: profile.mediumMax,
+        tally: { light: weightTally.light, medium: weightTally.medium, heavy: weightTally.heavy, total: weightTally.total },
+      },
       _seed: String(seed),
     };
   });

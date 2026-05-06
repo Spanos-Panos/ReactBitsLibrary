@@ -3,7 +3,16 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import './ProjectBuilderPanel.css';
 import type { ReactBitsItem, PageConfig, PageType } from '../../shared/types/index';
-import { isNavigationComponentName } from '../../shared/data/componentRoles';
+import {
+  isNavigationComponentName,
+  getWeight,
+  tallyWeights,
+  describeBudgetViolations,
+  WEIGHT_BUDGETS,
+  DEFAULT_PERFORMANCE_PROFILE_ID,
+  type WeightTier,
+  type PerformanceProfile,
+} from '../../shared/data/componentRoles';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,6 +65,8 @@ export interface StyleDirection {
   visualEffects: string[];
   colorStrategy: ColorStrategy;
   audience: string;
+  /** Advisory performance profile id (defines weight budgets). */
+  performanceProfileId?: PerformanceProfile['id'];
 }
 
 export interface ProjectBuilderPanelProps {
@@ -122,6 +133,7 @@ export const DEFAULT_STYLE_DIRECTION: StyleDirection = {
   visualEffects: [],
   colorStrategy: 'dark-bold-accent',
   audience: '',
+  performanceProfileId: DEFAULT_PERFORMANCE_PROFILE_ID,
 };
 
 export const DEFAULT_CLIENT_BRIEF: ClientBrief = {
@@ -164,15 +176,57 @@ function groupSelectedByAssemblyCategory(components: ComponentItem[]): Record<As
   return buckets;
 }
 
+function WeightBadge({ weight, size = 'sm' }: { weight: WeightTier; size?: 'xs' | 'sm' }) {
+  const colorMap: Record<WeightTier, { bg: string; fg: string; border: string; label: string }> = {
+    light:  { bg: 'rgba(74, 222, 128, 0.10)',  fg: '#86efac', border: 'rgba(74, 222, 128, 0.32)',  label: 'L' },
+    medium: { bg: 'rgba(251, 191, 36, 0.10)',  fg: '#fcd34d', border: 'rgba(251, 191, 36, 0.32)',  label: 'M' },
+    heavy:  { bg: 'rgba(248, 113, 113, 0.10)', fg: '#fca5a5', border: 'rgba(248, 113, 113, 0.34)', label: 'H' },
+  };
+  const c = colorMap[weight];
+  const titleMap: Record<WeightTier, string> = {
+    light: 'Light — minimal runtime cost',
+    medium: 'Medium — moderate runtime cost',
+    heavy: 'Heavy — significant GPU/CPU cost',
+  };
+  const dim = size === 'xs' ? 14 : 16;
+  return (
+    <span
+      title={titleMap[weight]}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: dim, height: dim, borderRadius: 4,
+        background: c.bg, color: c.fg, border: `1px solid ${c.border}`,
+        fontSize: size === 'xs' ? '0.55rem' : '0.6rem',
+        fontWeight: 800, letterSpacing: '0.02em', flexShrink: 0,
+        fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+      }}
+    >
+      {c.label}
+    </span>
+  );
+}
+
 function AssemblySelectedCategories({
   selectedComponents,
   maxSelectedComponents,
+  performanceProfile,
 }: {
   selectedComponents: ComponentItem[];
   maxSelectedComponents: number;
+  performanceProfile: PerformanceProfile;
 }) {
   const grouped = useMemo(() => groupSelectedByAssemblyCategory(selectedComponents), [selectedComponents]);
   const [popover, setPopover] = useState<{ id: AssemblyCategoryId; rect: DOMRect } | null>(null);
+
+  const weightTally = useMemo(
+    () => tallyWeights(selectedComponents.map(c => c.name)),
+    [selectedComponents],
+  );
+  const violations = useMemo(
+    () => describeBudgetViolations(weightTally, performanceProfile),
+    [weightTally, performanceProfile],
+  );
+  const overBudget = violations.length > 0;
 
   useEffect(() => {
     if (!popover) return;
@@ -287,6 +341,48 @@ function AssemblySelectedCategories({
         })}
       </div>
 
+      {/* Performance advisory tally */}
+      {selectedComponents.length > 0 && (
+        <div
+          className="pbp-perf-tally"
+          style={{
+            marginTop: 10,
+            padding: '8px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            border: `1px solid ${overBudget ? 'rgba(251, 191, 36, 0.28)' : 'rgba(255,255,255,0.06)'}`,
+            background: overBudget ? 'rgba(251, 191, 36, 0.04)' : 'rgba(255,255,255,0.02)',
+            borderRadius: 6,
+            fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+            fontSize: '0.65rem',
+            color: 'rgba(241,245,249,0.55)',
+          }}
+          aria-live="polite"
+        >
+          <span style={{ textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, color: 'rgba(241,245,249,0.4)' }}>
+            {performanceProfile.label}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <WeightBadge weight="light" size="xs" /> {weightTally.light}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <WeightBadge weight="medium" size="xs" /> {weightTally.medium}
+            <span style={{ opacity: 0.5 }}>/ {performanceProfile.mediumMax}</span>
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <WeightBadge weight="heavy" size="xs" /> {weightTally.heavy}
+            <span style={{ opacity: 0.5 }}>/ {performanceProfile.heavyMax}</span>
+          </span>
+          {overBudget && (
+            <span style={{ marginLeft: 'auto', color: '#fcd34d', fontWeight: 600 }} title={violations.join(' ')}>
+              Over budget — advisory only
+            </span>
+          )}
+        </div>
+      )}
+
       {createPortal(
         <AnimatePresence>
           {popover && displayStyle && (
@@ -334,8 +430,10 @@ function AssemblySelectedCategories({
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ type: 'spring', stiffness: 350, damping: 28, delay: idx * 0.04 }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
                     >
-                      {c.name}
+                      <span>{c.name}</span>
+                      <WeightBadge weight={getWeight(c.name)} size="xs" />
                     </motion.li>
                   ))
                 )}
@@ -954,13 +1052,63 @@ function ColorsTab({ rules, onChange }: { rules: DesignRules; onChange: (r: Desi
 
 
 
-function SizesTab({ rules, onChange }: { rules: DesignRules; onChange: (r: DesignRules) => void }) {
+function SizesTab({
+  rules,
+  onChange,
+  style,
+  onStyleChange,
+}: {
+  rules: DesignRules;
+  onChange: (r: DesignRules) => void;
+  style: StyleDirection;
+  onStyleChange: (s: StyleDirection) => void;
+}) {
   const set = (key: keyof DesignRules['sizes'], val: string) =>
     onChange({ ...rules, sizes: { ...rules.sizes, [key]: val } });
 
+  const activeProfileId = style.performanceProfileId || DEFAULT_PERFORMANCE_PROFILE_ID;
+  const profileOrder: PerformanceProfile['id'][] = ['low-end', 'balanced', 'showcase'];
+
   return (
     <div className="pbp-sizes-tab">
-      
+
+      {/* Performance Profile */}
+      <div className="pbp-rule-header">
+        <span className="pbp-rule-label">Performance Profile</span>
+      </div>
+      <p className="pbp-empty-hint" style={{ marginTop: 0, marginBottom: '12px' }}>
+        Advisory budget for component selection. Heavier presets use full-screen WebGL effects; lighter ones avoid GPU pressure.
+      </p>
+      <div className="pbp-sizes-chip-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', display: 'grid', gap: '8px' }}>
+        {profileOrder.map(id => {
+          const profile = WEIGHT_BUDGETS[id];
+          const active = activeProfileId === id;
+          return (
+            <button
+              key={id}
+              className={`pbp-sizes-chip ${active ? 'pbp-sizes-chip--active' : ''}`}
+              onClick={() => onStyleChange({ ...style, performanceProfileId: id })}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                gap: 4, padding: '10px 12px', minHeight: 64, textAlign: 'left',
+              }}
+              title={profile.description}
+            >
+              <span style={{ fontWeight: 700, opacity: active ? 1 : 0.78 }}>
+                {profile.label}
+              </span>
+              <span style={{
+                fontSize: '0.6rem', opacity: 0.55,
+                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                letterSpacing: '0.04em',
+              }}>
+                heavy ≤ {profile.heavyMax} · medium ≤ {profile.mediumMax}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Target Optimization */}
       <div className="pbp-rule-header">
         <span className="pbp-rule-label">Target Optimization</span>
@@ -1970,7 +2118,14 @@ export default function ProjectBuilderPanel({
                 {activeTab === 'Style' && <StyleTab style={styleDirection} onChange={onStyleDirectionChange} />}
                 {activeTab === 'Fonts' && <FontsTab rules={designRules} onChange={onDesignRulesChange} />}
                 {activeTab === 'Colors' && <ColorsTab rules={designRules} onChange={onDesignRulesChange} />}
-                {activeTab === 'Sizes' && <SizesTab rules={designRules} onChange={onDesignRulesChange} />}
+                {activeTab === 'Sizes' && (
+                  <SizesTab
+                    rules={designRules}
+                    onChange={onDesignRulesChange}
+                    style={styleDirection}
+                    onStyleChange={onStyleDirectionChange}
+                  />
+                )}
                 {activeTab === 'Images' && <ImagesTab images={designRules.images ?? []} onPick={handlePickImages} onRemove={handleRemoveImage} limits={IMG_LIMITS} />}
                 {activeTab === 'Output' && <OutputTab style={scrollbarStyle} onChange={onScrollbarStyleChange} />}
                 {activeTab === 'Pages' && <PagesTab pages={pages} onChange={onPagesChange} selectedComponents={selectedComponents} allComponents={allComponents} onToggleComponent={onToggleComponent} />}
@@ -1990,6 +2145,7 @@ export default function ProjectBuilderPanel({
                 <AssemblySelectedCategories
                   selectedComponents={selectedComponents}
                   maxSelectedComponents={maxSelectedComponents}
+                  performanceProfile={WEIGHT_BUDGETS[styleDirection.performanceProfileId || DEFAULT_PERFORMANCE_PROFILE_ID]}
                 />
               </div>
 

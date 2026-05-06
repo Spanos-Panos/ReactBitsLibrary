@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import type { ReactBitsItem, PageConfig } from "./shared/types/index";
-import { getRoleData } from "./shared/data/componentRoles";
+import { getRoleData, WEIGHT_BUDGETS, DEFAULT_PERFORMANCE_PROFILE_ID } from "./shared/data/componentRoles";
 import "./shared/types/api";
 import { useComponentLoader }   from "./shared/hooks/useComponentLoader";
 import { useTaskManager }       from "./shared/hooks/useTaskManager";
@@ -271,6 +271,15 @@ function App() {
       }
     })();
 
+    const profileId = styleDirection.performanceProfileId || DEFAULT_PERFORMANCE_PROFILE_ID;
+    const profile = WEIGHT_BUDGETS[profileId];
+    const performanceProfile = {
+      id: profile.id,
+      label: profile.label,
+      heavyMax: profile.heavyMax,
+      mediumMax: profile.mediumMax,
+    };
+
     return {
       rawPrompt: projectPrompt,
       selectedComponents: componentsWithContext,
@@ -285,6 +294,7 @@ function App() {
         styleDirection,
         clientBrief,
         componentRoleContext,
+        performanceProfile,
         pages: resolvedPageIntents.map(p => ({
           id: p.id,
           title: p.title,
@@ -363,6 +373,14 @@ function App() {
     try {
       let result;
       if (isBuilderGeneration) {
+        const profileId = styleDirection.performanceProfileId || DEFAULT_PERFORMANCE_PROFILE_ID;
+        const profile = WEIGHT_BUDGETS[profileId];
+        const performanceProfile = {
+          id: profile.id,
+          label: profile.label,
+          heavyMax: profile.heavyMax,
+          mediumMax: profile.mediumMax,
+        };
         result = await window.reactBitsApi.generatePlayground({
           options: {
             installMethod: installTab, packageManager, installData: parsedInstallData,
@@ -376,6 +394,7 @@ function App() {
             clientBrief,
             presetName: loadedPresetName,
             enhancerQualityScore: effectiveEnhancerQualityScore,
+            performanceProfile,
           },
           selectedComponents: await Promise.all(selectedComponents.map(c => window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
           enhancedPrompt: effectiveEnhancedPrompt,
@@ -388,8 +407,26 @@ function App() {
         );
       }
       if (result.success) {
-        setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'success', progress: runWhenDone ? "Generation Complete! Auto Run Enabled." : "Generation Complete!", path: result.path, hasTerminalError: false, completedAt: Date.now() } }));
-        setGenerateStatus(result.message || "Success!");
+        const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+        const completedWithWarnings = !!result.completedWithWarnings || warnings.length > 0;
+        const finalStatus: 'success' | 'warning' = completedWithWarnings ? 'warning' : 'success';
+        const completionMessage = completedWithWarnings
+          ? `Generation Complete with ${warnings.length} warning(s).`
+          : (runWhenDone ? "Generation Complete! Auto Run Enabled." : "Generation Complete!");
+        setTasks(prev => ({
+          ...prev,
+          [taskId]: {
+            ...prev[taskId],
+            status: finalStatus,
+            progress: completionMessage,
+            path: result.path,
+            hasTerminalError: false,
+            warnings,
+            completedWithWarnings,
+            completedAt: Date.now(),
+          },
+        }));
+        setGenerateStatus(result.message || (completedWithWarnings ? `Done with ${warnings.length} warning(s).` : "Success!"));
 
         if (lastEnhancedPrompt) setLastEnhancedPrompt(null);
         setLastEnhancerQualityScore(undefined);
@@ -680,7 +717,6 @@ function App() {
               items={items}
               selectedId={selectedId}
               selectedIds={selectedIds}
-              hoveredComponentId={hoveredComponentId}
               searchQuery={searchQuery}
               activeCategory={activeCategory}
               onSelect={handleSelectComponent}

@@ -489,6 +489,25 @@ async function enhancePrompt(options, hooks = {}) {
       }
     }
 
+    // Performance profile block — used to bias section/animation density.
+    let performanceBlock = '';
+    const perfProfile = systemContext?.performanceProfile;
+    if (perfProfile && typeof perfProfile === 'object' && perfProfile.id) {
+      const lines = [
+        `Profile: ${perfProfile.label || perfProfile.id}`,
+        `Heavy budget: up to ${perfProfile.heavyMax} fullscreen GPU effects`,
+        `Medium budget: up to ${perfProfile.mediumMax} medium animations`,
+      ];
+      if (perfProfile.id === 'low-end') {
+        lines.push('Guidance: Prefer simple, light section animations. Avoid stacking multiple GPU effects.');
+      } else if (perfProfile.id === 'showcase') {
+        lines.push('Guidance: Premium showcase — richer ambient layers and more elaborate motion are welcome.');
+      } else {
+        lines.push('Guidance: One statement effect, otherwise restrained motion.');
+      }
+      performanceBlock = `\n\n## PERFORMANCE PROFILE\n${lines.join('\n')}`;
+    }
+
     // Layout vision block — rich contextual layout guidance for Claude
     const zNum = { background: 0, content: 1, overlay: 9999 };
     const hHint = { fullscreen: '100vh', large: '85vh', medium: '50vh', strip: '20vh' };
@@ -639,7 +658,7 @@ async function enhancePrompt(options, hooks = {}) {
       install: c.install || '',
     }));
 
-    const dynamicSystemBlock = [clientBriefBlock, styleBlock, designBlock, pagesBlock, layoutBlock,
+    const dynamicSystemBlock = [clientBriefBlock, styleBlock, designBlock, performanceBlock, pagesBlock, layoutBlock,
       "\n\nCRITICAL: Do NOT use markdown code blocks (e.g. ```tsx) inside the JSON string values. Use escaped newlines (\\n) instead. Return ONLY the JSON object."
     ].filter(Boolean).join('');
     const frontendSkillSnippet = loadFrontendDesignSkillSnippet();

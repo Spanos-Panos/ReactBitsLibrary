@@ -5,6 +5,8 @@ import "./AnimatedList.css";
 export type ListSectionItem = {
   id: string;
   name: string;
+  /** Optional performance weight tier — drives the small "L/M/H" badge on the right. */
+  weight?: 'light' | 'medium' | 'heavy';
 };
 
 export type ListSection = {
@@ -99,8 +101,6 @@ export default function AnimatedList({
     return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
   }, [activeCategory]);
 
-  let globalIndex = 0;
-
   return (
     <div className={`al-container ${className}`}>
       <div ref={listRef} className="al-scroll" onScroll={handleScroll} onMouseLeave={() => onItemHover?.(null)}>
@@ -112,7 +112,6 @@ export default function AnimatedList({
             </div>
 
             {section.items.map(item => {
-              globalIndex++;
               const isActive = selectedId === item.id;
               const isSelected = selectedIds.includes(item.id);
               return (

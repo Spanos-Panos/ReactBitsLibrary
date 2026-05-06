@@ -47,11 +47,16 @@ function classifyComponents(selectedComponents) {
 async function buildSinglePageApp({ targetDir, selectedComponents, content, styleDirection }) {
   const { fixed, navs, inFlow } = classifyComponents(selectedComponents);
 
-  const hasNav = navs.length > 0;
+  // Single-page mode: drop nav components entirely. Their static JSX contains
+  // hardcoded multi-page links (Home/About/Services/Contact) that don't match
+  // a single-page brief and create false navigation in the generated site.
+  const renderedNavs = [];
+  const droppedNavs = navs.map(c => c.name);
+  const hasNav = false;
   const siteType = (styleDirection && styleDirection.siteType) || 'Landing';
   const inFlowNames = inFlow.map(c => c.name);
 
-  // Build section JSX blocks (pass hasNav so hero section adjusts padding)
+  // Build section JSX blocks (no nav padding adjustment needed for single-page)
   const sections = buildSinglePageSections({
     content,
     styleDirection,
@@ -60,13 +65,13 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
     hasNav,
   });
 
-  // Import lines for all selected components
-  const allImports = selectedComponents
+  const renderedComponents = selectedComponents.filter(c => !navs.includes(c));
+  const allImports = renderedComponents
     .filter(c => c.name && c.category)
     .map(c => getComponent(c.name).importLine)
     .join('\n');
 
-  // Fixed layer JSX (backgrounds + cursors)
+  // Fixed layer JSX (backgrounds + cursors) — backgrounds get scroll-locked full-viewport mounting
   const fixedLayers = fixed.map(c => {
     const data = getComponent(c.name);
     const pointerEvents = 'none';
@@ -76,19 +81,19 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
       </div>`;
   }).join('\n');
 
-  // Nav layer JSX — overrides already contain fixed positioning
-  const navLayers = navs.map(c => {
+  const navLayers = renderedNavs.map(c => {
     const data = getComponent(c.name);
     return `      ${data.jsx}`;
   }).join('\n');
 
-  // Add top padding when nav exists so content clears the fixed navbar
-  const wrapperStyle = hasNav
-    ? `position: 'relative', minHeight: '100vh', paddingTop: '4.5rem', isolation: 'isolate', background: 'var(--color-bg)'`
-    : `position: 'relative', minHeight: '100vh', isolation: 'isolate', background: 'var(--color-bg)'`;
+  const wrapperStyle = `position: 'relative', minHeight: '100vh', isolation: 'isolate', background: 'var(--color-bg)'`;
+
+  const droppedNavComment = droppedNavs.length > 0
+    ? `\n/* Single-page build: nav component(s) [${droppedNavs.join(', ')}] omitted to avoid fake multi-page links. */\n`
+    : '';
 
   const appContent = `${allImports}
-
+${droppedNavComment}
 export default function App() {
   return (
     <div style={{ ${wrapperStyle} }}>

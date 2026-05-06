@@ -39,6 +39,7 @@ function parseArgs(argv) {
     localMode: false,
     seed: null,
     quality: 'high',
+    performanceProfileId: null,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -72,6 +73,15 @@ function parseArgs(argv) {
       case '--quality':
         opts.quality = (args[++i] || 'high').toLowerCase();
         break;
+      case '--profile':
+      case '--performance-profile': {
+        const raw = (args[++i] || '').toLowerCase().trim();
+        if (raw === 'low' || raw === 'low-end' || raw === 'lowend') opts.performanceProfileId = 'low-end';
+        else if (raw === 'showcase' || raw === 'high') opts.performanceProfileId = 'showcase';
+        else if (raw === 'balanced' || raw === 'mid') opts.performanceProfileId = 'balanced';
+        else opts.performanceProfileId = raw || null;
+        break;
+      }
     }
   }
   return opts;
@@ -157,6 +167,7 @@ function printHelp() {
   --count N               Generate N clients in one run (sequential)
   --seed VALUE            Deterministic run seed (especially useful with --local and --count)
   --quality LEVEL         quality profile: low | medium | high (default: high)
+  --profile PROFILE       performance profile: low-end | balanced | showcase (default: balanced)
   --archetype KEYWORD     Pick a specific archetype by keyword
                           (matches name, aesthetic, site type, or industry)
   --list                  Show all 20 available archetypes and exit
@@ -261,6 +272,7 @@ async function main() {
   console.log(`  Generating ${opts.count} client${opts.count > 1 ? 's' : ''}${opts.archetypeKeyword ? ` (filter: "${opts.archetypeKeyword}")` : ' (random)'}`);
   console.log(`  Mode: ${opts.localMode ? 'local (free, no API)' : 'Claude AI'}`);
   console.log(`  Quality: ${opts.quality}`);
+  console.log(`  Performance profile: ${opts.performanceProfileId || 'balanced (default)'}`);
   if (opts.seed) console.log(`  Seed: ${opts.seed}`);
   if (!opts.previewMode) {
     console.log(`  Output: ${path.relative(process.cwd(), opts.outputDir) || opts.outputDir}/`);
@@ -301,8 +313,13 @@ async function main() {
 
       while (attempt < maxRetries && !accepted) {
         const runSeed = runSeedBase ? `${runSeedBase}-r${attempt}` : null;
+        const generationOptions = {
+          seed: runSeed,
+          quality: opts.quality,
+          performanceProfileId: opts.performanceProfileId,
+        };
         claudeOutput = opts.localMode
-          ? await localGenerator.generateClient(archetype, { seed: runSeed, quality: opts.quality })
+          ? await localGenerator.generateClient(archetype, generationOptions)
           : await generator.generateClient(archetype, { quality: opts.quality });
         preset = formatter.buildPresetJson(claudeOutput, archetype.name);
 

@@ -32,6 +32,8 @@ export interface GenerateResult {
   path?: string;
   message?: string;
   error?: string;
+  warnings?: string[];
+  completedWithWarnings?: boolean;
 }
 
 export interface PickFileResult {
@@ -127,6 +129,12 @@ export interface GeneratePlaygroundOptions {
   clientBrief?: ClientBrief;
   presetName?: string;
   enhancerQualityScore?: number;
+  performanceProfile?: {
+    id: 'low-end' | 'balanced' | 'showcase';
+    label: string;
+    heavyMax: number;
+    mediumMax: number;
+  } | null;
 }
 
 export interface GeneratePlaygroundPayload {

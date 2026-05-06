@@ -13,6 +13,7 @@ interface Props {
 type QueueStage =
   | 'success-auto-run'
   | 'success-static'
+  | 'warning-static'
   | 'generating'
   | 'error-static'
   | 'error-auto-close';
@@ -20,24 +21,27 @@ type QueueStage =
 function getQueueStage(task: Task): QueueStage {
   const runWhenDoneUsed = task.runWhenDoneUsed ?? /auto run/i.test(task.progress);
   const hasError = task.status === 'error' || !!task.error || !!task.hasTerminalError;
+  const hasWarnings = task.status === 'warning' || !!task.completedWithWarnings;
 
   if (hasError) return 'error-static';
   if (task.status === 'running') return 'generating';
-  
-  // If the server was manually stopped, downgrade to static success to remove border effects
+
   if (task.progress === 'Server Stopped') return 'success-static';
-  
+
+  if (hasWarnings) return 'warning-static';
+
   return runWhenDoneUsed ? 'success-auto-run' : 'success-static';
 }
 
 function getSortBucket(stage: QueueStage): number {
   if (stage === 'success-auto-run') return 0;
   if (stage === 'success-static') return 1;
-  if (stage === 'generating') return 2;
-  return 3;
+  if (stage === 'warning-static') return 2;
+  if (stage === 'generating') return 3;
+  return 4;
 }
 
-function StatusIcon({ status }: { status: 'running' | 'success' | 'error' }) {
+function StatusIcon({ status }: { status: Task['status'] }) {
   if (status === 'running') {
     return (
       <div className="gq-status-icon gq-status-icon--running">
@@ -55,6 +59,17 @@ function StatusIcon({ status }: { status: 'running' | 'success' | 'error' }) {
       <div className="gq-status-icon gq-status-icon--success">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+    );
+  }
+  if (status === 'warning') {
+    return (
+      <div className="gq-status-icon gq-status-icon--warning" title="Completed with advisory warnings">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 9v4" />
+          <path d="M12 17h.01" />
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
         </svg>
       </div>
     );
@@ -166,7 +181,6 @@ export default function GenerationQueue({
             const stage = getQueueStage(task);
             const isStructure = task.type === 'structure';
             const isAiBuild   = !isStructure && (task.name?.toLowerCase().includes('ai') || task.name?.toLowerCase().includes('build'));
-            const isCompleted = stage === 'success-auto-run' || stage === 'success-static';
             const primaryName = task.projectName?.trim() || task.name;
 
             // Labels matching user request: PROJECT, DEMO, STRUCTURE

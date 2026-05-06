@@ -5,14 +5,22 @@
  */
 
 const INDUSTRY_FALLBACKS = {
-  tech:       { brand: 'Studio',  services: ['Web Development', 'Cloud Architecture', 'Digital Transformation'] },
-  design:     { brand: 'Studio',  services: ['Brand Identity', 'UI/UX Design', 'Creative Direction'] },
-  marketing:  { brand: 'Agency',  services: ['Growth Strategy', 'Content Marketing', 'Paid Acquisition'] },
-  finance:    { brand: 'Advisors',services: ['Wealth Management', 'Financial Planning', 'Investment Strategy'] },
-  health:     { brand: 'Clinic',  services: ['Primary Care', 'Preventive Health', 'Wellness Coaching'] },
-  legal:      { brand: 'Law',     services: ['Corporate Law', 'Intellectual Property', 'Contract Review'] },
-  real_estate:{ brand: 'Group',   services: ['Residential Sales', 'Commercial Leasing', 'Property Management'] },
-  default:    { brand: 'Lab',     services: ['Strategy', 'Execution', 'Growth'] },
+  tech:       { brand: 'Studio',  services: ['Web Development', 'Cloud Architecture', 'Digital Transformation'],
+                benefits: ['Ship faster with modern tooling', 'Battle-tested architecture patterns', 'Seamless cloud-native deployment', 'Dedicated technical support'] },
+  design:     { brand: 'Studio',  services: ['Brand Identity', 'UI/UX Design', 'Creative Direction'],
+                benefits: ['Design that converts, not just impresses', 'Research-driven visual strategy', 'Consistent identity across every touchpoint', 'Iterative process with clear milestones'] },
+  marketing:  { brand: 'Agency',  services: ['Growth Strategy', 'Content Marketing', 'Paid Acquisition'],
+                benefits: ['Data-backed growth playbooks', 'Full-funnel campaign management', 'Transparent reporting every step', 'Proven ROI across channels'] },
+  finance:    { brand: 'Advisors',services: ['Wealth Management', 'Financial Planning', 'Investment Strategy'],
+                benefits: ['Independent, conflict-free advice', 'Fiduciary standard on every decision', 'Long-term focus, not short-term trading', 'Clear fee structure with no surprises'] },
+  health:     { brand: 'Clinic',  services: ['Primary Care', 'Preventive Health', 'Wellness Coaching'],
+                benefits: ['Whole-person care philosophy', 'Same-day appointments available', 'Evidence-based treatment protocols', 'Continuous care between visits'] },
+  legal:      { brand: 'Law',     services: ['Corporate Law', 'Intellectual Property', 'Contract Review'],
+                benefits: ['Commercial-minded legal counsel', 'Fixed-fee engagements available', 'Senior attorney on every matter', 'Turnaround within agreed timelines'] },
+  real_estate:{ brand: 'Group',   services: ['Residential Sales', 'Commercial Leasing', 'Property Management'],
+                benefits: ['Deep local market knowledge', 'Negotiation expertise at every deal', 'Transparent, end-to-end process', 'Full portfolio reporting included'] },
+  default:    { brand: 'Lab',     services: ['Strategy', 'Execution', 'Growth'],
+                benefits: ['Outcome-focused from day one', 'Senior expertise, no hand-off to juniors', 'Clear timelines with weekly check-ins', 'Proven track record across industries'] },
 };
 
 function detectIndustry(brief) {
@@ -63,11 +71,17 @@ function parseServices(brief, siteType) {
 
 function buildServiceDescription(title, brief, index) {
   const audience = brief.targetAudience ? `for ${brief.targetAudience}` : '';
+  const audienceOf = brief.targetAudience ? `of ${brief.targetAudience}` : '';
   const brand = brief.brandName || '';
+  const tonePrefix = brief.tone && brief.tone.toLowerCase().includes('bold') ? 'Bold, no-compromise' : '';
   const descriptors = [
-    `${brand ? `${brand} delivers` : 'We deliver'} ${title.toLowerCase()} ${audience} with measurable results.`,
-    `Expert ${title.toLowerCase()} solutions designed to move the needle and exceed expectations.`,
-    `${title} that scales with your ambitions and delivers consistent, reliable outcomes.`,
+    `${brand ? `${brand} delivers` : 'We deliver'} ${title.toLowerCase()} ${audience} with measurable, lasting results.`,
+    `Expert ${title.toLowerCase()} solutions designed to exceed expectations and scale with your goals.`,
+    `${title} built for the demands ${audienceOf || 'of modern businesses'} — precise, reliable, and ready to perform.`,
+    `${tonePrefix ? `${tonePrefix} ` : 'Purpose-built '}${title.toLowerCase()} that turns ambition into outcomes.`,
+    `Our approach to ${title.toLowerCase()} combines deep expertise with a relentless focus on delivering value.`,
+    `${title} reimagined${audience ? ` ${audience}` : ''}: faster delivery, cleaner execution, better results.`,
+    `From strategy to execution, our ${title.toLowerCase()} offering is built around what actually moves the needle.`,
   ];
   return descriptors[index % descriptors.length];
 }
@@ -80,11 +94,43 @@ function parseKeyBenefits(brief) {
       .filter(Boolean)
       .slice(0, 4);
   }
-  return [
-    'Results-driven approach',
-    'Expert team with proven track record',
-    'Scalable solutions built to last',
-    'Dedicated support at every step',
+
+  // Build benefits from available brief fields before falling back to generic text.
+  const derived = [];
+
+  // usp makes the strongest benefit bullet
+  if (brief.usp && brief.usp.trim()) {
+    derived.push(brief.usp.trim());
+  }
+
+  // Extract short punchy sentences from description (≤80 chars)
+  if (brief.description && brief.description.trim()) {
+    const sentences = brief.description
+      .split(/[.!?]+/)
+      .map(s => s.trim())
+      .filter(s => s.length >= 15 && s.length <= 80);
+    for (const s of sentences) {
+      if (derived.length >= 3) break;
+      if (!derived.includes(s)) derived.push(s);
+    }
+  }
+
+  if (derived.length >= 4) return derived.slice(0, 4);
+
+  // Top up with industry-specific fallbacks when brief is thin
+  const industry = detectIndustry(brief);
+  const fb = INDUSTRY_FALLBACKS[industry] || INDUSTRY_FALLBACKS.default;
+  const industryBenefits = fb.benefits || [];
+  for (const b of industryBenefits) {
+    if (derived.length >= 4) break;
+    if (!derived.includes(b)) derived.push(b);
+  }
+
+  return derived.length > 0 ? derived.slice(0, 4) : [
+    'Outcome-focused from day one',
+    'Senior expertise, no hand-off to juniors',
+    'Clear timelines with weekly check-ins',
+    'Proven track record across industries',
   ];
 }
 
@@ -110,8 +156,31 @@ function buildHeroContent(brief, brandName) {
   const description = brief.description ? brief.description.trim() : '';
   const cta = brief.callToAction ? brief.callToAction.trim() : 'Get Started';
   const audience = brief.targetAudience ? brief.targetAudience.trim() : '';
+  const usp = brief.usp ? brief.usp.trim() : '';
+  const industry = detectIndustry(brief);
 
-  const headline = tagline || brandName;
+  // Compose headline in priority order — never fall back to bare brand name
+  let headline;
+  if (tagline) {
+    headline = tagline;
+  } else if (usp) {
+    // Turn USP into a headline: trim to ~60 chars, capitalise first letter
+    const trimmed = usp.length > 60 ? usp.slice(0, 57) + '…' : usp;
+    headline = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  } else {
+    const INDUSTRY_HEADLINES = {
+      tech:        `The Smarter Way to Build Digital Products`,
+      design:      `Craft That Speaks Before Words Do`,
+      marketing:   `Growth That Scales. Results That Last.`,
+      finance:     `Financial Clarity. Confident Decisions.`,
+      health:      `Your Health, Our Priority`,
+      legal:       `Straightforward Counsel. Exceptional Outcomes.`,
+      real_estate: `Find Your Place. We'll Handle the Rest.`,
+      default:     `${brandName} — Built for What's Next`,
+    };
+    headline = INDUSTRY_HEADLINES[industry] || INDUSTRY_HEADLINES.default;
+  }
+
   let subheadline;
   if (description) {
     subheadline = description.length > 120 ? description.slice(0, 117) + '...' : description;
@@ -146,10 +215,22 @@ function buildFeaturesContent(brief, services) {
 function buildCtaContent(brief, brandName) {
   const cta = brief.callToAction ? brief.callToAction.trim() : 'Get in Touch';
   const audience = brief.targetAudience ? brief.targetAudience.trim() : '';
-  const heading = audience
-    ? `Ready to start, ${audience}?`
-    : `Ready to work with ${brandName}?`;
-  const subtext = brief.usp || `Let's build something remarkable together.`;
+  const usp = brief.usp ? brief.usp.trim() : '';
+
+  let heading;
+  if (audience) {
+    // Rotate between natural phrasings — avoid the "Ready to start, Startups?" comma construction
+    const patterns = [
+      `Made for ${audience}. Ready When You Are.`,
+      `Helping ${audience} Achieve More`,
+      `${audience} Choose ${brandName}`,
+    ];
+    heading = patterns[brandName.length % patterns.length];
+  } else {
+    heading = `Ready to Work with ${brandName}?`;
+  }
+
+  const subtext = usp || `Let's build something remarkable together.`;
   return { heading, subtext, button: cta };
 }
 

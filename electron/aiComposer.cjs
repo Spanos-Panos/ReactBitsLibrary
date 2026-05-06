@@ -56,10 +56,42 @@ function formatStreamMessage(msg) {
   return null;
 }
 
+function describeFontsPolicy(designRules) {
+  const fonts = Array.isArray(designRules?.fonts) ? designRules.fonts : [];
+  if (fonts.length === 0) return null;
+  const lines = fonts
+    .map((f) => {
+      const role = f?.role || 'text';
+      const family = f?.value || f?.family || '';
+      const weight = f?.weight || f?.weights || 'default';
+      if (!family) return null;
+      return `  - ${role}: "${family}" (${weight})`;
+    })
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+  return lines.join('\n');
+}
+
+function describeColorsPolicy(designRules) {
+  const colors = designRules?.colors || {};
+  const entries = Object.entries(colors).filter(([_, v]) => typeof v === 'string' && v.trim());
+  if (entries.length === 0) return null;
+  return entries.map(([k, v]) => `  - --color-${k}: ${v}`).join('\n');
+}
+
+function describePerformanceProfile(profile) {
+  if (!profile || typeof profile !== 'object') return null;
+  const id = profile.id || 'balanced';
+  const heavyMax = profile.heavyMax != null ? profile.heavyMax : '∞';
+  const mediumMax = profile.mediumMax != null ? profile.mediumMax : '∞';
+  return `id=${id} | budget: heavy<=${heavyMax} medium<=${mediumMax} light=∞`;
+}
+
 function buildComposerPrompt(briefContext = {}) {
   const frontendSkill = loadFrontendDesignSkillSnippet();
   const componentList = Array.isArray(briefContext.componentList) ? briefContext.componentList : [];
   const pages = Array.isArray(briefContext.pages) ? briefContext.pages : [];
+  const isSinglePage = pages.length <= 1;
   const pageList = pages.length
     ? pages.map((p) => p.title || p.name || p.label || p.id).filter(Boolean).join(', ')
     : 'Single page';
@@ -72,6 +104,13 @@ function buildComposerPrompt(briefContext = {}) {
   const pageContents = Array.isArray(briefContext.pageContents)
     ? JSON.stringify(briefContext.pageContents, null, 2)
     : '[]';
+
+  const fontsPolicy = describeFontsPolicy(briefContext.designRules);
+  const colorsPolicy = describeColorsPolicy(briefContext.designRules);
+  const perfProfileLine = describePerformanceProfile(briefContext.performanceProfile);
+  const weightTally = briefContext.componentWeightTally && typeof briefContext.componentWeightTally === 'object'
+    ? `light=${briefContext.componentWeightTally.light || 0}, medium=${briefContext.componentWeightTally.medium || 0}, heavy=${briefContext.componentWeightTally.heavy || 0}`
+    : null;
 
   return [
     `You are the PRIMARY project composer for a React 19 + Vite + TypeScript codebase.`,
@@ -88,9 +127,15 @@ function buildComposerPrompt(briefContext = {}) {
     `- Site type: ${briefContext.siteType || 'Landing'}`,
     `- Aesthetic: ${briefContext.aesthetic || 'Minimal'}`,
     `- Primary CTA: ${briefContext.callToAction || 'Get Started'}`,
-    `- Pages: ${pageList}`,
+    `- Pages (${pages.length || 1}): ${pageList}`,
     componentList.length ? `- Available ReactBits components: ${componentList.join(', ')}` : '- Available ReactBits components: (none listed)',
+    perfProfileLine ? `- Performance profile: ${perfProfileLine}` : '',
+    weightTally ? `- Component weight tally: ${weightTally}` : '',
     ``,
+    fontsPolicy ? `FONT POLICY (STRICT — do not introduce other families):\n${fontsPolicy}` : '',
+    fontsPolicy ? '' : '',
+    colorsPolicy ? `COLOR TOKENS (use these exact hex values in :root):\n${colorsPolicy}` : '',
+    colorsPolicy ? '' : '',
     `ENHANCED TOKENS (prefer these values when sensible):`,
     designTokens,
     ``,
@@ -108,6 +153,16 @@ function buildComposerPrompt(briefContext = {}) {
     `5) Ensure contact readiness: include at least one contact path (contact section, form, email, or CTA link).`,
     `6) Avoid placeholder/generic copy. Use specific, branded language.`,
     `7) Run TypeScript check if you make broad edits and fix breakages.`,
+    fontsPolicy
+      ? `8) FONTS — Only the families listed in FONT POLICY may appear in any \`font-family\` declaration in src/index.css and src/App.css. Do NOT use Cormorant, Garamond, Playfair, or any family not listed. Load the policy fonts via index.html (Google Fonts <link>) if not already present.`
+      : '',
+    isSinglePage
+      ? `9) SINGLE-PAGE LAYOUT — There is only ONE page. Do NOT render a multi-link top navigation listing fake "Home / About / Services / Contact" pages. Use only in-page anchor links (e.g. #about, #services, #contact) inside a single <nav>, OR omit the nav entirely. Never duplicate page routes.`
+      : `9) MULTI-PAGE NAV — A top nav linking the named pages above is appropriate. Use react-router or simple state-based routing already in scaffold.`,
+    `10) STATIC ANIMATED BACKGROUND — Mount the chosen Background component (Silk, Iridescence, Plasma, Aurora, etc.) in src/App.tsx as a SCROLL-LOCKED full-viewport layer:\n    - Wrap it in a div with style: { position: 'fixed', inset: 0, width: '100vw', height: '100vh', zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }.\n    - All page content sits in a sibling wrapper with style: { position: 'relative', zIndex: 1 }.\n    - The background must NOT scroll with content. It fills the entire viewport at all times.\n    - The background component itself should fill its parent (width: 100%; height: 100%).`,
+    perfProfileLine
+      ? `11) PERFORMANCE PROFILE — Honor the active profile. On Low-end PC, prefer simpler section animations and never mount more than ONE fullscreen GPU effect. On Showcase, you may mount one fullscreen GPU background plus richer animations.`
+      : '',
     ``,
     frontendSkill ? `FRONTEND-DESIGN SKILL:\n${frontendSkill}` : '',
     frontendSkill ? '' : '',

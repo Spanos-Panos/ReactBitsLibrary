@@ -43,28 +43,28 @@ node DemoCLI/synthetic-client/index.cjs --help
 
 ### All Options
 
-| Flag                  | Description                                                                |
-|-----------------------|----------------------------------------------------------------------------|
-| *(no flags)*          | Generate 1 random client (Claude API)                                      |
-| `--local`             | Generate free, instant, offline-capable (no API key needed)                |
-| `--count N`           | Generate N clients sequentially                                            |
+| Flag                  | Description                                                                 |
+|-----------------------|-----------------------------------------------------------------------------|
+| *(no flags)*          | Generate 1 random client (Claude API)                                       |
+| `--local`             | Generate free, instant, offline-capable (no API key needed)                 |
+| `--count N`           | Generate N clients sequentially                                             |
 | `--seed VALUE`        | Deterministic seed for reproducible multi-run datasets                      |
-| `--quality LEVEL`     | Local generation richness profile: `low`, `medium`, `high` (default: high) |
-| `--archetype KEYWORD` | Pick archetype by keyword (partial match, case-insensitive)                |
-| `--list`              | Show all 20 archetypes and exit                                            |
-| `--preview`           | Print brief to terminal, don't write files                                 |
-| `--output DIR`        | Write to a custom directory (default: `DemoCLI/synthetic-client/output/`)  |
-| `--help`              | Show full documentation                                                    |
+| `--quality LEVEL`     | Local generation richness profile: `low`, `medium`, `high` (default: high)  |
+| `--archetype KEYWORD` | Pick archetype by keyword (partial match, case-insensitive)                 |
+| `--list`              | Show all 20 archetypes and exit                                             |
+| `--preview`           | Print brief to terminal, don't write files                                  |
+| `--output DIR`        | Write to a custom directory (default: `DemoCLI/synthetic-client/output/`)   |
+| `--help`              | Show full documentation                                                     |
 
 ### Claude vs Local Mode
 
-| | Claude mode | `--local` mode |
-|---|---|---|
-| Cost | ~$0.002 per client | Free |
-| Speed | 10–20 seconds | Instant |
-| API key | Required | Not needed |
-| Variety | High (AI improvises + normalization) | High (seeded + curated realism pools) |
-| Output format | Same `preset.json` + `brief.md` | Identical |
+|               | Claude mode                          | `--local` mode                        |
+|---------------|--------------------------------------|---------------------------------------|
+| Cost          | ~$0.002 per client                   | Free                                  |
+| Speed         | 10–20 seconds                        | Instant                               |
+| API key       | Required                             | Not needed                            |
+| Variety       | High (AI improvises + normalization) | High (seeded + curated realism pools) |
+| Output format | Same `preset.json` + `brief.md`      | Identical                             |
 
 ### Testing-Focused Commands
 
@@ -134,25 +134,25 @@ output/
 **Path:** `DemoCLI/generators/`  
 **Purpose:** These are the modules that BitForge's AI pipeline uses to build generated projects. They are called automatically during generation — you don't run them directly.
 
-| File | What It Does |
-|---|---|
-| `vite-react.cjs` | Main entry point — builds the full CLAUDE.md instruction file for Claude Code |
-| `app-builder.cjs` | Generates the `App.tsx` scaffold structure |
-| `style-builder.cjs` | Builds `index.css` with aesthetic-driven CSS tokens and rules |
-| `content-builder.cjs` | Generates copy and content blocks for each page section |
-| `page-builder.cjs` | Assembles per-page layout specs from component selections |
-| `component-mapper.cjs` | Maps selected component IDs to import paths and usage patterns |
-| `scaffolder.cjs` | Handles project file scaffold (package.json, vite.config, tsconfig) |
-| `structure-generator.cjs` | Determines overall page/section structure from design brief |
+| File                      | What It Does                                                                  |
+|---------------------------|-------------------------------------------------------------------------------|
+| `vite-react.cjs`          | Main entry point — builds the full CLAUDE.md instruction file for Claude Code |
+| `app-builder.cjs`         | Generates the `App.tsx` scaffold structure                                    |
+| `style-builder.cjs`       | Builds `index.css` with aesthetic-driven CSS tokens and rules                 |
+| `content-builder.cjs`     | Generates copy and content blocks for each page section                       |
+| `page-builder.cjs`        | Assembles per-page layout specs from component selections                     |
+| `component-mapper.cjs`    | Maps selected component IDs to import paths and usage patterns                |
+| `scaffolder.cjs`          | Handles project file scaffold (package.json, vite.config, tsconfig)           |
+| `structure-generator.cjs` | Determines overall page/section structure from design brief                   |
 
 ---
 
 ## 3 — DemoCLI Root Files
 
-| File | Purpose |
-|---|---|
+| File        | Purpose                                                 |
+|-------------|---------------------------------------------------------|
 | `index.cjs` | Main entry point (referenced from package.json scripts) |
-| `index.ts` | TypeScript type declarations for the CLI |
+| `index.ts`  | TypeScript type declarations for the CLI                |
 
 ---
 

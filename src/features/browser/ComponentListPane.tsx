@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { ReactBitsItem } from "../../shared/types/index";
 import AnimatedList from "../../showcase/UIComponents/AnimatedList/AnimatedList";
+import { getWeight } from "../../shared/data/componentRoles";
 
 const CATEGORY_ORDER = [
   { id: "Components",     label: "Components" },
@@ -13,7 +14,6 @@ interface ComponentListPaneProps {
   items: ReactBitsItem[];
   selectedId: string | null;
   selectedIds: string[];
-  hoveredComponentId: string | null;
   searchQuery: string;
   activeCategory: string;
   onSelect: (id: string) => void;
@@ -39,7 +39,8 @@ export default function ComponentListPane({
       label: cat.label,
       items: items
         .filter(i => i.category === cat.id && (!q || i.name.toLowerCase().includes(q)))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(i => ({ id: i.id, name: i.name, weight: getWeight(i.name) })),
     })),
     [items, q]
   );

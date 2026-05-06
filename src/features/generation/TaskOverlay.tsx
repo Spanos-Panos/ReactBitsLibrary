@@ -10,7 +10,7 @@ interface TaskOverlayProps {
   onClear: (id: string) => void;
 }
 
-function StatusIcon({ status }: { status: 'running' | 'success' | 'error' }) {
+function StatusIcon({ status }: { status: 'running' | 'success' | 'warning' | 'error' }) {
   if (status === 'running') {
     return (
       <motion.div 
@@ -32,6 +32,17 @@ function StatusIcon({ status }: { status: 'running' | 'success' | 'error' }) {
       <div className="gq-status-icon gq-status-icon--success">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+    );
+  }
+  if (status === 'warning') {
+    return (
+      <div className="gq-status-icon gq-status-icon--warning" title="Completed with advisory warnings">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 9v4" />
+          <path d="M12 17h.01" />
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
         </svg>
       </div>
     );
@@ -73,9 +84,10 @@ export default function TaskOverlay({ task, terminalRef, onHide, onStop, onClear
   const [copied, setCopied] = useState(false);
 
   const isRunningPhase = task.status === 'running';
-  const isSuccess = task.status === 'success';
+  const isSuccess = task.status === 'success' || task.status === 'warning';
+  const isWarning = task.status === 'warning';
   const isError = task.status === 'error';
-  
+
   const isProcessActive = isRunningPhase || (isSuccess && task.runWhenDoneUsed && task.progress !== 'Server Stopped');
 
   const isStructure = task.type === 'structure';
@@ -192,17 +204,25 @@ export default function TaskOverlay({ task, terminalRef, onHide, onStop, onClear
                 <div style={{ flex: 0.8, display: 'flex', flexDirection: 'column', gap: 20 }}>
                   <MetaItem label="Process Status">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
-                      <span style={{ 
-                        fontFamily: 'var(--font-mono)', fontSize: '0.85rem', fontWeight: 800, 
-                        color: task.progress === 'Server Stopped' 
-                          ? 'rgba(255,255,255,0.4)' 
-                          : (isRunningPhase ? '#818cf8' : isSuccess ? '#4ade80' : '#f87171'),
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '0.85rem', fontWeight: 800,
+                        color: task.progress === 'Server Stopped'
+                          ? 'rgba(255,255,255,0.4)'
+                          : (isRunningPhase
+                              ? '#818cf8'
+                              : isWarning
+                                ? '#fbbf24'
+                                : isSuccess ? '#4ade80' : '#f87171'),
                         letterSpacing: '0.04em',
-                        textShadow: (isRunningPhase || isProcessActive) ? `0 0 15px ${isRunningPhase ? 'rgba(129, 140, 248, 0.3)' : 'rgba(74, 222, 128, 0.2)'}` : 'none'
+                        textShadow: (isRunningPhase || isProcessActive)
+                          ? `0 0 15px ${isRunningPhase ? 'rgba(129, 140, 248, 0.3)' : isWarning ? 'rgba(251, 191, 36, 0.25)' : 'rgba(74, 222, 128, 0.2)'}`
+                          : 'none'
                       }}>
-                        {task.progress === 'Server Stopped' 
-                          ? 'STOPPED' 
-                          : (isStructure && isSuccess ? 'SUCCESS' : (isProcessActive && isSuccess ? 'SUCCEED (RUNNING)' : task.status.toUpperCase()))}
+                        {task.progress === 'Server Stopped'
+                          ? 'STOPPED'
+                          : isWarning
+                            ? `COMPLETED · ${(task.warnings && task.warnings.length) || 0} WARNING(S)`
+                            : (isStructure && isSuccess ? 'SUCCESS' : (isProcessActive && isSuccess ? 'SUCCEED (RUNNING)' : task.status.toUpperCase()))}
                       </span>
                       <StatusIcon status={task.status} />
                     </div>
@@ -368,8 +388,12 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function StatusDot({ status }: { status: 'running' | 'success' | 'error' }) {
-  const color = status === 'running' ? '#818cf8' : status === 'success' ? '#4ade80' : '#f87171';
+function StatusDot({ status }: { status: 'running' | 'success' | 'warning' | 'error' }) {
+  const color =
+    status === 'running' ? '#818cf8'
+    : status === 'success' ? '#4ade80'
+    : status === 'warning' ? '#fbbf24'
+    : '#f87171';
   return (
     <div style={{
       width: 8, height: 8, borderRadius: '50%', background: color,

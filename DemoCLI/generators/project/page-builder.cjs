@@ -70,10 +70,10 @@ function buildImagePlaceholder(label, aspectRatio = '16/9') {
 // ── Layout personality per aesthetic ─────────────────────────────────────────
 
 const LAYOUT = {
-  minimal:    { heroAlign: 'left',   maxWidth: '720px',  sectionPad: '6rem 0',   headingSize: 'clamp(2.4rem,6.5vw,4.8rem)', bodyWeight: '300' },
-  editorial:  { heroAlign: 'left',   maxWidth: '1100px', sectionPad: '6.5rem 0', headingSize: 'clamp(3rem,9vw,7rem)',      bodyWeight: '300' },
-  brutalist:  { heroAlign: 'left',   maxWidth: '100%',   sectionPad: '4.5rem 0', headingSize: 'clamp(2.8rem,8.5vw,6.5rem)', bodyWeight: '900' },
-  futuristic: { heroAlign: 'center', maxWidth: '1280px', sectionPad: '5.5rem 0', headingSize: 'clamp(2.2rem,6.5vw,5.5rem)', bodyWeight: '700' },
+  minimal:    { heroAlign: 'left',   maxWidth: '720px',  sectionPad: '6rem 0',   headingSize: 'clamp(2.4rem,6.5vw,4.8rem)', bodyWeight: '300', borderRadius: '4px',  btnShadow: 'none' },
+  editorial:  { heroAlign: 'left',   maxWidth: '1100px', sectionPad: '6.5rem 0', headingSize: 'clamp(3rem,9vw,7rem)',        bodyWeight: '300', borderRadius: '2px',  btnShadow: 'none' },
+  brutalist:  { heroAlign: 'left',   maxWidth: '100%',   sectionPad: '4.5rem 0', headingSize: 'clamp(2.8rem,8.5vw,6.5rem)', bodyWeight: '900', borderRadius: '0',    btnShadow: 'none' },
+  futuristic: { heroAlign: 'center', maxWidth: '1280px', sectionPad: '5.5rem 0', headingSize: 'clamp(2.2rem,6.5vw,5.5rem)', bodyWeight: '700', borderRadius: '0',    btnShadow: '0 0 14px var(--color-accent)' },
 };
 
 function getLayout(aesthetic) {
@@ -86,8 +86,8 @@ const SECTION_COMPONENT_HINTS = {
   hero:      [
     'Silk', 'Aurora', 'PlasmaWave', 'Iridescence', 'Particles', 'Orb', 'Waves',
     'SplitText', 'ShinyText', 'GradientText', 'BlurText', 'CountUp',
-    'StickerPeel', 'FluidGlass', 'MorphingText', 'Typewriter', 'ScrambleText', 'FallingText',
-    'RotatingText', 'TextPressure', 'FuzzyText', 'ShimmerText',
+    'StickerPeel', 'FluidGlass', 'ScrambleText', 'FallingText',
+    'RotatingText', 'TextPressure', 'FuzzyText', 'TextType',
   ],
   features:  [
     'AnimatedList', 'GlassIcons', 'SpotlightCard', 'MagicBento', 'AnimatedContent', 'FadeContent', 'CountUp', 'Stepper',
@@ -274,8 +274,8 @@ function buildHeroSection(content, aesthetic, layout, componentName, hasNav = fa
               ${subheadline}
             </p>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: '${align === 'center' ? 'center' : 'flex-start'}' }}>
-              <button style={{ padding: '0.85em 2.2em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', letterSpacing: '0.05em' }}>${cta}</button>
-              <button style={{ padding: '0.85em 2.2em', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-text)', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem' }}>${ctaSecondary}</button>
+              <button style={{ padding: '0.85em 2.2em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', borderRadius: '${layout.borderRadius}', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', letterSpacing: '0.05em'${layout.btnShadow !== 'none' ? `, boxShadow: '${layout.btnShadow}'` : ''} }}>${cta}</button>
+              <button style={{ padding: '0.85em 2.2em', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-text)', borderRadius: '${layout.borderRadius}', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem' }}>${ctaSecondary}</button>
             </div>${compJsx}
           </div>
         </div>
@@ -318,10 +318,20 @@ function buildFeaturesSection(content, aesthetic, layout, componentName) {
 
 function buildBenefitsSection(content, aesthetic, layout, componentName) {
   const { benefits } = content;
+  const brandName = content.brandName || '';
+  const siteType = content._siteType || 'Landing';
   const comp = componentName ? getComponent(componentName) : null;
   const compJsx = comp && !comp.isFixed
     ? `\n          <div style={{ marginTop: '3rem' }}>\n            ${comp.jsx}\n          </div>`
     : '';
+
+  const benefitsHeading = siteType === 'Portfolio'
+    ? 'What Sets Me Apart'
+    : siteType === 'Agency'
+    ? `Why Clients Choose ${brandName}`
+    : brandName
+    ? `Why ${brandName}`
+    : 'Why Choose Us';
 
   const items = benefits.map((b, i) => `
             <li key="${i}" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
@@ -331,7 +341,7 @@ function buildBenefitsSection(content, aesthetic, layout, componentName) {
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1, background: 'var(--color-surface)' }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
-          <h2 style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '2.5rem' }}>Why Choose Us</h2>
+          <h2 style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '2.5rem' }}>${benefitsHeading}</h2>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             ${items}
           </ul>${compJsx}
@@ -350,7 +360,7 @@ function buildCtaSection(content, aesthetic, layout, componentName) {
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
           <h2 style={{ fontSize: 'clamp(2rem, 6vw, 4rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '1rem' }}>${heading}</h2>
           <p style={{ fontSize: '1.1rem', color: 'var(--color-text)', opacity: 0.65, maxWidth: '480px', margin: '0 auto 2.5rem', lineHeight: 1.65 }}>${subtext}</p>
-          <button style={{ padding: '1em 3em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', letterSpacing: '0.05em' }}>${button}</button>${compJsx}
+          <button style={{ padding: '1em 3em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', borderRadius: '${layout.borderRadius}', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', letterSpacing: '0.05em'${layout.btnShadow !== 'none' ? `, boxShadow: '${layout.btnShadow}'` : ''} }}>${button}</button>${compJsx}
         </div>
       </section>`;
 }
@@ -402,15 +412,22 @@ function buildWorkSection(content, aesthetic, layout, componentName) {
       </section>`;
   }
 
-  const projects = [
-    { title: 'Project One', tag: 'Branding' },
-    { title: 'Project Two', tag: 'Web Design' },
-    { title: 'Project Three', tag: 'Digital' },
-  ];
+  // Build work cards from content.features.items (services) — never "Project One/Two/Three"
+  const serviceItems = (content.features && content.features.items) || [];
+  const PROJECT_TITLE_SUFFIXES = ['Case Study', 'Project', 'Campaign', 'Engagement'];
+  const projects = serviceItems.slice(0, 3).map((item, i) => ({
+    title: `${item.title} ${PROJECT_TITLE_SUFFIXES[i % PROJECT_TITLE_SUFFIXES.length]}`,
+    tag: item.title,
+  }));
+  // Pad to 3 if fewer services
+  while (projects.length < 3) {
+    const idx = projects.length;
+    projects.push({ title: `Featured ${PROJECT_TITLE_SUFFIXES[idx % PROJECT_TITLE_SUFFIXES.length]}`, tag: 'Portfolio' });
+  }
 
   const cards = projects.map((p, i) => `
             <div key="${i}" style={{ flex: '1 1 260px' }}>
-              ${buildImagePlaceholder(`project-${i + 1} — ${p.tag} project screenshot`, '4/3')}
+              ${buildImagePlaceholder(`${p.tag} — project screenshot`, '4/3')}
               <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-accent)', display: 'block', marginTop: '1rem' }}>${p.tag}</span>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-text)', marginTop: '0.5rem' }}>${p.title}</h3>
             </div>`).join('');
@@ -459,11 +476,29 @@ function buildServicesSection(content, aesthetic, layout, componentName) {
 
 function buildPricingSection(content, aesthetic, layout, componentName) {
   const comp = componentName ? getComponent(componentName) : null;
+  const siteType = content._siteType || 'SaaS';
+
+  // Tier names by site type
+  const TIER_NAMES = {
+    SaaS:      ['Starter', 'Growth', 'Enterprise'],
+    Agency:    ['Project', 'Retainer', 'Partnership'],
+    Portfolio: ['Basic', 'Standard', 'Premium'],
+    Landing:   ['Basic', 'Standard', 'Premium'],
+  };
+  const [t0, t1, t2] = TIER_NAMES[siteType] || TIER_NAMES.Landing;
+
+  // Pull first 3 services for the Pro/mid-tier feature list
+  const serviceItems = (content.features && content.features.items) || [];
+  const proFeatures = [
+    `Everything in ${t0}`,
+    ...serviceItems.slice(0, 2).map(s => s.title),
+    'Priority support',
+  ].filter(Boolean).slice(0, 4);
 
   const tiers = [
-    { name: 'Starter', price: '$49', period: '/mo', features: ['Core features', 'Up to 5 users', 'Basic support', '1GB storage'] },
-    { name: 'Pro', price: '$99', period: '/mo', features: ['Everything in Starter', 'Unlimited users', 'Priority support', '10GB storage'], highlight: true },
-    { name: 'Enterprise', price: 'Custom', period: '', features: ['Everything in Pro', 'Dedicated account manager', 'SLA guarantee', 'Unlimited storage'] },
+    { name: t0, price: '$49', period: '/mo', features: ['Core access', 'Up to 5 users', 'Email support', 'Standard reporting'] },
+    { name: t1, price: '$99', period: '/mo', features: proFeatures, highlight: true },
+    { name: t2, price: 'Custom', period: '', features: [`Everything in ${t1}`, 'Dedicated account manager', 'SLA guarantee', 'Custom integrations'] },
   ];
 
   const cards = tiers.map((t, i) => `
@@ -602,6 +637,7 @@ const SECTION_BUILDERS = {
  */
 function buildSinglePageSections({ content, styleDirection, selectedComponentNames, siteType, hasNav = false }) {
   content = sanitizeContent(content);
+  content._siteType = siteType || 'Landing';
   const aesthetic = (styleDirection && styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'Minimal';
   const layout = getLayout(aesthetic);
   const sections = SITE_SECTIONS[siteType] || SITE_SECTIONS.Landing;
@@ -633,8 +669,9 @@ function buildSinglePageSections({ content, styleDirection, selectedComponentNam
  * Returns a complete TSX file string for a named page.
  * Used for multi-page sites.
  */
-function buildPageFile(pageName, sectionTypes, content, styleDirection, selectedComponentNames) {
+function buildPageFile(pageName, sectionTypes, content, styleDirection, selectedComponentNames, siteType) {
   content = sanitizeContent(content);
+  content._siteType = siteType || 'Landing';
   const aesthetic = (styleDirection && styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'Minimal';
   const layout = getLayout(aesthetic);
   const selectedNames = selectedComponentNames || [];
@@ -765,6 +802,7 @@ async function writePageFiles({ pagesConfig, content, styleDirection, selectedCo
       pageSpecificContent,
       pageResolved?.resolvedStyleDirection || styleDirection,
       pageComponents,
+      siteType,
     );
     const fileName = `${safeName}.tsx`;
     await fs.writeFile(path.join(pagesDir, fileName), fileContent, 'utf-8');

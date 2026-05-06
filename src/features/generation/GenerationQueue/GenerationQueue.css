@@ -283,6 +283,7 @@
 
 .gq-status-icon--running { color: #818cf8; }
 .gq-status-icon--success { color: #c4b5fd; }
+.gq-status-icon--warning { color: #fbbf24; }
 .gq-status-icon--error   { color: #f9a8d4; }
 
 .gq-spinner {
@@ -371,6 +372,17 @@
   background:
     linear-gradient(180deg, rgba(67, 56, 202, 0.06), rgba(9, 12, 20, 0.72)),
     rgba(9, 12, 20, 0.6);
+}
+
+.gq-card-inner--warning-static {
+  border-color: rgba(251, 191, 36, 0.28);
+  background:
+    linear-gradient(180deg, rgba(120, 53, 15, 0.08), rgba(9, 12, 20, 0.72)),
+    rgba(9, 12, 20, 0.6);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.06),
+    0 0 0 1px rgba(251, 191, 36, 0.04),
+    0 0 8px rgba(217, 119, 6, 0.08);
 }
 
 .gq-card-inner--error-static {

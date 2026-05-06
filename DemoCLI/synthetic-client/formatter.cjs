@@ -2,6 +2,7 @@
  * Formats Claude's output into the final preset.json and brief.md files.
  */
 const { validatePageContentBoundary } = require('../generators/project/page-policy.cjs');
+const { getWeight, getProfile, tallyWeights } = require('../generators/shared/component-weights.cjs');
 
 const SAFE_FONTS = [
   "Inter", "Space Grotesk", "Playfair Display", "Neue Haas Grotesk", "IBM Plex Mono",
@@ -190,15 +191,38 @@ function buildPresetJson(claudeOutput, archetypeName) {
 function buildBriefMd(claudeOutput, archetypeName, date, folderName) {
   const { clientBrief, styleDirection, reasoning, designRules } = claudeOutput;
 
-  // Component table with category column
+  // Component table with category + weight badge
   let componentRows = "";
   if (claudeOutput.selectedComponentIds && reasoning && reasoning.componentChoices) {
     componentRows = claudeOutput.selectedComponentIds.map(id => {
       const [category, name] = id.split('/');
+      const weight = getWeight(name);
+      const weightLabel = weight === 'heavy' ? 'H · heavy' : weight === 'medium' ? 'M · medium' : 'L · light';
       const reason = reasoning.componentChoices[name] || reasoning.componentChoices[id] || "Selected for brand alignment.";
-      return `| ${name} | ${category} | ${reason} |`;
+      return `| ${name} | ${category} | ${weightLabel} | ${reason} |`;
     }).join("\n");
   }
+
+  // Performance tally / profile block
+  const profileMeta = claudeOutput.performanceProfile || (styleDirection.performanceProfileId
+    ? { id: styleDirection.performanceProfileId }
+    : null);
+  const profile = profileMeta ? getProfile(profileMeta.id) : null;
+  const tally = tallyWeights(claudeOutput.selectedComponentIds || []);
+  const performanceBlock = profile
+    ? `## Performance Profile
+
+| Setting | Value |
+|---|---|
+| Profile | **${profile.label}** |
+| Heavy budget | up to ${profile.heavyMax} fullscreen GPU effects |
+| Medium budget | up to ${profile.mediumMax} medium animations |
+| Selection tally | light: ${tally.light}, medium: ${tally.medium}, heavy: ${tally.heavy} |
+
+---
+
+`
+    : '';
 
   // Fonts — one per row
   const fontRows = (designRules.fonts || []).map(f =>
@@ -291,14 +315,14 @@ ${colorRows}
 
 ---
 
-## Selected Components
+${performanceBlock}## Selected Components
 
 ${reasoning && reasoning.componentChoices
   ? `Why this client chose these specific components:`
   : ''}
 
-| Component | Category | Why This Client Would Choose It |
-|---|---|---|
+| Component | Category | Weight | Why This Client Would Choose It |
+|---|---|---|---|
 ${componentRows}
 
 ---

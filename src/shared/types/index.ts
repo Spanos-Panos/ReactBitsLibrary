@@ -4,12 +4,14 @@ export interface Task {
   projectName: string;
   progress: string;
   logs: string[];
-  status: 'running' | 'success' | 'error';
+  status: 'running' | 'success' | 'warning' | 'error';
   type?: 'component' | 'web' | 'structure';
   error?: string;
   path?: string;
   runWhenDoneUsed?: boolean;
   hasTerminalError?: boolean;
+  completedWithWarnings?: boolean;
+  warnings?: string[];
   createdAt?: number;
   completedAt?: number;
   aiAnalytics?: {
