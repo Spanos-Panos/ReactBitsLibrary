@@ -127,8 +127,8 @@ ProjectBuilderPanel (features/project-builder/)
 - **`src/reactbits-manifest.json`** — Component catalogue. Do NOT edit by hand; regenerate via `scripts/`.
 - **`src/shared/types/index.ts`** — Core types: `ReactBitsItem`, `Task`, `ComponentFile`, `ParsedInstallData`.
 - **`src/shared/types/api.ts`** — `window.reactBitsApi` interface declaration (IPC bridge shape).
-- **`src/features/project-builder/ProjectBuilderPanel.tsx`** — Most complex component; exports `StyleDirection`, `DesignRules`, `ClientBrief` types used throughout.
-- **`src/features/preset-manager/PresetManager.tsx`** — Imports types from `project-builder/` (cross-feature dep).
+- **`src/features/project-builder/ProjectBuilderPanel.tsx`** — Main builder UI (default export only for React Fast Refresh). Shared types: **`builderTypes.ts`**; defaults: **`builderDefaults.ts`**.
+- **`src/features/preset-manager/PresetManager.tsx`** — Imports builder types from `project-builder/builderTypes` (cross-feature dep).
 
 ---
 

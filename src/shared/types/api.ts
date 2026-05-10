@@ -1,5 +1,5 @@
 import type { ComponentFile, ReactBitsItem, ProjectStructureOptions, StructureGenerateResult } from './index';
-import type { ClientBrief, DesignRules, StyleDirection, ComponentItem as BuilderComponentItem, ScrollbarStyle } from '../../features/project-builder/ProjectBuilderPanel';
+import type { ClientBrief, DesignRules, StyleDirection, ComponentItem as BuilderComponentItem, ScrollbarStyle } from '../../features/project-builder/builderTypes';
 import type { PageConfig } from './index';
 
 export interface ComponentContext {
@@ -109,6 +109,8 @@ export interface GeneratePlaygroundOptions {
   projectPath: string;
   openWhenDone: boolean;
   runWhenDone: boolean;
+  /** When auto-run is enabled, optionally clear the task pill automatically on failure. */
+  autoKillOnError?: boolean;
 
   scrollbarStyle?: ScrollbarStyle | null;
   aiSupport?: boolean;

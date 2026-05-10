@@ -37,6 +37,11 @@ node DemoCLI/synthetic-client/index.cjs --preview
 # See all 20 available archetypes
 node DemoCLI/synthetic-client/index.cjs --list
 
+# Brief / style / pages only — omit component IDs from preset.json (pick components in BitForge)
+node DemoCLI/synthetic-client/index.cjs --local --manual-components
+node DemoCLI/synthetic-client/index.cjs --local --archetype luxury --manual-components --preview
+# Alias: --no-preset-components
+
 # Full documentation
 node DemoCLI/synthetic-client/index.cjs --help
 ```
@@ -54,6 +59,8 @@ node DemoCLI/synthetic-client/index.cjs --help
 | `--list`              | Show all 20 archetypes and exit                                             |
 | `--preview`           | Print brief to terminal, don't write files                                  |
 | `--output DIR`        | Write to a custom directory (default: `DemoCLI/synthetic-client/output/`)   |
+| `--manual-components` | Omit `selectedComponentIds` and per-page `componentIds` from `preset.json` and align `brief.md` — import brief/style/pages only; choose components in BitForge |
+| `--no-preset-components` | Same as `--manual-components`                                          |
 | `--help`              | Show full documentation                                                     |
 
 ### Claude vs Local Mode
@@ -66,17 +73,26 @@ node DemoCLI/synthetic-client/index.cjs --help
 | Variety       | High (AI improvises + normalization) | High (seeded + curated realism pools) |
 | Output format | Same `preset.json` + `brief.md`      | Identical                             |
 
+### Manual component selection
+
+With **`--manual-components`** (or **`--no-preset-components`**), the generator still produces a full internal component set for validation, but the **exported** `preset.json` clears global and per-page component IDs, and `brief.md` documents that components are intentionally omitted. Import the preset for the client brief, style direction, design rules, and page shell, then select ReactBits components yourself before **Generate**.
+
+In BitForge **Presets → Load**, you can also check **Keep my current component selection** so a preset updates brief/style without replacing your sidebar picks (page assignments are filtered to your existing selection).
+
 ### Testing-Focused Commands
 
 ```bash
 # Reproducible local dataset
-node DemoCLI/synthetic-client/index.cjs --local --count 20 --seed qa-round-01 --quality high
+node DemoCLI/synthetic-client/index.cjs --local --count 3 --quality high --no-preset-components
 
 # Same seed, different archetype filter
 node DemoCLI/synthetic-client/index.cjs --local --count 10 --seed qa-round-01 --archetype futuristic
 
 # Quick lower-richness stress pass
 node DemoCLI/synthetic-client/index.cjs --local --count 30 --seed stress-low --quality low
+
+# Brief-only presets (no component IDs in export)
+node DemoCLI/synthetic-client/index.cjs --local --count 5 --seed brief-only --manual-components
 ```
 
 Each run now prints a summary with:
@@ -119,8 +135,8 @@ output/
    - Style tab: aesthetic, color mode, typography intensity
    - Design tab: fonts and color palette
    - Pages tab: page structure based on site type
-   - Component chips: selected components appear in the builder
-7. Review and adjust anything, then click **Generate**
+   - Component chips: selected components appear in the builder (or empty if you used `--manual-components`)
+7. Review and adjust anything, then click **Generate** (at least one component is required for an AI build)
 
 ### Requirements
 

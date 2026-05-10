@@ -7,16 +7,19 @@ import { useTaskManager }       from "./shared/hooks/useTaskManager";
 import { useGenerationWizard }  from "./shared/hooks/useGenerationWizard";
 import PlasmaWave from "./showcase/Backgrounds/PlasmaWave/PlasmaWave";
 import CardNav from "./showcase/UIComponents/CardNav/CardNav";
-import ProjectBuilderPanel, { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF, type DesignRules, type StyleDirection, type ClientBrief, type ScrollbarStyle } from "./features/project-builder/ProjectBuilderPanel";
-import PresetManager, { type SavedPreset, PRESET_SCHEMA_VERSION } from "./features/preset-manager/PresetManager";
+import ProjectBuilderPanel from "./features/project-builder/ProjectBuilderPanel";
+import { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF } from "./features/project-builder/builderDefaults";
+import type { DesignRules, StyleDirection, ClientBrief, ScrollbarStyle } from "./features/project-builder/builderTypes";
+import PresetManager, { type SavedPreset, type LoadPresetOptions, PRESET_SCHEMA_VERSION } from "./features/preset-manager/PresetManager";
 import logo from '../images/ReactIcons/ReactIcon.svg';
 import ComponentAddPanel from "./features/browser/ComponentAddPanel";
 import ComponentListPane from "./features/browser/ComponentListPane";
 import ComponentInspector from "./features/inspector/ComponentInspector";
 import GenerationQueue from "./features/generation/GenerationQueue/GenerationQueue";
 import GenerateWizard from "./features/generation/GenerateWizard";
+import GenerateDemoWizard from "./features/generation/GenerateDemoWizard";
 import StructureWizard from "./features/generation/StructureWizard";
-import ClaudeInfoPanel from "./features/generation/ClaudeInfoPanel";
+import ClaudeInfoPanel, { type ClaudeConsoleMessage } from "./features/generation/ClaudeInfoPanel";
 import { useStructureWizard } from "./shared/hooks/useStructureWizard";
 import TaskOverlay from "./features/generation/TaskOverlay";
 import LoadingScreen from "./features/generation/LoadingScreen";
@@ -91,13 +94,15 @@ function App() {
   } = useTaskManager();
 
   const {
-    showGenerateWizard, setShowGenerateWizard,
+    showGenerateDemoWizard, setShowGenerateDemoWizard,
+    showGenerateProjectWizard, setShowGenerateProjectWizard,
     projectName,        setProjectName,
     projectPath,
     installTab,         setInstallTab,
     packageManager,     setPackageManager,
     openWhenDone,       setOpenWhenDone,
     runWhenDone,        setRunWhenDone,
+    autoKillOnError,    setAutoKillOnError,
     handleSelectDirectory,
   } = useGenerationWizard();
 
@@ -123,6 +128,7 @@ function App() {
   const [lastEnhancerTelemetry, setLastEnhancerTelemetry] = useState<EnhancePromptResult["telemetry"] | undefined>(undefined);
   const [generateStatus,       setGenerateStatus]       = useState("");
   const [toastType,            setToastType]            = useState<"info" | "warning" | "success">("info");
+  const [messages,             setMessages]             = useState<ClaudeConsoleMessage[]>([]);
 
   const [appReady,             setAppReady]             = useState(false);
   const [presetsOpen,          setPresetsOpen]          = useState(false);
@@ -206,12 +212,25 @@ function App() {
   const showStatus = (type: "info" | "warning" | "success", message: string, timeoutMs = 4000) => {
     setToastType(type);
     setGenerateStatus(message);
+    setMessages(prev => {
+      const entry: ClaudeConsoleMessage = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        createdAt: Date.now(),
+        level: type,
+        title: type === 'warning' ? 'Warning' : type === 'success' ? 'Success' : 'Info',
+        message,
+        source: 'toast',
+      };
+      // Keep a bounded history so the console stays snappy.
+      const next = [entry, ...prev].slice(0, 200);
+      return next;
+    });
     setTimeout(() => setGenerateStatus(""), timeoutMs);
   };
 
   const handleGenerate = () => {
     if (selected) setProjectName(`${selected.name} Demo`);
-    setShowGenerateWizard(true);
+    setShowGenerateDemoWizard(true);
   };
 
   const handleCloseTask = async (id: string) => {
@@ -356,6 +375,7 @@ function App() {
         projectName: uniqueProjectName, progress: "Initializing project generation...",
         logs: ["Initializing Build Environment...\n"], status: 'running',
         runWhenDoneUsed: runWhenDone,
+        autoKillOnErrorUsed: autoKillOnError,
         hasTerminalError: false,
         aiAnalytics: isBuilderGeneration && aiSupport
           ? {
@@ -368,7 +388,8 @@ function App() {
       },
     }));
     setActiveTaskId(null);
-    setShowGenerateWizard(false);
+    setShowGenerateDemoWizard(false);
+    setShowGenerateProjectWizard(false);
     setGenerateStatus("");
     try {
       let result;
@@ -384,7 +405,7 @@ function App() {
         result = await window.reactBitsApi.generatePlayground({
           options: {
             installMethod: installTab, packageManager, installData: parsedInstallData,
-            projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone,
+            projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone, autoKillOnError,
             scrollbarStyle: scrollbarStyle.mode !== 'default' ? scrollbarStyle : null,
             aiSupport,
             pages,
@@ -402,7 +423,7 @@ function App() {
       } else {
         result = await window.reactBitsApi.generatePlayground(
           selected!.category, selected!.name, selected!.usageMarkdown, componentFiles,
-          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone },
+          { installMethod: installTab, packageManager, installData: parsedInstallData, projectName: uniqueProjectName, projectPath, openWhenDone, runWhenDone, autoKillOnError },
           taskId
         );
       }
@@ -434,6 +455,9 @@ function App() {
       } else {
         setTasks(prev => ({ ...prev, [taskId]: { ...prev[taskId], status: 'error', progress: "Error occurred", error: result.error, hasTerminalError: true, completedAt: Date.now() } }));
         setGenerateStatus(`Failed: ${result.error || "Unknown error"}`);
+        if (autoKillOnError) {
+          setTimeout(() => { handleCloseTask(taskId); }, 1200);
+        }
       }
     } catch (e: unknown) {
       const message = getErrorMessage(e);
@@ -484,13 +508,16 @@ function App() {
     });
   };
 
-  const handleLoadPreset = (preset: SavedPreset) => {
+  const handleLoadPreset = (preset: SavedPreset, options?: LoadPresetOptions) => {
+    const preserveComponentSelection = options?.preserveComponentSelection ?? false;
     setLoadedPresetName(preset.name ?? '');
     const VALID_AESTHETICS = ['Minimal', 'Editorial', 'Brutalist', 'Futuristic'];
     const VALID_SITE_TYPES = ['Landing', 'Portfolio', 'SaaS', 'Agency'];
 
     setProjectPrompt(preset.projectPrompt ?? '');
-    setSelectedIds((preset.selectedComponentIds ?? []).slice(0, MAX_SELECTED_COMPONENTS_TOTAL));
+    if (!preserveComponentSelection) {
+      setSelectedIds((preset.selectedComponentIds ?? []).slice(0, MAX_SELECTED_COMPONENTS_TOTAL));
+    }
     setDesignRules(preset.designRules ?? DEFAULT_DESIGN_RULES);
     setProjectName(preset.projectName ?? '');
     setPackageManager((preset.packageManager ?? 'npm') as typeof packageManager);
@@ -507,8 +534,15 @@ function App() {
     setStyleDirection(sanitizedStyle);
 
     setClientBrief(preset.clientBrief ?? DEFAULT_CLIENT_BRIEF);
-    // v4-v6 field — migrate old page payloads safely to inheritance model
-    setPages(normalizePresetPages(preset.pages));
+    const basePages = normalizePresetPages(preset.pages);
+    if (preserveComponentSelection) {
+      setPages(basePages.map(p => ({
+        ...p,
+        componentIds: (p.componentIds ?? []).filter(id => selectedIds.includes(id)),
+      })));
+    } else {
+      setPages(basePages);
+    }
     // v5 field — fall back safely for older presets
     setScrollbarStyle(preset.scrollbarStyle ?? { mode: 'custom' });
     showStatus('success', `✓ Loaded "${preset.name}"`, 3000);
@@ -523,60 +557,21 @@ function App() {
       return;
     }
 
-    if (!aiSupport) {
-      setLastEnhancedPrompt(null);
-      setLastEnhancerQualityScore(undefined);
-      setLastEnhancerTelemetry(undefined);
-      // Default project name: use brand name > selected component > site type
-      const defaultName = clientBrief.brandName
-        ? clientBrief.brandName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-        : selected
-          ? `${selected.name.toLowerCase()}-demo`
-          : `${(styleDirection.siteType || 'project').toLowerCase()}-site`;
-      setProjectName(defaultName || 'my-project');
-      builderModeRef.current = true;
-      setShowGenerateWizard(true);
-      return;
-    }
-
-    setGenerateStatus("Scavenging component source code...");
+    // Open the wizard immediately. If AI Support is ON, the enhancer runs only after the user
+    // confirms the final Generate action (see confirmGenerate()).
     setLastEnhancerQualityScore(undefined);
     setLastEnhancerTelemetry(undefined);
-    try {
-      const componentsWithContext = await Promise.all(
-        selectedComponents.map(async (comp) => {
-          try { return await window.reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id); }
-          catch (e) {
-            console.warn(`Failed to gather context for ${comp.name}`, e);
-            return { id: comp.id, name: comp.name, category: comp.category, files: [], usage: '', install: '' };
-          }
-        })
-      );
-      setGenerateStatus("AI Architect is designing your project...");
-      const enhanceResult = await window.reactBitsApi.enhancePrompt(await buildEnhancePayload(componentsWithContext));
-      const enhanceData = enhanceResult as EnhancePromptResult;
-      if (enhanceData.success) {
-        const enhancedPrompt = enhanceData.enhancedPrompt ?? null;
-        if (!enhancedPrompt) {
-          showStatus("warning", "AI returned success without an enhanced prompt.");
-          return;
-        }
-        setToastType("success");
-        setGenerateStatus("Project Design Ready!");
-        setLastEnhancedPrompt(enhancedPrompt);
-        setLastEnhancerQualityScore(enhanceData.qualityReport?.qualityScore);
-        setLastEnhancerTelemetry(enhanceData.telemetry);
-        setProjectName(typeof enhancedPrompt.projectMeta === "object" && enhancedPrompt.projectMeta && "title" in enhancedPrompt.projectMeta
-          ? String((enhancedPrompt.projectMeta as { title?: string }).title || "reactbits-ai-project")
-          : "reactbits-ai-project");
-        builderModeRef.current = true;
-        setShowGenerateWizard(true);
-      } else {
-        showStatus("warning", `AI Error: ${enhanceData.error ?? "Unknown error"}`, 5000);
-      }
-    } catch (err: unknown) {
-      showStatus("warning", `Error: ${getErrorMessage(err)}`, 5000);
-    }
+
+    // Default project name: use brand name > selected component > site type
+    const defaultName = clientBrief.brandName
+      ? clientBrief.brandName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      : selected
+        ? `${selected.name.toLowerCase()}-demo`
+        : `${(styleDirection.siteType || 'project').toLowerCase()}-site`;
+    setProjectName(defaultName || 'my-project');
+
+    builderModeRef.current = true;
+    setShowGenerateProjectWizard(true);
   };
 
   const handleGenerateStructure = (pgs: PageConfig[], navbarId: string) => {
@@ -708,7 +703,12 @@ function App() {
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
           />
-          <ClaudeInfoPanel tasks={tasks} />
+          <ClaudeInfoPanel
+            tasks={tasks}
+            messages={messages}
+            onClearMessages={() => setMessages([])}
+            onClearMessagesByLevel={(level) => setMessages(prev => prev.filter(m => m.level !== level))}
+          />
         </div>
 
         <section className="scene">
@@ -783,9 +783,30 @@ function App() {
         </section>
       </div>
 
+      <GenerateDemoWizard
+        open={showGenerateDemoWizard}
+        onClose={() => setShowGenerateDemoWizard(false)}
+        selected={selected}
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        projectPath={projectPath}
+        onBrowse={handleSelectDirectory}
+        installTab={installTab}
+        onInstallTabChange={setInstallTab}
+        packageManager={packageManager}
+        onPackageManagerChange={setPackageManager}
+        openWhenDone={openWhenDone}
+        onOpenWhenDoneChange={setOpenWhenDone}
+        runWhenDone={runWhenDone}
+        onRunWhenDoneChange={setRunWhenDone}
+        autoKillOnError={autoKillOnError}
+        onAutoKillOnErrorChange={setAutoKillOnError}
+        onConfirm={confirmGenerate}
+      />
+
       <GenerateWizard
-        open={showGenerateWizard}
-        onClose={() => { builderModeRef.current = false; setShowGenerateWizard(false); }}
+        open={showGenerateProjectWizard}
+        onClose={() => { builderModeRef.current = false; setShowGenerateProjectWizard(false); }}
         selected={selected}
         lastEnhancedPrompt={lastEnhancedPrompt}
         projectName={projectName}
@@ -800,10 +821,12 @@ function App() {
         onOpenWhenDoneChange={setOpenWhenDone}
         runWhenDone={runWhenDone}
         onRunWhenDoneChange={setRunWhenDone}
+        autoKillOnError={autoKillOnError}
+        onAutoKillOnErrorChange={setAutoKillOnError}
         aiSupport={aiSupport}
         onAiSupportChange={setAiSupport}
         onConfirm={confirmGenerate}
-        builderMode={showGenerateWizard && builderModeRef.current}
+        builderMode={showGenerateProjectWizard && builderModeRef.current}
         generationSummary={
           selectedComponents.length > 0 || styleDirection.aesthetics.length > 0
             ? `${styleDirection.aesthetics[0] ?? 'Default'} · ${styleDirection.siteType}${selectedComponents.length > 0 ? ` · ${selectedComponents.length} component${selectedComponents.length !== 1 ? 's' : ''}` : ''}`

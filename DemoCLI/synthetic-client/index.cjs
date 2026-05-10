@@ -40,11 +40,16 @@ function parseArgs(argv) {
     seed: null,
     quality: 'high',
     performanceProfileId: null,
+    manualComponents: false,
   };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     switch (arg) {
+      case '--manual-components':
+      case '--no-preset-components':
+        opts.manualComponents = true;
+        break;
       case '--count':
         opts.count = Math.max(1, parseInt(args[++i], 10) || 1);
         break;
@@ -174,6 +179,9 @@ function printHelp() {
   --preview               Print the brief to the terminal — don't write files
                           (useful for a quick look before committing to a file)
   --output DIR            Write output to a custom directory (default: ./output)
+  --manual-components     Omit selectedComponentIds and per-page componentIds from preset.json
+                          and brief.md — import brief/style/pages only; pick components in BitForge
+  --no-preset-components  Same as --manual-components
   --help, -h              Show this help
 
   EXAMPLES
@@ -205,6 +213,10 @@ function printHelp() {
 
   # Write to a custom folder
   node DemoCLI/synthetic-client/index.cjs --output ./my-test-briefs
+
+  # Brief and style only — you choose components after import
+  node DemoCLI/synthetic-client/index.cjs --local --manual-components
+  node DemoCLI/synthetic-client/index.cjs --local --archetype luxury --manual-components --preview
 
   WORKFLOW
   ────────
@@ -278,6 +290,9 @@ async function main() {
     console.log(`  Output: ${path.relative(process.cwd(), opts.outputDir) || opts.outputDir}/`);
   } else {
     console.log(`  Preview: no files written`);
+  }
+  if (opts.manualComponents) {
+    console.log(`  Preset components: omitted (--manual-components) — pick in BitForge after import`);
   }
   console.log(`  Tip: run --help for full documentation\n`);
 
@@ -361,8 +376,12 @@ async function main() {
         if (page.type) summary.pageTypes.add(page.type);
       });
 
+      if (opts.manualComponents) {
+        formatter.stripComponentsFromExportedPreset(preset);
+      }
+
       if (opts.previewMode) {
-        const brief = formatter.buildBriefMd(claudeOutput, archetype.name, dateStr, null);
+        const brief = formatter.buildBriefMd(claudeOutput, archetype.name, dateStr, null, { omitComponents: opts.manualComponents });
         console.log('\n' + '─'.repeat(64));
         console.log(brief);
         console.log('─'.repeat(64) + '\n');
@@ -385,7 +404,7 @@ async function main() {
         // Keep imported preset filename aligned with the final output folder.
         preset.id = folderName;
 
-        const brief = formatter.buildBriefMd(claudeOutput, archetype.name, dateStr, folderName);
+        const brief = formatter.buildBriefMd(claudeOutput, archetype.name, dateStr, folderName, { omitComponents: opts.manualComponents });
 
         const clientDir  = path.join(opts.outputDir, folderName);
         await fs.mkdir(clientDir, { recursive: true });
@@ -401,7 +420,9 @@ async function main() {
         console.log(`           preset.json  ← import into BitForge Preset Manager`);
         console.log(`           brief.md     ← read this to understand the client`);
         console.log(`       Brand: ${preset.clientBrief.brandName}`);
-        console.log(`       Components: ${preset.selectedComponentIds.map(id => id.split('/').pop()).join(', ')}`);
+        console.log(opts.manualComponents
+          ? `       Components: (none in preset — pick in BitForge)`
+          : `       Components: ${preset.selectedComponentIds.map(id => id.split('/').pop()).join(', ')}`);
 
         // Drop a readable copy into the BitForge presets folder.
         // The Import button in BitForge opens a file dialog that starts here,

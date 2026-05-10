@@ -173,7 +173,9 @@ export default function AnimatedList({
                         )}
                       </AnimatePresence>
                     </button>
-                    <span className="al-item-name">{item.name}</span>
+                    <span className="al-item-name">
+                      <span className="al-item-name__text">{item.name}</span>
+                    </span>
                   </div>
                 </AnimatedItem>
               );

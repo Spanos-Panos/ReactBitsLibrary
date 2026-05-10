@@ -111,9 +111,17 @@
   color: #6366f1 !important;
 }
 
+/* Clips overflow; underline lives on inner span so bar matches text width */
 .al-item-name {
-  position: relative;
   flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.al-item-name__text {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
   font-family: var(--font-body, 'Satoshi', sans-serif);
   font-size: var(--text-sm, 0.875rem);
   font-weight: 500;
@@ -121,15 +129,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: all 0.25s ease;
-  text-align: left;
+  transition: color 0.25s ease;
   padding-bottom: 2px;
+  vertical-align: bottom;
 }
-
 
 /* ── Underline State Management ────────────────────────────────────────── */
 
-.al-item-name::after {
+.al-item-name__text::after {
   content: '';
   position: absolute;
   bottom: 0;
@@ -147,57 +154,57 @@
 }
 
 /* [1] Hover - Unselected: Faint expansion */
-.al-item:not(.al-item--selected):hover .al-item-name::after {
+.al-item:not(.al-item--selected):hover .al-item-name__text::after {
   transform: scaleX(0.6);
   opacity: 0.4;
   background: rgba(255, 255, 255, 0.5);
 }
 
 /* [2] Selected: Full Indigo */
-.al-item--selected .al-item-name::after {
+.al-item--selected .al-item-name__text::after {
   transform: scaleX(1);
   opacity: 1;
   background: #6366f1;
 }
 
 /* [3] Selected + Hover: Shift to Bright White (harmonious alert) */
-.al-item--selected:hover .al-item-name::after {
+.al-item--selected:hover .al-item-name__text::after {
   background: #fff;
   opacity: 1;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
 }
 
 /* [4] Active (Preview): Bright accent */
-.al-item--active .al-item-name {
+.al-item--active .al-item-name__text {
   color: #fff;
 }
 
-.al-item--active:not(.al-item--selected) .al-item-name::after {
+.al-item--active:not(.al-item--selected) .al-item-name__text::after {
   transform: scaleX(0.4);
   opacity: 0.8;
   background: #a5b4fc;
 }
 
 /* Combine Active + Selected */
-.al-item--active.al-item--selected .al-item-name::after {
+.al-item--active.al-item--selected .al-item-name__text::after {
   height: 2px;
   background: #6366f1;
 }
 
-.al-item:hover .al-item-name {
+.al-item:hover .al-item-name__text {
   color: #fff;
 }
 
 /* Selected Text Color */
-.al-item--selected .al-item-name {
+.al-item--selected .al-item-name__text {
   color: #c7d2fe;
 }
 
-.al-item--selected:hover .al-item-name {
+.al-item--selected:hover .al-item-name__text {
   color: #ffffff;
 }
 
-.al-item:hover .al-item-name {
+.al-item:hover .al-item-name__text {
   color: #f1f5f9;
 }
 

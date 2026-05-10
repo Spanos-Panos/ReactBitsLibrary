@@ -6,13 +6,15 @@ import { useState } from 'react';
  * are cross-cutting orchestrators that depend on loader + task + wizard state.
  */
 export function useGenerationWizard() {
-  const [showGenerateWizard, setShowGenerateWizard] = useState(false);
+  const [showGenerateDemoWizard, setShowGenerateDemoWizard] = useState(false);
+  const [showGenerateProjectWizard, setShowGenerateProjectWizard] = useState(false);
   const [projectName, setProjectName]   = useState('');
   const [projectPath, setProjectPath]   = useState('');
   const [installTab, setInstallTab]     = useState<'cli' | 'manual'>('cli');
   const [packageManager, setPackageManager] = useState<'pnpm' | 'npm' | 'yarn' | 'bun'>('npm');
   const [openWhenDone, setOpenWhenDone] = useState(true);
   const [runWhenDone, setRunWhenDone]   = useState(false);
+  const [autoKillOnError, setAutoKillOnError] = useState(false);
 
   const handleSelectDirectory = async () => {
     const path = await window.reactBitsApi?.selectDirectory?.();
@@ -20,13 +22,15 @@ export function useGenerationWizard() {
   };
 
   return {
-    showGenerateWizard, setShowGenerateWizard,
+    showGenerateDemoWizard, setShowGenerateDemoWizard,
+    showGenerateProjectWizard, setShowGenerateProjectWizard,
     projectName,        setProjectName,
     projectPath,        setProjectPath,
     installTab,         setInstallTab,
     packageManager,     setPackageManager,
     openWhenDone,       setOpenWhenDone,
     runWhenDone,        setRunWhenDone,
+    autoKillOnError,    setAutoKillOnError,
     handleSelectDirectory,
   };
 }

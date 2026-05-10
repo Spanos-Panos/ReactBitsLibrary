@@ -114,6 +114,19 @@ function validateSyntheticClientData(raw) {
   return raw;
 }
 
+/**
+ * Clears global and per-page component IDs on an already-built preset object
+ * (after validation). Used when exporting for manual component selection in BitForge.
+ */
+function stripComponentsFromExportedPreset(preset) {
+  if (!preset || typeof preset !== 'object') return preset;
+  preset.selectedComponentIds = [];
+  if (Array.isArray(preset.pages)) {
+    preset.pages = preset.pages.map(p => ({ ...p, componentIds: [] }));
+  }
+  return preset;
+}
+
 function buildPresetJson(claudeOutput, archetypeName) {
   const validated = validateSyntheticClientData(claudeOutput);
   const { clientBrief, styleDirection, designRules, selectedComponentIds, pages, projectPrompt, projectName, reasoning } = validated;
@@ -188,12 +201,13 @@ function buildPresetJson(claudeOutput, archetypeName) {
   };
 }
 
-function buildBriefMd(claudeOutput, archetypeName, date, folderName) {
+function buildBriefMd(claudeOutput, archetypeName, date, folderName, options = {}) {
+  const omitComponents = !!options.omitComponents;
   const { clientBrief, styleDirection, reasoning, designRules } = claudeOutput;
 
   // Component table with category + weight badge
   let componentRows = "";
-  if (claudeOutput.selectedComponentIds && reasoning && reasoning.componentChoices) {
+  if (!omitComponents && claudeOutput.selectedComponentIds && reasoning && reasoning.componentChoices) {
     componentRows = claudeOutput.selectedComponentIds.map(id => {
       const [category, name] = id.split('/');
       const weight = getWeight(name);
@@ -209,6 +223,9 @@ function buildBriefMd(claudeOutput, archetypeName, date, folderName) {
     : null);
   const profile = profileMeta ? getProfile(profileMeta.id) : null;
   const tally = tallyWeights(claudeOutput.selectedComponentIds || []);
+  const tallyCell = omitComponents
+    ? '— pick components in BitForge after import'
+    : `light: ${tally.light}, medium: ${tally.medium}, heavy: ${tally.heavy}`;
   const performanceBlock = profile
     ? `## Performance Profile
 
@@ -217,7 +234,7 @@ function buildBriefMd(claudeOutput, archetypeName, date, folderName) {
 | Profile | **${profile.label}** |
 | Heavy budget | up to ${profile.heavyMax} fullscreen GPU effects |
 | Medium budget | up to ${profile.mediumMax} medium animations |
-| Selection tally | light: ${tally.light}, medium: ${tally.medium}, heavy: ${tally.heavy} |
+| Selection tally | ${tallyCell} |
 
 ---
 
@@ -239,6 +256,16 @@ function buildBriefMd(claudeOutput, archetypeName, date, folderName) {
     .split('\n').filter(Boolean).map(s => `- ${s}`).join('\n') || '—';
   const benefitsList = (clientBrief.keyBenefits || '')
     .split('\n').filter(Boolean).map(b => `- ${b}`).join('\n') || '—';
+
+  const selectedComponentsBody = omitComponents
+    ? `This export used **\`--manual-components\`** (or **\`--no-preset-components\`**). \`preset.json\` omits component IDs—import it for the client brief, style, design rules, and page shell only, then choose ReactBits components yourself in BitForge.
+`
+    : `${reasoning && reasoning.componentChoices ? `Why this client chose these specific components:
+
+` : ''}| Component | Category | Weight | Why This Client Would Choose It |
+|---|---|---|---|
+${componentRows}
+`;
 
   return `# ${clientBrief.brandName} — Client Brief
 
@@ -317,13 +344,7 @@ ${colorRows}
 
 ${performanceBlock}## Selected Components
 
-${reasoning && reasoning.componentChoices
-  ? `Why this client chose these specific components:`
-  : ''}
-
-| Component | Category | Weight | Why This Client Would Choose It |
-|---|---|---|---|
-${componentRows}
+${selectedComponentsBody}
 
 ---
 
@@ -339,8 +360,11 @@ ${folderName
    - Brief tab: brand name, tagline, description, services, CTA
    - Style tab: aesthetic, color mode, typography intensity
    - Design tab: fonts and color palette
-   - Pages tab: page structure based on site type (${styleDirection.siteType})
-   - Component chips: the selected components appear in the builder
+   - Pages tab: page structure based on site type (${styleDirection.siteType})${omitComponents
+    ? `
+   - Components: **not** included—pick them in the sidebar / builder after load`
+    : `
+   - Component chips: the selected components appear in the builder`}
 5. Review and adjust anything you want
 6. Click **Generate** → choose an output folder → project is built`
   : `This was a preview run — no files were written.
@@ -352,13 +376,15 @@ That will create a folder in \`DemoCLI/synthetic-client/output/\` containing:
 - \`preset.json\` — import this into BitForge via Presets → Import
 - \`brief.md\` — this file, saved for reference`}
 
-> **Tip:** The most important things to review before generating are the component selection and the project prompt.
-> If a component doesn't feel right for the client, swap it in the builder before clicking Generate.
+> **Tip:** ${omitComponents
+  ? 'Review the project prompt and client brief before generating; add components in the builder first.'
+  : 'The most important things to review before generating are the component selection and the project prompt.\n> If a component doesn\'t feel right for the client, swap it in the builder before clicking Generate.'}
 `;
 }
 
 module.exports = {
   validateSyntheticClientData,
   buildPresetJson,
-  buildBriefMd
+  buildBriefMd,
+  stripComponentsFromExportedPreset,
 };

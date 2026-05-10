@@ -13,141 +13,24 @@ import {
   type WeightTier,
   type PerformanceProfile,
 } from '../../shared/data/componentRoles';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface ComponentItem {
-  id: string;
-  name: string;
-  category: string;
-  usageMarkdown: string;
-}
-
-export type FontRole = 'heading' | 'body' | 'accent' | '';
-export type ColorRole = 'background' | 'text' | 'components' | 'accent' | '';
-
-export interface FontEntry { value: string; role: FontRole }
-export interface ColorEntry { value: string; role: ColorRole }
-
-export type ImageCategory = 'logo' | 'product' | 'inspiration';
-
-export interface ImageEntry {
-  name: string;
-  path: string;
-  base64: string;
-  category?: ImageCategory;
-}
-
-export interface DesignRules {
-  fonts: FontEntry[];
-  colors: ColorEntry[];
-  sizes: { 
-    optimizationTarget: 'mobile' | 'tablet' | 'desktop' | 'adaptive';
-    spacingScale: 'compact' | 'comfortable' | 'spacious' | '';
-    borderRadius: 'none' | 'small' | 'medium' | 'large' | 'pill' | '';
-  };
-  images: ImageEntry[];
-}
-
-export type AestheticPreset =
-  | 'Editorial' | 'Brutalist' | 'Minimal' | 'Futuristic';
-
-export type TypographyIntensity = 'subtle' | 'dramatic' | 'experimental' | '';
-
-export type ColorStrategy =
-  | 'dark-bold-accent' | 'light-subtle' | 'high-contrast-bw'
-  | 'monochromatic' | 'colorful' | '';
-
-export interface StyleDirection {
-  aesthetics: AestheticPreset[];
-  siteType: string;
-  typographyIntensity: TypographyIntensity;
-  visualEffects: string[];
-  colorStrategy: ColorStrategy;
-  audience: string;
-  /** Advisory performance profile id (defines weight budgets). */
-  performanceProfileId?: PerformanceProfile['id'];
-}
-
-export interface ProjectBuilderPanelProps {
-  selectedComponents: ComponentItem[];
-  /** Total selection cap shown in assembly as `n / max` (e.g. 3/5). Defaults to 5. */
-  maxSelectedComponents?: number;
-  categoryLimits?: Record<string, number>;
-  prompt: string;
-  onPromptChange: (val: string) => void;
-  onGenerate: () => void;
-  designRules: DesignRules;
-  onDesignRulesChange: (rules: DesignRules) => void;
-
-  styleDirection: StyleDirection;
-  onStyleDirectionChange: (s: StyleDirection) => void;
-  clientBrief: ClientBrief;
-  onClientBriefChange: (b: ClientBrief) => void;
-
-  onRestoreFromHistory?: (prompt: string, selectedComponents: ComponentItem[]) => void;
-  scrollbarStyle: ScrollbarStyle;
-  onScrollbarStyleChange: (s: ScrollbarStyle) => void;
-  pages: PageConfig[];
-  onPagesChange: (pages: PageConfig[]) => void;
-  onGenerateStructure: (pages: PageConfig[], navbarComponentId: string) => void;
-  allComponents?: ComponentItem[];
-  onToggleComponent?: (id: string) => void;
-}
-
-export interface ClientBrief {
-  brandName: string;
-  tagline: string;
-  industry: string;
-  description: string;
-  usp: string;
-  services: string;
-  targetAudience: string;
-  callToAction: string;
-  keyBenefits: string;
-  tone: string;
-  personality: string;
-  contactEmail: string;
-  contactPhone: string;
-  location: string;
-  socialLinks: string;
-}
-
-// ── Constants ──────────────────────────────────────────────────────────────────
-
-export const DEFAULT_DESIGN_RULES: DesignRules = {
-  fonts: [],
-  colors: [],
-  sizes: { 
-    optimizationTarget: 'adaptive',
-    spacingScale: '',
-    borderRadius: ''
-  },
-  images: [],
-};
-
-export const DEFAULT_STYLE_DIRECTION: StyleDirection = {
-  aesthetics: [],
-  siteType: 'Landing',
-  typographyIntensity: 'dramatic',
-  visualEffects: [],
-  colorStrategy: 'dark-bold-accent',
-  audience: '',
-  performanceProfileId: DEFAULT_PERFORMANCE_PROFILE_ID,
-};
-
-export const DEFAULT_CLIENT_BRIEF: ClientBrief = {
-  brandName: '', tagline: '', industry: '', description: '', usp: '',
-  services: '', targetAudience: '', callToAction: '', keyBenefits: '',
-  tone: '', personality: '', contactEmail: '', contactPhone: '', location: '', socialLinks: '',
-};
-
-export interface ScrollbarStyle {
-  mode: 'default' | 'hidden' | 'custom';
-  track?: string;
-  thumb?: string;
-  scrollBehavior?: 'smooth' | 'default';
-}
+import type {
+  AestheticPreset,
+  ClientBrief,
+  ColorEntry,
+  ColorRole,
+  ColorStrategy,
+  ComponentItem,
+  DesignRules,
+  FontEntry,
+  FontRole,
+  ImageCategory,
+  ImageEntry,
+  ProjectBuilderPanelProps,
+  ScrollbarStyle,
+  StyleDirection,
+  TypographyIntensity,
+} from './builderTypes';
+import { DEFAULT_DESIGN_RULES, DEFAULT_STYLE_DIRECTION, DEFAULT_CLIENT_BRIEF } from './builderDefaults';
 
 type Tab = 'Brief' | 'Style' | 'Fonts' | 'Colors' | 'Sizes' | 'Images' | 'Output' | 'Pages';
 const TABS: Tab[] = ['Brief', 'Style', 'Fonts', 'Colors', 'Sizes', 'Pages', 'Images', 'Output'];
@@ -177,31 +60,22 @@ function groupSelectedByAssemblyCategory(components: ComponentItem[]): Record<As
 }
 
 function WeightBadge({ weight, size = 'sm' }: { weight: WeightTier; size?: 'xs' | 'sm' }) {
-  const colorMap: Record<WeightTier, { bg: string; fg: string; border: string; label: string }> = {
-    light:  { bg: 'rgba(74, 222, 128, 0.10)',  fg: '#86efac', border: 'rgba(74, 222, 128, 0.32)',  label: 'L' },
-    medium: { bg: 'rgba(251, 191, 36, 0.10)',  fg: '#fcd34d', border: 'rgba(251, 191, 36, 0.32)',  label: 'M' },
-    heavy:  { bg: 'rgba(248, 113, 113, 0.10)', fg: '#fca5a5', border: 'rgba(248, 113, 113, 0.34)', label: 'H' },
-  };
-  const c = colorMap[weight];
   const titleMap: Record<WeightTier, string> = {
     light: 'Light — minimal runtime cost',
     medium: 'Medium — moderate runtime cost',
     heavy: 'Heavy — significant GPU/CPU cost',
   };
-  const dim = size === 'xs' ? 14 : 16;
+  const labelMap: Record<WeightTier, string> = {
+    light: 'L',
+    medium: 'M',
+    heavy: 'H',
+  };
   return (
     <span
       title={titleMap[weight]}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: dim, height: dim, borderRadius: 4,
-        background: c.bg, color: c.fg, border: `1px solid ${c.border}`,
-        fontSize: size === 'xs' ? '0.55rem' : '0.6rem',
-        fontWeight: 800, letterSpacing: '0.02em', flexShrink: 0,
-        fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
-      }}
+      className={`pbp-weight-badge pbp-weight-badge--${weight} ${size === 'xs' ? 'pbp-weight-badge--xs' : 'pbp-weight-badge--sm'}`}
     >
-      {c.label}
+      {labelMap[weight]}
     </span>
   );
 }
@@ -344,40 +218,26 @@ function AssemblySelectedCategories({
       {/* Performance advisory tally */}
       {selectedComponents.length > 0 && (
         <div
-          className="pbp-perf-tally"
-          style={{
-            marginTop: 10,
-            padding: '8px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            flexWrap: 'wrap',
-            border: `1px solid ${overBudget ? 'rgba(251, 191, 36, 0.28)' : 'rgba(255,255,255,0.06)'}`,
-            background: overBudget ? 'rgba(251, 191, 36, 0.04)' : 'rgba(255,255,255,0.02)',
-            borderRadius: 6,
-            fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-            fontSize: '0.65rem',
-            color: 'rgba(241,245,249,0.55)',
-          }}
+          className={`pbp-perf-tally${overBudget ? ' pbp-perf-tally--over' : ''}`}
           aria-live="polite"
         >
-          <span style={{ textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, color: 'rgba(241,245,249,0.4)' }}>
-            {performanceProfile.label}
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <WeightBadge weight="light" size="xs" /> {weightTally.light}
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <WeightBadge weight="medium" size="xs" /> {weightTally.medium}
-            <span style={{ opacity: 0.5 }}>/ {performanceProfile.mediumMax}</span>
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <WeightBadge weight="heavy" size="xs" /> {weightTally.heavy}
-            <span style={{ opacity: 0.5 }}>/ {performanceProfile.heavyMax}</span>
-          </span>
+          <span className="pbp-perf-tally__profile">{performanceProfile.label}</span>
+          <div className="pbp-perf-tally__stats">
+            <span className="pbp-perf-tally__stat">
+              <WeightBadge weight="light" size="xs" /> {weightTally.light}
+            </span>
+            <span className="pbp-perf-tally__stat">
+              <WeightBadge weight="medium" size="xs" /> {weightTally.medium}
+              <span className="pbp-perf-tally__cap">/ {performanceProfile.mediumMax}</span>
+            </span>
+            <span className="pbp-perf-tally__stat">
+              <WeightBadge weight="heavy" size="xs" /> {weightTally.heavy}
+              <span className="pbp-perf-tally__cap">/ {performanceProfile.heavyMax}</span>
+            </span>
+          </div>
           {overBudget && (
-            <span style={{ marginLeft: 'auto', color: '#fcd34d', fontWeight: 600 }} title={violations.join(' ')}>
-              Over budget — advisory only
+            <span className="pbp-perf-tally__warn" title={violations.join(' ')}>
+              Over budget — advisory
             </span>
           )}
         </div>

@@ -9,6 +9,7 @@ export interface Task {
   error?: string;
   path?: string;
   runWhenDoneUsed?: boolean;
+  autoKillOnErrorUsed?: boolean;
   hasTerminalError?: boolean;
   completedWithWarnings?: boolean;
   warnings?: string[];

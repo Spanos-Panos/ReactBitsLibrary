@@ -1,5 +1,5 @@
 import type { PageConfig } from '../types';
-import type { ClientBrief, DesignRules, StyleDirection } from '../../features/project-builder/ProjectBuilderPanel';
+import type { ClientBrief, DesignRules, StyleDirection } from '../../features/project-builder/builderTypes';
 
 export interface ResolvedPageIntent {
   id: string;

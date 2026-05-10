@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import "../../shared/types/api";
-import type { DesignRules, StyleDirection, ClientBrief, ScrollbarStyle } from '../project-builder/ProjectBuilderPanel';
+import type { DesignRules, StyleDirection, ClientBrief, ScrollbarStyle } from '../project-builder/builderTypes';
 import type { PageConfig } from '../../shared/types/index';
+import './PresetManager.css';
 
 // ── Schema version ──────────────────────────────────────────────────────────────
 // v1: original  (projectPrompt, selectedComponentIds, designRules, layoutConcept, projectName, packageManager)
@@ -33,11 +34,15 @@ export interface SavedPreset {
   scrollbarStyle?: ScrollbarStyle;
 }
 
+export interface LoadPresetOptions {
+  preserveComponentSelection?: boolean;
+}
+
 interface PresetManagerProps {
   isOpen: boolean;
   onToggle: () => void;
   onSave: (name: string) => Promise<void>;
-  onLoad: (preset: SavedPreset) => void;
+  onLoad: (preset: SavedPreset, options?: LoadPresetOptions) => void;
   onDelete: (id: string) => Promise<void>;
 }
 
@@ -80,10 +85,14 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   const [subPanelVisible, setSubPanelVisible] = useState(false);
   const [infoPanelVisible, setInfoPanelVisible] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
+  const [preserveComponentSelectionOnLoad, setPreserveComponentSelectionOnLoad] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const refreshTimerRef = useRef<number | null>(null);
+  /** After "Yes, Load": close subpanel first; when its exit finishes, close main + onLoad. */
+  const loadConfirmClosePendingRef = useRef<null | { preset: SavedPreset; preserveComponentSelection: boolean }>(null);
   const SUBPANEL_CLOSE_MS = 240;
   const MAIN_CLOSE_MS = 260;
+  const LOAD_CONFIRM_MAIN_RECENTER_MS = 240;
 
   useEffect(() => {
     const hasConfirm = !!(confirmLoadId || confirmDeleteId);
@@ -103,6 +112,10 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    if (!confirmLoadId) setPreserveComponentSelectionOnLoad(false);
+  }, [confirmLoadId]);
 
   /* ── data loading ─────────────────────────────────────────── */
 
@@ -124,6 +137,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
       loadRecentIds();
       setTimeout(() => inputRef.current?.focus(), 200);
     } else {
+      loadConfirmClosePendingRef.current = null;
       setInfoId(null);
       setConfirmLoadId(null);
       setConfirmDeleteId(null);
@@ -184,6 +198,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   };
 
   const closeModalSequentially = (afterMainClose?: () => void) => {
+    loadConfirmClosePendingRef.current = null;
     setInfoId(null);
     setConfirmLoadId(null);
     setConfirmDeleteId(null);
@@ -215,8 +230,29 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
   };
 
   const handleLoadConfirmed = (preset: SavedPreset) => {
+    const preserveComponentSelection = preserveComponentSelectionOnLoad;
     pushRecent(preset.id);
-    closeModalSequentially(() => onLoad(preset));
+    loadConfirmClosePendingRef.current = { preset, preserveComponentSelection };
+    setInfoId(null);
+    setConfirmDeleteId(null);
+    setConfirmLoadId(null);
+  };
+
+  const onLoadSubpanelExitComplete = () => {
+    const pending = loadConfirmClosePendingRef.current;
+    if (!pending) return;
+    loadConfirmClosePendingRef.current = null;
+    // Step 1: subpanel is gone. Step 2: re-center the main panel (undo the split layout).
+    setSubPanelVisible(false);
+    setInfoPanelVisible(false);
+    // Step 3: close main modal after the re-center animation completes.
+    window.setTimeout(() => {
+      onToggle();
+      // Step 4: only apply the preset after the main modal has finished closing.
+      window.setTimeout(() => {
+        onLoad(pending.preset, { preserveComponentSelection: pending.preserveComponentSelection });
+      }, MAIN_CLOSE_MS);
+    }, LOAD_CONFIRM_MAIN_RECENTER_MS);
   };
 
   const handleDeleteConfirmed = async (id: string) => {
@@ -580,7 +616,7 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                   </div>
                 </motion.div>
 
-                <AnimatePresence initial={false}>
+                <AnimatePresence initial={false} onExitComplete={onLoadSubpanelExitComplete}>
                   {(infoId || confirmLoadId || confirmDeleteId) && (
                     <motion.div
                       key="pm-side-panel"
@@ -606,33 +642,52 @@ export default function PresetManager({ isOpen, onToggle, onSave, onLoad, onDele
                         {infoId && infoPreset && <InfoPanelContent preset={infoPreset} onClose={() => setInfoId(null)} />}
 
                         {confirmLoadId && confirmLoadPreset && (
-                          <div style={{ padding: '24px 20px', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                              <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(165, 180, 252, 0.45)' }}>Load Confirmation</span>
+                          <div className="pm-confirm-panel">
+                            <div className="pm-confirm-eyebrow-row">
+                              <span className="pm-confirm-eyebrow">Load Confirmation</span>
                             </div>
-                            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 6 }}>Switch to this preset?</div>
-                            <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.45, marginBottom: 20 }}>
-                              Current configuration will be replaced with <strong style={{ color: '#818cf8' }}>{confirmLoadPreset.name}</strong>.
-                            </div>
-                            <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
-                              <PremiumUnderlineButton onClick={() => setConfirmLoadId(null)}>Cancel</PremiumUnderlineButton>
-                              <PremiumUnderlineButton onClick={() => handleLoadConfirmed(confirmLoadPreset)} active primary>Yes, Load</PremiumUnderlineButton>
+                            <h3 className="pm-confirm-title">Switch to this preset?</h3>
+                            <p className="pm-confirm-desc">
+                              Current configuration will be replaced with{' '}
+                              <strong className="pm-confirm-strong">{confirmLoadPreset.name}</strong>.
+                            </p>
+                            <label className="pm-confirm-option">
+                              <input
+                                type="checkbox"
+                                className="pm-confirm-check"
+                                checked={preserveComponentSelectionOnLoad}
+                                onChange={e => setPreserveComponentSelectionOnLoad(e.target.checked)}
+                                aria-describedby="pm-load-option-hint"
+                              />
+                              <span className="pm-confirm-check-visual" aria-hidden>
+                                <svg className="pm-confirm-check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </span>
+                              <span id="pm-load-option-hint" className="pm-confirm-option-text">
+                                Keep my current component selection{' '}
+                                <span className="pm-confirm-option-hint">(page assignments filtered to those components only)</span>
+                              </span>
+                            </label>
+                            <div className="pm-confirm-actions">
+                              <PremiumUnderlineButton className="pm-confirm-btn-wrap" compact onClick={() => setConfirmLoadId(null)}>Cancel</PremiumUnderlineButton>
+                              <PremiumUnderlineButton className="pm-confirm-btn-wrap" compact onClick={() => handleLoadConfirmed(confirmLoadPreset)} active primary>Yes, Load</PremiumUnderlineButton>
                             </div>
                           </div>
                         )}
 
                         {confirmDeleteId && confirmDeletePreset && (
-                          <div style={{ padding: '24px 20px', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                              <span style={{ fontFamily: "var(--font-display, 'Clash Display', sans-serif)", fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(248, 113, 113, 0.45)' }}>Delete Safety</span>
+                          <div className="pm-confirm-panel">
+                            <div className="pm-confirm-eyebrow-row">
+                              <span className="pm-confirm-eyebrow pm-confirm-eyebrow--danger">Delete Safety</span>
                             </div>
-                            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 6 }}>Remove this preset?</div>
-                            <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.45, marginBottom: 20 }}>
-                              Preset <strong style={{ color: '#fca5a5' }}>{confirmDeletePreset.name}</strong> will be permanently deleted.
-                            </div>
-                            <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
-                              <PremiumUnderlineButton onClick={() => setConfirmDeleteId(null)}>Keep it</PremiumUnderlineButton>
-                              <PremiumUnderlineButton onClick={() => handleDeleteConfirmed(confirmDeletePreset.id)} disabled={!!deletingId} active danger>
+                            <h3 className="pm-confirm-title">Remove this preset?</h3>
+                            <p className="pm-confirm-desc">
+                              Preset <strong className="pm-confirm-strong pm-confirm-strong--danger">{confirmDeletePreset.name}</strong> will be permanently deleted.
+                            </p>
+                            <div className="pm-confirm-actions" style={{ marginTop: 8 }}>
+                              <PremiumUnderlineButton className="pm-confirm-btn-wrap" compact onClick={() => setConfirmDeleteId(null)}>Keep it</PremiumUnderlineButton>
+                              <PremiumUnderlineButton className="pm-confirm-btn-wrap" compact onClick={() => handleDeleteConfirmed(confirmDeletePreset.id)} disabled={!!deletingId} active danger>
                                 {deletingId ? 'Deleting...' : 'Yes, Delete'}
                               </PremiumUnderlineButton>
                             </div>
@@ -666,7 +721,9 @@ function PremiumUnderlineButton({
   active,
   primary,
   danger,
-  title
+  title,
+  compact,
+  className,
 }: {
   children: React.ReactNode;
   onClick: () => void;
@@ -675,29 +732,39 @@ function PremiumUnderlineButton({
   primary?: boolean;
   danger?: boolean;
   title?: string;
+  compact?: boolean;
+  className?: string;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
+  const fontSize = compact ? '0.72rem' : '0.78rem';
+  const padding = compact ? '8px 6px' : '8px 4px';
+
   return (
-    <button
+    <motion.button
+      type="button"
+      className={className}
       onClick={onClick}
       title={title}
       disabled={disabled}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      whileTap={disabled ? undefined : { scale: 0.96 }}
+      transition={{ type: 'spring', stiffness: 480, damping: 28 }}
       style={{
         background: 'none',
         border: 'none',
-        padding: '8px 4px',
+        padding: padding,
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
-        fontSize: '0.78rem',
+        fontSize: fontSize,
         fontWeight: 600,
+        letterSpacing: compact ? '0.02em' : '0.01em',
         color: disabled
           ? 'rgba(255,255,255,0.15)'
           : (isHovered || active) ? '#fff' : 'rgba(241,245,249,0.45)',
         position: 'relative',
-        transition: 'color 0.25s ease',
+        transition: 'color 0.22s ease',
         display: 'flex',
         alignItems: 'center',
         opacity: disabled ? 0.6 : 1,
@@ -708,14 +775,14 @@ function PremiumUnderlineButton({
         <motion.div
           initial={false}
           animate={{
-            scaleX: active ? 1 : (isHovered && !disabled ? 0.65 : 0),
-            opacity: active ? (disabled ? 0.2 : 1) : (isHovered && !disabled ? 0.5 : 0),
-            background: danger ? '#ef4444' : (primary ? '#6366f1' : 'rgba(255,255,255,0.8)')
+            scaleX: active ? 1 : (isHovered && !disabled ? 0.68 : 0),
+            opacity: active ? (disabled ? 0.2 : 1) : (isHovered && !disabled ? 0.55 : 0),
+            background: danger ? '#f87171' : (primary ? '#818cf8' : 'rgba(255,255,255,0.85)')
           }}
-          transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 320 }}
           style={{
             position: 'absolute',
-            bottom: -4,
+            bottom: compact ? -3 : -4,
             left: 0,
             right: 0,
             height: 2,
@@ -724,7 +791,7 @@ function PremiumUnderlineButton({
           }}
         />
       </span>
-    </button>
+    </motion.button>
   );
 }
 

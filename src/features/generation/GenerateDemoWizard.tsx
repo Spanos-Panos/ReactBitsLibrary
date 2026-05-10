@@ -5,11 +5,10 @@ import type { ReactBitsItem } from "../../shared/types/index";
 type InstallTab = 'cli' | 'manual';
 type PackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun';
 
-interface GenerateWizardProps {
+interface GenerateDemoWizardProps {
   open: boolean;
   onClose: () => void;
   selected: ReactBitsItem | null;
-  lastEnhancedPrompt: any;
   projectName: string;
   onProjectNameChange: (name: string) => void;
   projectPath: string;
@@ -24,29 +23,32 @@ interface GenerateWizardProps {
   onRunWhenDoneChange: (v: boolean) => void;
   autoKillOnError: boolean;
   onAutoKillOnErrorChange: (v: boolean) => void;
-  aiSupport: boolean;
-  onAiSupportChange: (v: boolean) => void;
   onConfirm: () => void;
-  builderMode?: boolean;
-  generationSummary?: string;
 }
 
 const PM_LIST: PackageManager[] = ["pnpm", "npm", "yarn", "bun"];
 
-export default function GenerateWizard({
-  open, onClose, selected, lastEnhancedPrompt,
-  projectName, onProjectNameChange, projectPath, onBrowse,
-  installTab, onInstallTabChange, packageManager, onPackageManagerChange,
-  openWhenDone, onOpenWhenDoneChange, runWhenDone, onRunWhenDoneChange,
-  autoKillOnError, onAutoKillOnErrorChange,
-  aiSupport, onAiSupportChange, onConfirm,
-  builderMode, generationSummary,
-}: GenerateWizardProps) {
-
-  const isAiBuild = !!lastEnhancedPrompt;
-  const titleText = 'Project Generation';
-  const shouldShow = open && (selected || lastEnhancedPrompt || builderMode);
-
+export default function GenerateDemoWizard({
+  open,
+  onClose,
+  selected,
+  projectName,
+  onProjectNameChange,
+  projectPath,
+  onBrowse,
+  installTab,
+  onInstallTabChange,
+  packageManager,
+  onPackageManagerChange,
+  openWhenDone,
+  onOpenWhenDoneChange,
+  runWhenDone,
+  onRunWhenDoneChange,
+  autoKillOnError,
+  onAutoKillOnErrorChange,
+  onConfirm,
+}: GenerateDemoWizardProps) {
+  const shouldShow = open && !!selected;
   const [isConfirming, setIsConfirming] = useState(false);
 
   React.useEffect(() => {
@@ -70,7 +72,8 @@ export default function GenerateWizard({
               exit={{ opacity: 0, scale: 0.94, y: 18 }}
               transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.9 }}
               style={{
-                width: 440, flexShrink: 0,
+                width: 440,
+                flexShrink: 0,
                 background: 'rgba(9, 12, 20, 0.85)',
                 backdropFilter: 'blur(60px) saturate(220%)',
                 WebkitBackdropFilter: 'blur(60px) saturate(220%)',
@@ -79,23 +82,26 @@ export default function GenerateWizard({
                 overflow: 'hidden',
                 zIndex: 2,
                 boxShadow: '0 40px 100px -20px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.04)',
-                display: 'flex', flexDirection: 'column',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              {/* Integrated Header Bar (No Divider) */}
               <div style={{
                 height: 28, padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
                 background: 'rgba(0, 0, 0, 0.15)',
               }}>
                 <span style={{
                   fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
-                  fontSize: '0.56rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
+                  fontSize: '0.56rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
                   color: 'rgba(241, 245, 249, 0.35)',
                 }}>
-                  {titleText}
+                  Generate Demo
                 </span>
-                <button 
-                  onClick={onClose} 
+                <button
+                  onClick={onClose}
                   style={{
                     position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                     background: 'none', border: 'none', borderRadius: 6,
@@ -113,14 +119,12 @@ export default function GenerateWizard({
                   }}
                 >
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
 
               <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-                {/* ID & Scope */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                   <div>
                     <SectionLabel>Project Name</SectionLabel>
@@ -128,7 +132,7 @@ export default function GenerateWizard({
                       type="text"
                       value={projectName}
                       onChange={e => onProjectNameChange(e.target.value)}
-                      placeholder="my-project"
+                      placeholder="my-demo"
                       style={INPUT_STYLE}
                     />
                   </div>
@@ -147,45 +151,26 @@ export default function GenerateWizard({
                   </div>
                 </div>
 
-                {/* Provisioning Engine */}
                 <div style={{ display: 'flex', gap: 24 }}>
                   <div style={{ flex: 1 }}>
                     <SectionLabel>Install Method</SectionLabel>
                     <div style={{ display: 'flex', gap: 14 }}>
-                        <PremiumUnderlineButton 
-                          onClick={() => onInstallTabChange('cli')} 
-                          active={installTab === 'cli'}
-                          small
-                        >
-                          CLI
-                        </PremiumUnderlineButton>
-                        <PremiumUnderlineButton 
-                          onClick={() => onInstallTabChange('manual')} 
-                          active={installTab === 'manual'}
-                          small
-                        >
-                          Manual
-                        </PremiumUnderlineButton>
-                     </div>
+                      <PremiumUnderlineButton onClick={() => onInstallTabChange('cli')} active={installTab === 'cli'} small>CLI</PremiumUnderlineButton>
+                      <PremiumUnderlineButton onClick={() => onInstallTabChange('manual')} active={installTab === 'manual'} small>Manual</PremiumUnderlineButton>
+                    </div>
                   </div>
                   <div style={{ flex: 1.6 }}>
                     <SectionLabel>Package Manager</SectionLabel>
                     <div style={{ display: 'flex', gap: 14 }}>
-                        {PM_LIST.map(pm => (
-                          <PremiumUnderlineButton 
-                            key={pm} 
-                            onClick={() => onPackageManagerChange(pm)} 
-                            active={packageManager === pm}
-                            small
-                          >
-                            {pm}
-                          </PremiumUnderlineButton>
-                        ))}
-                     </div>
+                      {PM_LIST.map(pm => (
+                        <PremiumUnderlineButton key={pm} onClick={() => onPackageManagerChange(pm)} active={packageManager === pm} small>
+                          {pm}
+                        </PremiumUnderlineButton>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Unified Automation Suite */}
                 <div>
                   <SectionLabel>After Generation</SectionLabel>
                   <div style={{
@@ -200,9 +185,7 @@ export default function GenerateWizard({
                       checked={openWhenDone}
                       onChange={onOpenWhenDoneChange}
                     />
-
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }} />
-
                     <AutomationRow
                       icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>}
                       title="Immediate Execution"
@@ -213,11 +196,10 @@ export default function GenerateWizard({
                         if (!v) onAutoKillOnErrorChange(false);
                       }}
                     />
-
                     <AnimatePresence initial={false}>
                       {runWhenDone && (
                         <motion.div
-                          key="gw-immediate-exec-extra"
+                          key="gdw-immediate-exec-extra"
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
@@ -236,41 +218,15 @@ export default function GenerateWizard({
                         </motion.div>
                       )}
                     </AnimatePresence>
-
                   </div>
                 </div>
 
-                {/* AI Support Engine */}
-                <div>
-                  <SectionLabel>AI Engine</SectionLabel>
-                  <div style={{
-                    display: 'flex', flexDirection: 'column',
-                    background: 'rgba(255,255,255,0.02)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)',
-                    overflow: 'hidden'
-                  }}>
-                    <AutomationRow
-                      icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a6 6 0 0 1 6 6v2a4 4 0 0 0 4 4" /><path d="M12 2a6 6 0 0 0-6 6v2a4 4 0 0 1-4 4" /><path d="M8 15h8" /><path d="M9 19h6" /></svg>}
-                      title="AI-First Composer"
-                      subtext="Primary generation mode for sellable output quality"
-                      checked={aiSupport}
-                      onChange={onAiSupportChange}
-                    />
-                  </div>
-                </div>
-
-                {/* Final Confirmation */}
                 <div style={{ display: 'flex', gap: 14, marginTop: 12, paddingBottom: 6, justifyContent: 'flex-end' }}>
                   <PremiumUnderlineButton onClick={onClose}>Dismiss</PremiumUnderlineButton>
-                  <PremiumUnderlineButton
-                    onClick={handleConfirm}
-                    disabled={!projectName || !projectPath || isConfirming}
-                    active
-                    primary
-                  >
+                  <PremiumUnderlineButton onClick={handleConfirm} disabled={!projectName || !projectPath || isConfirming} active primary>
                     {isConfirming ? 'Starting...' : 'Generate →'}
                   </PremiumUnderlineButton>
                 </div>
-
               </div>
             </motion.div>
           </div>
@@ -280,7 +236,7 @@ export default function GenerateWizard({
   );
 }
 
-/* ── PREMIUM UNDERLINE BUTTON ──────────────────────────────────────── */
+/* ── UI atoms (copied from GenerateWizard) ─────────────────────────────── */
 
 function PremiumUnderlineButton({
   children,
@@ -301,6 +257,7 @@ function PremiumUnderlineButton({
 
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       onMouseEnter={() => setIsHovered(true)}
@@ -314,8 +271,8 @@ function PremiumUnderlineButton({
         fontSize: small ? '0.66rem' : '0.8rem',
         fontWeight: small ? 700 : 600,
         letterSpacing: small ? '0.02em' : 'normal',
-        color: disabled 
-          ? 'rgba(255,255,255,0.15)' 
+        color: disabled
+          ? 'rgba(255,255,255,0.15)'
           : (isHovered || active) ? (small ? '#a5b4fc' : '#fff') : 'rgba(241,245,249,0.45)',
         position: 'relative',
         transition: 'color 0.25s ease',
@@ -349,7 +306,30 @@ function PremiumUnderlineButton({
   );
 }
 
-/* ── UI ATOMS ────────────────────────────────────────────────────── */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
+      fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
+      color: 'rgba(241, 245, 249, 0.42)', marginBottom: 8,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+const INPUT_STYLE: React.CSSProperties = {
+  width: '100%',
+  boxSizing: 'border-box',
+  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  border: '1px solid rgba(255, 255, 255, 0.09)',
+  borderRadius: 12,
+  color: 'rgba(241,245,249,0.9)',
+  padding: '10px 14px',
+  fontFamily: "var(--font-body, 'Satoshi', sans-serif)",
+  fontSize: '0.82rem',
+  outline: 'none',
+};
 
 function AutomationRow({ icon, title, subtext, checked, onChange, child }: {
   icon: React.ReactNode; title: string; subtext: string; checked: boolean; onChange: (v: boolean) => void; child?: boolean;
@@ -377,20 +357,29 @@ function AutomationRow({ icon, title, subtext, checked, onChange, child }: {
         <div style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.18)', marginTop: 1 }}>{subtext}</div>
       </div>
 
-      {/* Select-style Button Icon */}
       <div style={{
         width: 32, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
         color: checked ? '#6366f1' : 'rgba(255,255,255,0.1)', transition: 'all .22s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
         <AnimatePresence mode="wait">
           {!checked ? (
-            <motion.svg key="plus" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}
-              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+            <motion.svg
+              key="plus"
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
+            >
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </motion.svg>
           ) : (
-            <motion.svg key="check" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}
-              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+            <motion.svg
+              key="check"
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"
+            >
               <polyline points="20 6 9 17 4 12" />
             </motion.svg>
           )}
@@ -400,20 +389,3 @@ function AutomationRow({ icon, title, subtext, checked, onChange, child }: {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontFamily: "var(--font-display, 'Clash Display', sans-serif)",
-      fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
-      color: 'rgba(241, 245, 249, 0.42)', marginBottom: 8,
-    }}>
-      {children}
-    </div>
-  );
-}
-
-const INPUT_STYLE: React.CSSProperties = {
-  width: '100%', background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 12, padding: '12px 16px', color: '#f1f5f9', fontSize: '0.85rem',
-  fontFamily: "var(--font-body, 'Satoshi', sans-serif)", outline: 'none', boxSizing: 'border-box',
-};
