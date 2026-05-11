@@ -138,6 +138,45 @@ output/
    - Component chips: selected components appear in the builder (or empty if you used `--manual-components`)
 7. Review and adjust anything, then click **Generate** (at least one component is required for an AI build)
 
+---
+
+## Page types: what content belongs where
+
+BitForge presets can define multi-page structure via `pages[]` (each page has a `type`). The deterministic generator uses the page `type` to pick and constrain which sections render, then merges `page.content` into the page’s content model.
+
+### Supported page types
+
+- `home`: hero + narrative sections (features/benefits/cta)
+- `about`: about copy, plus optional people blocks
+- `services`: services list and service detail rows (plus optional supporting sections)
+- `pricing`: pricing tiers (SaaS-friendly route)
+- `contact`: contact details + form, plus optional FAQs
+- `custom`: flexible (used for “Work”/projects, Features, etc.)
+
+### `page.content` contract (per page type)
+
+- **Contact (`type: contact`)**
+  - Uses `clientBrief.contactEmail`, `clientBrief.contactPhone`, `clientBrief.location` for the contact lines.
+  - If those are missing, the generator fills safe placeholders so the page still communicates what belongs there.
+  - Optional: `page.content.faqs` (array of `{ q, a }`) renders below the form.
+
+- **About (`type: about`)**
+  - Optional: `page.content.founder` as `{ name, role, bio? }`.
+  - Optional: `page.content.leadership` as an array of `{ name, role, bio? }`.
+  - Optional: `page.content.teamMembers` as an array of `{ name, role }`.
+
+- **Services (`type: services`)**
+  - Optional: `page.content.services` as an array of `{ name, description }`.
+  - Even if a large ReactBits component is assigned to the Services section, the generator still renders a textual services list first.
+
+- **Work / projects (`type: custom`, e.g. “Work”)**
+  - Optional: `page.content.projects` as an array of `{ title, summary?, tag? }`.
+  - If not provided, work cards are derived from the services list.
+
+### Notes on `page.content.sections`
+
+The synthetic generator may include `page.content.sections[]` as a human-readable outline, but the deterministic project generator does **not** use it to decide which TSX sections render. Section selection is controlled by the page type policy and deterministic variants.
+
 ### Requirements
 
 - `ANTHROPIC_API_KEY` must be set in `.env` or environment

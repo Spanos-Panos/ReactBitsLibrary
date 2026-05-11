@@ -369,6 +369,15 @@ function buildPageContent(baseContent, pageData) {
     };
   }
 
+  // Projects are valid on work/custom pages; prefer explicit projects over derived work cards.
+  if ((pageType === 'custom' || pageType === 'home') && Array.isArray(pc.projects) && pc.projects.length > 0) {
+    result.projects = pc.projects.map(p => ({
+      title: p?.title || p?.name || '',
+      summary: p?.summary || p?.description || '',
+      tag: p?.tag || '',
+    })).filter(p => p.title);
+  }
+
   // Value props are safe on non-contact pages.
   if (pageType !== 'contact' && Array.isArray(pc.valueProps) && pc.valueProps.length > 0) {
     result.benefits = pc.valueProps;
@@ -378,8 +387,43 @@ function buildPageContent(baseContent, pageData) {
   if ((pageType === 'about' || pageType === 'custom') && Array.isArray(pc.teamMembers) && pc.teamMembers.length > 0) {
     result.teamMembers = pc.teamMembers;
   }
+  if ((pageType === 'about' || pageType === 'custom') && pc.founder && typeof pc.founder === 'object') {
+    result.founder = {
+      name: pc.founder.name || '',
+      role: pc.founder.role || '',
+      bio: pc.founder.bio || '',
+    };
+  }
+  if ((pageType === 'about' || pageType === 'custom') && Array.isArray(pc.leadership) && pc.leadership.length > 0) {
+    result.leadership = pc.leadership.map(m => ({
+      name: m?.name || '',
+      role: m?.role || '',
+      bio: m?.bio || '',
+    })).filter(m => m.name);
+  }
   if ((pageType === 'contact' || pageType === 'custom') && Array.isArray(pc.faqs) && pc.faqs.length > 0) {
     result.faqs = pc.faqs;
+  }
+
+  // Contact pages should always show structured contact lines.
+  // If the brief omitted contact info, provide non-empty placeholders so the UI
+  // communicates what belongs here (rather than collapsing to generic copy).
+  if (pageType === 'contact') {
+    const brandSlug = String(result.brandName || 'brand')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '')
+      .slice(0, 18) || 'brand';
+
+    const hasAny = Boolean(result.contact.email || result.contact.phone || result.contact.location);
+    if (!hasAny) {
+      result.contact.email = `hello@${brandSlug}.com`;
+      result.contact.phone = '+1 (555) 010-1234';
+      result.contact.location = 'By appointment • Remote';
+    } else {
+      if (!result.contact.email) result.contact.email = `hello@${brandSlug}.com`;
+      if (!result.contact.phone) result.contact.phone = '+1 (555) 010-1234';
+      if (!result.contact.location) result.contact.location = 'By appointment • Remote';
+    }
   }
 
   return result;

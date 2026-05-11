@@ -16,6 +16,10 @@ const PAGE_POLICY = {
     allow: new Set(['hero', 'services', 'features', 'benefits', 'pricing', 'work', 'cta']),
     requiredAny: [['services', 'features']],
   },
+  pricing: {
+    allow: new Set(['hero', 'pricing', 'features', 'benefits', 'cta', 'contact']),
+    requiredAny: [['pricing']],
+  },
   contact: {
     allow: new Set(['hero', 'contact', 'about', 'cta']),
     requiredAny: [['contact']],

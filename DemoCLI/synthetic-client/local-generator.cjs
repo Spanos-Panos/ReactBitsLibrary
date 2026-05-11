@@ -1556,6 +1556,11 @@ function buildPageContent(pageType, brandName, copy, quality) {
   if (pageType === 'about') {
     var namePool = ['Maya', 'Noah', 'Lina', 'Theo', 'Iris', 'Arman', 'Sofia', 'Eden'];
     var rolePool = ['Creative Director', 'Lead Strategist', 'Design Lead', 'Product Architect', 'Client Partner'];
+    content.founder = {
+      name: pick(namePool) + ' ' + brandName.split(' ')[0],
+      role: 'Founder',
+      bio: 'Built ' + brandName + ' around a simple principle: the work should be clear, the process should be calm, and every deliverable should earn its place.',
+    };
     content.teamMembers = sampleItems(namePool, 3, 4).map(function(first, idx) {
       return { name: first + ' ' + brandName.split(' ')[0], role: rolePool[idx % rolePool.length] };
     });
@@ -1579,6 +1584,11 @@ function buildPageContent(pageType, brandName, copy, quality) {
       { sectionType: 'contact', heading: 'Start A Conversation', bodyCopy: 'Share your goals and timeline and we will reply within one business day.', cta: cta },
     ];
   } else if (pageType === 'custom') {
+    content.projects = [
+      { title: brandName + ' Launch System', summary: 'End-to-end identity and site build designed to convert attention into qualified leads.', tag: 'Brand + Web' },
+      { title: 'Product Storytelling Refresh', summary: 'Messaging and layout overhaul with a strong editorial hierarchy and performance-first implementation.', tag: 'Strategy' },
+      { title: 'Campaign Page Series', summary: 'A modular set of pages built for experimentation, with repeatable design tokens and clear CTAs.', tag: 'Growth' },
+    ];
     content.sections = [
       { sectionType: 'work', heading: 'Featured Work', bodyCopy: 'Selected projects that represent the quality and direction of ' + brandName + '.', cta: 'View Case Studies' },
       { sectionType: 'cta', heading: 'Let Us Build Yours Next', bodyCopy: copy.usp, cta: cta },
@@ -1602,11 +1612,13 @@ function buildPages(siteType, brandName, copy, quality) {
     "Portfolio": [
       { id: "page-home",  title: "Home",  type: "home",   componentIds: [] },
       { id: "page-work",  title: "Work",  type: "custom", componentIds: [] },
-      { id: "page-about", title: "About", type: "about",  componentIds: [] }
+      { id: "page-about", title: "About", type: "about",  componentIds: [] },
+      { id: "page-contact", title: "Contact", type: "contact", componentIds: [] }
     ],
     "SaaS": [
       { id: "page-home",     title: "Home",     type: "home",   componentIds: [] },
-      { id: "page-features", title: "Features", type: "custom", componentIds: [] }
+      { id: "page-features", title: "Features", type: "custom", componentIds: [] },
+      { id: "page-pricing",  title: "Pricing",  type: "pricing", componentIds: [] }
     ],
     "Agency": [
       { id: "page-home",     title: "Home",     type: "home",     componentIds: [] },

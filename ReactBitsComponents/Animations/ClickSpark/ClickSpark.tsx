@@ -153,9 +153,8 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
 
     return (
         <div style={{
-            width:"100%",
-            height:"100%",
-            position:"relative"
+            display: "inline-block",
+            position: "relative"
         }}
         onClick={handleClick}
         >

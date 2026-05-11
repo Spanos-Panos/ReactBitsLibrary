@@ -132,7 +132,10 @@ function buildNavJsxForPages(navName, pages, navContext) {
       const itemsStr = items
         .map(it => `      { label: '${it.label}', ariaLabel: 'Go to ${it.label.toLowerCase()}', link: '${it.href}' }`)
         .join(',\n');
-      return `<div style={{ position: 'fixed', top: 0, right: 0, zIndex: 999, pointerEvents: 'auto' }}>
+      // StaggeredMenu needs a full-viewport container (it relies on height: 100% + absolute panel layers).
+      // Use pointerEvents: 'none' on the wrapper so it doesn't block page interaction; the component
+      // enables pointer events on its actual interactive elements.
+      return `<div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', zIndex: 999, pointerEvents: 'none' }}>
   <StaggeredMenu
     position="right"
     items={[\n${itemsStr}\n    ]}

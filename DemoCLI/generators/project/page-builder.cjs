@@ -49,6 +49,7 @@ const SECTION_VARIANTS = {
   home:     [['hero', 'features', 'benefits', 'cta'], ['hero', 'features', 'work', 'cta'], ['hero', 'benefits', 'features', 'contact']],
   about:    [['about', 'features', 'cta'], ['about', 'benefits', 'contact'], ['about', 'work', 'contact']],
   services: [['services', 'features', 'pricing', 'contact'], ['services', 'work', 'contact'], ['hero', 'services', 'cta']],
+  pricing:  [['pricing', 'cta'], ['hero', 'pricing', 'cta'], ['pricing', 'features', 'cta']],
   work:     [['work', 'about', 'contact'], ['work', 'services', 'cta'], ['hero', 'work', 'contact']],
   contact:  [['contact'], ['hero', 'contact'], ['about', 'contact']],
   custom:   [['hero', 'features', 'cta'], ['hero', 'work', 'contact'], ['features', 'benefits', 'cta']],
@@ -231,6 +232,15 @@ function sanitizeContent(c) {
       ),
     },
     // Optional per-page extras (populated by buildPageContent)
+    projects: Array.isArray(c.projects)
+      ? c.projects.map(p => ({ title: t(p.title), summary: t(p.summary), tag: t(p.tag) })).filter(p => p.title)
+      : undefined,
+    founder: c.founder
+      ? { name: t(c.founder.name), role: t(c.founder.role), bio: t(c.founder.bio) }
+      : undefined,
+    leadership: Array.isArray(c.leadership)
+      ? c.leadership.map(m => ({ name: t(m.name), role: t(m.role), bio: t(m.bio) })).filter(m => m.name)
+      : undefined,
     teamMembers: Array.isArray(c.teamMembers)
       ? c.teamMembers.map(m => ({ name: t(m.name), role: t(m.role) }))
       : undefined,
@@ -382,10 +392,37 @@ function buildCtaSection(content, aesthetic, layout, componentName) {
 
 function buildAboutSection(content, aesthetic, layout, componentName) {
   const { heading, body, highlight } = content.about;
+  const founder = content.founder;
+  const leadership = content.leadership;
   const teamMembers = content.teamMembers;
   const comp = componentName ? getComponent(componentName) : null;
   const compJsx = comp && !comp.isFixed
     ? `\n          <div style={{ marginTop: '2rem' }}>\n            ${withContentText(componentName, comp.jsx, heading)}\n          </div>`
+    : '';
+
+  const founderBlock = founder && (founder.name || founder.role || founder.bio)
+    ? `<div style={{ padding: '1.25rem', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ borderRadius: '9999px', overflow: 'hidden' }}>
+                  ${buildImagePlaceholder(`${founder.name || 'Founder'} — headshot`, '1/1')}
+                </div>
+                <div>
+                  <p style={{ color: 'var(--color-text-on-surface)', fontWeight: 700, margin: 0, fontSize: '0.95rem' }}>${founder.name || 'Founder'}</p>
+                  <p style={{ color: 'var(--color-text-on-surface)', opacity: 0.6, margin: '0.25rem 0 0', fontSize: '0.85rem' }}>${founder.role || 'Founder'}</p>
+                </div>
+              </div>
+              ${founder.bio ? `<p style={{ color: 'var(--color-text-on-surface)', opacity: 0.7, margin: '1rem 0 0', lineHeight: 1.65, fontSize: '0.9rem' }}>${founder.bio}</p>` : ''}
+            </div>`
+    : '';
+
+  const leadershipGrid = Array.isArray(leadership) && leadership.length > 0
+    ? `<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
+              ${leadership.slice(0, 6).map(m => `<div style={{ padding: '1.25rem', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+                <p style={{ color: 'var(--color-text-on-surface)', fontWeight: 700, margin: 0, fontSize: '0.9rem' }}>${m.name}</p>
+                <p style={{ color: 'var(--color-text-on-surface)', opacity: 0.6, margin: '0.25rem 0 0', fontSize: '0.8rem' }}>${m.role}</p>
+                ${m.bio ? `<p style={{ color: 'var(--color-text-on-surface)', opacity: 0.7, margin: '0.85rem 0 0', lineHeight: 1.6, fontSize: '0.85rem' }}>${m.bio}</p>` : ''}
+              </div>`).join('')}
+            </div>`
     : '';
 
   // Render team member cards when page-specific content provides them
@@ -408,6 +445,8 @@ function buildAboutSection(content, aesthetic, layout, componentName) {
               <p style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-accent)' }}>${highlight}</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              ${founderBlock}
+              ${leadershipGrid}
               ${rightColumn}
             </div>
           </div>${compJsx}
@@ -417,58 +456,67 @@ function buildAboutSection(content, aesthetic, layout, componentName) {
 
 function buildWorkSection(content, aesthetic, layout, componentName) {
   const comp = componentName ? getComponent(componentName) : null;
+  const explicitProjects = Array.isArray(content.projects) ? content.projects : [];
+
+  const PROJECT_TITLE_SUFFIXES = ['Case Study', 'Project', 'Campaign', 'Engagement'];
+  const buildProjectCards = (projects) => {
+    const cards = projects.map((p, i) => `
+            <div key="${i}" style={{ flex: '1 1 260px' }}>
+              ${buildImagePlaceholder(`${p.tag || p.title} — project screenshot`, '4/3')}
+              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-accent)', display: 'block', marginTop: '1rem' }}>${p.tag || 'Project'}</span>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-text)', marginTop: '0.5rem' }}>${p.title}</h3>
+              ${p.summary ? `<p style={{ margin: '0.75rem 0 0', color: 'var(--color-text)', opacity: 0.65, lineHeight: 1.65, fontSize: '0.9rem' }}>${p.summary}</p>` : ''}
+            </div>`).join('');
+    return `<div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+            ${cards}
+          </div>`;
+  };
 
   if (comp && !comp.isFixed) {
+    const projectsBlock = explicitProjects.length > 0
+      ? `\n          <div style={{ marginTop: '3rem' }}>\n            ${buildProjectCards(explicitProjects.slice(0, 3))}\n          </div>`
+      : '';
     return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
           <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '3rem' }}>Our Work</h2>
           ${comp.jsx}
+          ${projectsBlock}
         </div>
       </section>`;
   }
 
-  // Build work cards from content.features.items (services) — never "Project One/Two/Three"
+  // Prefer explicit projects, else derive work cards from services.
   const serviceItems = (content.features && content.features.items) || [];
-  const PROJECT_TITLE_SUFFIXES = ['Case Study', 'Project', 'Campaign', 'Engagement'];
-  const projects = serviceItems.slice(0, 3).map((item, i) => ({
-    title: `${item.title} ${PROJECT_TITLE_SUFFIXES[i % PROJECT_TITLE_SUFFIXES.length]}`,
-    tag: item.title,
-  }));
+  const projects = explicitProjects.length > 0
+    ? explicitProjects.slice(0, 3).map((p, i) => ({
+      title: p.title,
+      tag: p.tag || PROJECT_TITLE_SUFFIXES[i % PROJECT_TITLE_SUFFIXES.length],
+      summary: p.summary || '',
+    }))
+    : serviceItems.slice(0, 3).map((item, i) => ({
+      title: `${item.title} ${PROJECT_TITLE_SUFFIXES[i % PROJECT_TITLE_SUFFIXES.length]}`,
+      tag: item.title,
+      summary: '',
+    }));
   // Pad to 3 if fewer services
   while (projects.length < 3) {
     const idx = projects.length;
-    projects.push({ title: `Featured ${PROJECT_TITLE_SUFFIXES[idx % PROJECT_TITLE_SUFFIXES.length]}`, tag: 'Portfolio' });
+    projects.push({ title: `Featured ${PROJECT_TITLE_SUFFIXES[idx % PROJECT_TITLE_SUFFIXES.length]}`, tag: 'Portfolio', summary: '' });
   }
-
-  const cards = projects.map((p, i) => `
-            <div key="${i}" style={{ flex: '1 1 260px' }}>
-              ${buildImagePlaceholder(`${p.tag} — project screenshot`, '4/3')}
-              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-accent)', display: 'block', marginTop: '1rem' }}>${p.tag}</span>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-text)', marginTop: '0.5rem' }}>${p.title}</h3>
-            </div>`).join('');
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
           <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '3rem' }}>Our Work</h2>
-          <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-            ${cards}
-          </div>
+          ${buildProjectCards(projects)}
         </div>
       </section>`;
 }
 
 function buildServicesSection(content, aesthetic, layout, componentName) {
-  const { items } = content.features;
+  const { heading, items } = content.features;
   const comp = componentName ? getComponent(componentName) : null;
 
-  if (comp && !comp.isFixed) {
-    return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
-        <div ${innerContainer(layout.maxWidth, aesthetic)}>
-          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '3rem' }}>Services</h2>
-          ${comp.jsx}
-        </div>
-      </section>`;
-  }
+  const serviceHeading = heading || 'Services';
 
   const rows = items.slice(0, 4).map((item, i) => `
             <div key="${i}" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', padding: '2rem 0', borderTop: '1px solid var(--color-border)', alignItems: 'start' }}>
@@ -479,12 +527,18 @@ function buildServicesSection(content, aesthetic, layout, componentName) {
               <p style={{ fontSize: '0.95rem', color: 'var(--color-text)', opacity: 0.65, lineHeight: 1.75, margin: 0 }}>${item.body}</p>
             </div>`).join('');
 
+  const compBlock = comp && !comp.isFixed
+    ? `\n          <div style={{ marginTop: '3rem' }}>\n            ${comp.jsx}\n          </div>`
+    : '';
+
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
-          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '1rem' }}>Services</h2>
-          <div>
-            ${rows}
-          </div>
+          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '1rem' }}>${serviceHeading}</h2>
+          <p style={{ color: 'var(--color-text)', opacity: 0.65, lineHeight: 1.75, maxWidth: '62ch', margin: '0 0 2rem' }}>
+            A focused set of services designed to ship work that holds up in the real world.
+          </p>
+          ${rows ? `<div>\n            ${rows}\n          </div>` : ''}
+          ${compBlock}
         </div>
       </section>`;
 }
@@ -544,6 +598,7 @@ function buildPricingSection(content, aesthetic, layout, componentName) {
 function buildContactSection(content, aesthetic, layout, componentName) {
   const { heading, email, phone, location } = content.contact;
   const faqs = content.faqs;
+  const socialLinks = (content.footer && content.footer.socialLinks) || {};
   const comp = componentName ? getComponent(componentName) : null;
   const compJsx = comp && !comp.isFixed
     ? `\n          <div style={{ marginTop: '3rem' }}>\n            ${withContentText(componentName, comp.jsx, heading)}\n          </div>`
@@ -554,6 +609,12 @@ function buildContactSection(content, aesthetic, layout, componentName) {
     phone    && `<a href="tel:${phone}" style={{ color: 'var(--color-text)', opacity: 0.75, textDecoration: 'none', fontSize: '1rem', display: 'block', marginBottom: '0.5rem' }}>${phone}</a>`,
     location && `<p style={{ color: 'var(--color-text)', opacity: 0.65, fontSize: '1rem', margin: '0.5rem 0' }}>${location}</p>`,
   ].filter(Boolean).join('\n            ');
+
+  const socialBlock = Object.keys(socialLinks).length > 0
+    ? `<div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.85rem', flexWrap: 'wrap' }}>
+                ${Object.entries(socialLinks).map(([k, v]) => `<a key="${k}" href="https://${k}.com/${v}" style={{ color: 'var(--color-text)', opacity: 0.55, textDecoration: 'none', fontSize: '0.9rem', textTransform: 'capitalize' }}>${k}</a>`).join('\n                ')}
+              </div>`
+    : '';
 
   const faqBlock = Array.isArray(faqs) && faqs.length > 0
     ? `<div style={{ marginTop: '4rem' }}>
@@ -571,6 +632,7 @@ function buildContactSection(content, aesthetic, layout, componentName) {
             <div>
               <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '2rem', lineHeight: 1.1 }}>${heading}</h2>
               ${contactItems || '<p style={{ color: \'var(--color-text)\', opacity: 0.65 }}>Get in touch with us.</p>'}
+              ${socialBlock}
             </div>
             <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <input placeholder="Your name" style={{ padding: '0.85rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-on-surface)', fontSize: '0.9rem' }} />
@@ -611,9 +673,12 @@ ${blocks.join('\n')}
       </section>`;
 }
 
-function buildFooterSection(content, aesthetic, layout) {
+function buildFooterSection(content, aesthetic, layout, useRouterLinks = false) {
   const { brand, links, copy, socialLinks } = content.footer;
-  const navLinks = links.map(l => `<a key="${l.label}" href="${l.href}" style={{ color: 'var(--color-text)', opacity: 0.55, textDecoration: 'none', fontSize: '0.85rem' }}>${l.label}</a>`).join('\n          ');
+  const navLinks = links.map(l => useRouterLinks
+    ? `<Link key="${l.label}" to="${l.href}" style={{ color: 'var(--color-text)', opacity: 0.55, textDecoration: 'none', fontSize: '0.85rem' }}>${l.label}</Link>`
+    : `<a key="${l.label}" href="${l.href}" style={{ color: 'var(--color-text)', opacity: 0.55, textDecoration: 'none', fontSize: '0.85rem' }}>${l.label}</a>`
+  ).join('\n          ');
   const socials = Object.entries(socialLinks || {}).map(([k, v]) => `<a key="${k}" href="https://${k}.com/${v}" style={{ color: 'var(--color-text)', opacity: 0.55, textDecoration: 'none', fontSize: '0.85rem', textTransform: 'capitalize' }}>${k}</a>`).join('\n          ');
 
   return `      <footer style={{ padding: '4rem 0 2rem', borderTop: '1px solid var(--color-border)', position: 'relative', zIndex: 1 }}>
@@ -675,7 +740,7 @@ function buildSinglePageSections({ content, styleDirection, selectedComponentNam
     if (showcase) sectionJsxList.push(showcase);
   }
 
-  const footer = buildFooterSection(content, aesthetic.toLowerCase(), layout);
+  const footer = buildFooterSection(content, aesthetic.toLowerCase(), layout, false);
   return [...sectionJsxList, footer];
 }
 
@@ -710,7 +775,7 @@ function buildPageFile(pageName, sectionTypes, content, styleDirection, selected
     }
   }
 
-  const footer = buildFooterSection(content, aesthetic.toLowerCase(), layout);
+  const footer = buildFooterSection(content, aesthetic.toLowerCase(), layout, true);
 
   const importLines = Array.from(importedComponents)
     .map(n => {
@@ -719,7 +784,7 @@ function buildPageFile(pageName, sectionTypes, content, styleDirection, selected
       return c.importLine.replace(/from '\.\/components\//g, "from '../components/");
     }).join('\n');
 
-  return `${importLines}\n\nexport default function ${pageName}Page() {\n  return (\n    <>\n${sectionBlocks.join('\n')}\n${footer}\n    </>\n  );\n}\n`;
+  return `import { Link } from 'react-router-dom';\n${importLines}\n\nexport default function ${pageName}Page() {\n  return (\n    <>\n${sectionBlocks.join('\n')}\n${footer}\n    </>\n  );\n}\n`;
 }
 
 /**
@@ -728,7 +793,7 @@ function buildPageFile(pageName, sectionTypes, content, styleDirection, selected
  */
 function assignComponentsToPages(pagesConfig, selectedNames) {
   const PAGE_TYPE_TO_SITE_TYPE = {
-    home: 'Landing', about: 'Portfolio', services: 'Agency', contact: 'Portfolio', custom: 'Landing',
+    home: 'Landing', about: 'Portfolio', services: 'Agency', pricing: 'SaaS', contact: 'Portfolio', custom: 'Landing',
   };
 
   const available = new Set(selectedNames);
@@ -775,11 +840,24 @@ async function writePageFiles({ pagesConfig, content, styleDirection, selectedCo
   const resolvedMap = new Map((resolvedPages || []).map(p => [p.id, p]));
 
   const PAGE_TYPE_TO_SITE_TYPE = {
-    home: 'Landing', about: 'Portfolio', services: 'Agency', contact: 'Portfolio', custom: 'Landing',
+    home: 'Landing', about: 'Portfolio', services: 'Agency', pricing: 'SaaS', contact: 'Portfolio', custom: 'Landing',
   };
 
   // Distribute components across pages so each only appears once
   const componentAssignment = assignComponentsToPages(pagesConfig, selectedComponentNames);
+
+  function routeForPage(page, idx) {
+    if (page && typeof page.path === 'string' && page.path.trim()) return page.path.trim();
+    const title = (page && (page.title || page.name || page.label)) || 'Page';
+    const slug = String(title).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    return idx === 0 ? '/' : `/${slug || 'page'}`;
+  }
+
+  // In multi-page mode, footer links should point to actual routes (not section anchors).
+  const routeLinks = (pagesConfig || []).map((p, i) => ({
+    label: p.title || p.name || p.label || (i === 0 ? 'Home' : `Page ${i + 1}`),
+    href: routeForPage(p, i),
+  }));
 
   const pageInfo = [];
   for (const [i, page] of pagesConfig.entries()) {
@@ -806,6 +884,10 @@ async function writePageFiles({ pagesConfig, content, styleDirection, selectedCo
       ? buildContent(pageResolved.resolvedBrief, pageResolved?.resolvedStyleDirection?.siteType || siteType)
       : content;
 
+    if (baseContentForPage && baseContentForPage.footer && pagesConfig.length > 1) {
+      baseContentForPage.footer = { ...baseContentForPage.footer, links: routeLinks };
+    }
+
     const mergedPageData = {
       ...page,
       content: pageResolved?.content || page.content,
@@ -823,7 +905,7 @@ async function writePageFiles({ pagesConfig, content, styleDirection, selectedCo
     const fileName = `${safeName}.tsx`;
     await fs.writeFile(path.join(pagesDir, fileName), fileContent, 'utf-8');
 
-    pageInfo.push({ pageName: safeName, fileName, path: page.path || `/${safeName.toLowerCase()}`, label: safeName });
+    pageInfo.push({ pageName: safeName, fileName, path: routeForPage(page, i), label: safeName });
   }
 
   return pageInfo;

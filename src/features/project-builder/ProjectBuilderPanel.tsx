@@ -1389,9 +1389,14 @@ function StyleTab({ style, onChange }: { style: StyleDirection; onChange: (s: St
 // ── Output Tab (scroll behavior + scrollbar) ──────────────────────────────────
 
 // ── Pages Tab ─────────────────────────────────────────────────────────────────
-const PAGE_TYPES: PageType[] = ['home', 'about', 'services', 'contact', 'custom'];
+const PAGE_TYPES: PageType[] = ['home', 'about', 'services', 'pricing', 'contact', 'custom'];
 const DEFAULT_PAGE_TITLES: Record<PageType, string> = {
-  home: 'Home', about: 'About', services: 'Services', contact: 'Contact', custom: 'Page',
+  home: 'Home',
+  about: 'About',
+  services: 'Services',
+  pricing: 'Pricing',
+  contact: 'Contact',
+  custom: 'Page',
 };
 
 function PagesTab({

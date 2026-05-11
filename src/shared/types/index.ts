@@ -64,7 +64,7 @@ export interface ParsedInstallData {
 
 // ── Multi-Page Generation ──────────────────────────────────────────────────────
 
-export type PageType = 'home' | 'about' | 'services' | 'contact' | 'custom';
+export type PageType = 'home' | 'about' | 'services' | 'pricing' | 'contact' | 'custom';
 
 export type PageTone = 'inherit' | 'formal' | 'casual' | 'technical' | 'friendly' | 'bold' | 'playful';
 export type PageDensity = 'inherit' | 'compact' | 'comfortable' | 'spacious';
@@ -77,6 +77,9 @@ export interface PageContentBlock {
   callToAction?: string;
   valueProps?: string[];
   services?: Array<{ name: string; description: string }>;
+  projects?: Array<{ title: string; summary?: string; tag?: string }>;
+  founder?: { name: string; role: string; bio?: string };
+  leadership?: Array<{ name: string; role: string; bio?: string }>;
   teamMembers?: Array<{ name: string; role: string }>;
   faqs?: Array<{ q: string; a: string }>;
 }

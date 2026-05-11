@@ -1,4 +1,4 @@
-import { forwardRef, useMemo, useRef, useEffect, MutableRefObject, RefObject, HTMLAttributes} from "react";
+import { forwardRef, useMemo, useRef, useEffect, RefObject, HTMLAttributes } from "react";
 import { motion } from "motion/react";
 import "./VariableProximity.css";
 
@@ -16,7 +16,7 @@ function useAnimationFrame(callback: Callback) {
     }, [callback]);
 }
 
-function useMousePositionRef(containerRef: RefObject<HTMLElement>) {
+function useMousePositionRef(containerRef?: RefObject<HTMLElement>) {
     const positionRef = useRef({ x: 0, y: 0 });
 
     useEffect(() => {
@@ -50,7 +50,7 @@ interface VariableProximityProps extends HTMLAttributes<HTMLSpanElement>{
     label: string;
     fromFontVariationSettings: string;
     toFontVariationSettings: string;
-    containerRef: RefObject<HTMLElement>;
+    containerRef?: RefObject<HTMLElement>;
     radius?: number;
     falloff?: "linear" | "exponential" | "gaussian";
     className?: string;
@@ -72,9 +72,14 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
         ...restProps
     } = props;
 
+    // If no containerRef is provided, use this component's own container.
+    // This makes the component safe to embed without custom setup (common in generators).
+    const localContainerRef = useRef<HTMLSpanElement>(null);
+    const effectiveContainerRef = containerRef ?? (localContainerRef as unknown as RefObject<HTMLElement>);
+
     const letterRefs = useRef<(HTMLSpanElement | null)[]>([]);
     const interpolatedSettingsRef = useRef<string[]>([]);
-    const mousePositionRef = useMousePositionRef(containerRef);
+    const mousePositionRef = useMousePositionRef(effectiveContainerRef);
     const lastPositionRef = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
 
     const parsedSettings = useMemo(() => {
@@ -112,7 +117,7 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
     };
 
     useAnimationFrame(() => {
-        if (!containerRef?.current) return;
+        if (!effectiveContainerRef?.current) return;
         const { x, y } = mousePositionRef.current;
         if (lastPositionRef.current.x === x && lastPositionRef.current.y === y) {
           return;
@@ -157,7 +162,11 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
 
     return (
         <span
-            ref={ref}
+            ref={(el) => {
+              localContainerRef.current = el;
+              if (typeof ref === "function") ref(el);
+              else if (ref && typeof ref === "object") (ref as any).current = el;
+            }}
             className={`${className} variable-proximity`}
             onClick={onClick}
             style={{ display: "inline", ...style }}
