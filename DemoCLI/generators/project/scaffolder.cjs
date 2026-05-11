@@ -238,6 +238,14 @@ export default defineConfig({
     log(`[Scaffolder] Warning: Could not copy joker assets: ${err.message}\n`);
   }
 
+  // Canonical React mark for nav + StickerPeel (overwrites joker copy if both exist)
+  try {
+    const reactIconSrc = path.join(__dirname, '..', '..', '..', 'images', 'ReactIcons', 'ReactIcon.svg');
+    await fs.copyFile(reactIconSrc, path.join(publicDir, 'ReactIcon.svg'));
+  } catch (err) {
+    log(`[Scaffolder] Warning: Could not copy images/ReactIcons/ReactIcon.svg: ${err.message}\n`);
+  }
+
   // ── 9. Create dev.bat ────────────────────────────────────────────────────────
   await fs.writeFile(
     path.join(targetDir, 'dev.bat'),

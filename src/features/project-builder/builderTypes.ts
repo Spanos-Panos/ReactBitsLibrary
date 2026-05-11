@@ -9,7 +9,7 @@ export interface ComponentItem {
 }
 
 export type FontRole = 'heading' | 'body' | 'accent' | '';
-export type ColorRole = 'background' | 'text' | 'components' | 'accent' | '';
+export type ColorRole = 'background' | 'text' | 'components' | 'accent' | 'surface' | '';
 
 export interface FontEntry { value: string; role: FontRole }
 export interface ColorEntry { value: string; role: ColorRole }

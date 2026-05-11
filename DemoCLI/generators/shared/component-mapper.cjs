@@ -54,6 +54,20 @@ const COMPONENT_JSX_OVERRIDES = {
   verticalPosition="center"
 />`,
 
+  StickerPeel: `<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
+  <StickerPeel
+    imageSrc="/ReactIcon.svg"
+    width={200}
+    rotate={12}
+    peelBackHoverPct={30}
+    peelBackActivePct={40}
+    shadowIntensity={0.15}
+    lightingIntensity={0.35}
+    initialPosition="center"
+    peelDirection={0}
+  />
+</div>`,
+
   StaggeredMenu: `<div style={{ position: 'fixed', top: 0, right: 0, zIndex: 999, pointerEvents: 'auto' }}>
   <StaggeredMenu
     position="right"
@@ -117,8 +131,8 @@ const COMPONENT_JSX_OVERRIDES = {
     activeHref="/"
     baseColor="var(--color-text)"
     pillColor="var(--color-surface)"
-    pillTextColor="var(--color-text)"
-    hoveredPillTextColor="var(--color-bg)"
+    pillTextColor="var(--color-text-on-surface)"
+    hoveredPillTextColor="var(--color-accent)"
   />
 </nav>`,
 
@@ -175,9 +189,9 @@ const COMPONENT_JSX_OVERRIDES = {
   SpotlightCard: `<div style={{ maxWidth: '860px', margin: '0 auto', padding: '1rem' }}>
   <style>{\`.generated-spotlight-card.card-spotlight{position:relative!important;top:auto!important;left:auto!important;transform:none!important;width:100%!important;height:auto!important;min-height:220px!important;}\`}</style>
   <SpotlightCard className="generated-spotlight-card" spotlightColor="rgba(101, 202, 228, 0.38)">
-    <div style={{ color: '#f8fafc', textAlign: 'left' }}>
-      <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.35rem', color: '#f8fafc' }}>Focused Value</h3>
-      <p style={{ margin: 0, opacity: 0.78, lineHeight: 1.7, color: '#e2e8f0' }}>Use this spotlight area for one key message, offer, or product highlight.</p>
+    <div style={{ color: 'var(--color-text)', textAlign: 'left' }}>
+      <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.35rem', color: 'var(--color-text)' }}>Focused Value</h3>
+      <p style={{ margin: 0, opacity: 0.78, lineHeight: 1.7, color: 'var(--color-text)' }}>Use this spotlight area for one key message, offer, or product highlight.</p>
     </div>
   </SpotlightCard>
 </div>`,
@@ -406,16 +420,16 @@ const COMPONENT_JSX_OVERRIDES = {
   nextButtonText="Next"
 >
   <Step>
-    <h2 style={{ color: '#f8fafc', margin: '0 0 0.5rem' }}>Getting Started</h2>
-    <p style={{ color: '#cbd5e1', opacity: 0.9, margin: 0 }}>Welcome. Follow the steps below to continue.</p>
+    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Getting Started</h2>
+    <p style={{ color: 'var(--color-text)', opacity: 0.75, margin: 0 }}>Welcome. Follow the steps below to continue.</p>
   </Step>
   <Step>
-    <h2 style={{ color: '#f8fafc', margin: '0 0 0.5rem' }}>Configure</h2>
-    <p style={{ color: '#cbd5e1', opacity: 0.9, margin: 0 }}>Adjust your preferences and settings here.</p>
+    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Configure</h2>
+    <p style={{ color: 'var(--color-text)', opacity: 0.75, margin: 0 }}>Adjust your preferences and settings here.</p>
   </Step>
   <Step>
-    <h2 style={{ color: '#f8fafc', margin: '0 0 0.5rem' }}>Complete</h2>
-    <p style={{ color: '#cbd5e1', opacity: 0.9, margin: 0 }}>You are all set. Everything is ready to go.</p>
+    <h2 style={{ color: 'var(--color-text)', margin: '0 0 0.5rem' }}>Complete</h2>
+    <p style={{ color: 'var(--color-text)', opacity: 0.75, margin: 0 }}>You are all set. Everything is ready to go.</p>
   </Step>
 </Stepper>`,
   },

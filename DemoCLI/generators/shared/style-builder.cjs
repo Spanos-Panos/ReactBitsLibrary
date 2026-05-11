@@ -88,7 +88,6 @@ button, .btn {
 /* ── Brutalist aesthetic ────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
-  border-radius: 0 !important;
 }
 body {
   font-weight: 400;
@@ -285,6 +284,7 @@ function buildTokensCSS(designRules, styleDirection) {
   let   text    = resolveColor(colors, 'text')       || defaults.text;
   const accent  = resolveColor(colors, 'accent')     || defaults.accent;
   const primary = resolveColor(colors, 'components') || defaults.primary;
+  const surfaceResolved = resolveColor(colors, 'surface') || defaults.surface;
 
   // Ensure text is readable against the background (WCAG AA body-text target ~4.5:1)
   try {
@@ -292,6 +292,16 @@ function buildTokensCSS(designRules, styleDirection) {
       text = getContrastColor(bg);
     }
   } catch { /* non-hex colors (rgba, var()) — skip check */ }
+
+  // Body copy on tinted cards (--color-surface) must not collapse into the surface tint
+  let textOnSurface = text;
+  try {
+    if (getContrastRatio(surfaceResolved, text) < 4.5) {
+      textOnSurface = getContrastColor(surfaceResolved);
+    }
+  } catch {
+    textOnSurface = text;
+  }
 
   const headingFont = resolveFont(fonts, 'heading');
   const bodyFont    = resolveFont(fonts, 'body');
@@ -312,7 +322,8 @@ function buildTokensCSS(designRules, styleDirection) {
   --color-secondary: ${defaults.secondary};
   --color-accent: ${accent};
   --color-border: ${defaults.border};
-  --color-surface: ${defaults.surface};
+  --color-surface: ${surfaceResolved};
+  --color-text-on-surface: ${textOnSurface};
   --max-width: 1280px;
 ${fontLines}
 }

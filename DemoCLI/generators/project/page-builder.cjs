@@ -76,8 +76,23 @@ const LAYOUT = {
   futuristic: { heroAlign: 'center', maxWidth: '1280px', sectionPad: '5.5rem 0', headingSize: 'clamp(2.2rem,6.5vw,5.5rem)', bodyWeight: '700', borderRadius: '0',    btnShadow: '0 0 14px var(--color-accent)' },
 };
 
-function getLayout(aesthetic) {
-  return LAYOUT[(aesthetic || 'minimal').toLowerCase()] || LAYOUT.minimal;
+/** When the builder Sizes tab sets a corner chip, override aesthetic layout radius for generated sections. */
+const CHIP_BORDER_RADIUS = {
+  none: '0',
+  small: '6px',
+  medium: '10px',
+  large: '16px',
+  pill: '9999px',
+};
+
+function getLayout(aesthetic, designRules) {
+  const key = (aesthetic || 'minimal').toLowerCase();
+  const base = LAYOUT[key] || LAYOUT.minimal;
+  const chip = designRules && designRules.sizes && designRules.sizes.borderRadius;
+  if (chip && Object.prototype.hasOwnProperty.call(CHIP_BORDER_RADIUS, chip)) {
+    return { ...base, borderRadius: CHIP_BORDER_RADIUS[chip] };
+  }
+  return { ...base };
 }
 
 // ── Component slot matching ───────────────────────────────────────────────────
@@ -302,8 +317,8 @@ function buildFeaturesSection(content, aesthetic, layout, componentName) {
   const cards = displayItems.map((item, i) => `
             <div key="${i}" style={{ flex: '1 1 240px', padding: '2rem', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
               <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-accent)', fontFamily: 'monospace', letterSpacing: '0.05em' }}>${icons[i] || icons[0]}</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: '0.75rem' }}>${item.title}</h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--color-text)', opacity: 0.65, lineHeight: 1.65, margin: 0 }}>${item.body}</p>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-on-surface)', marginBottom: '0.75rem' }}>${item.title}</h3>
+              <p style={{ fontSize: '0.9rem', color: 'var(--color-text-on-surface)', opacity: 0.65, lineHeight: 1.65, margin: 0 }}>${item.body}</p>
             </div>`).join('');
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1 }}>
@@ -334,14 +349,14 @@ function buildBenefitsSection(content, aesthetic, layout, componentName) {
     : 'Why Choose Us';
 
   const items = benefits.map((b, i) => `
-            <li key="${i}" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
+            <li key="${i}" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-on-surface)' }}>
               <span style={{ color: 'var(--color-accent)', fontWeight: 700, flexShrink: 0 }}>✓</span>
               <span style={{ fontSize: '1rem', opacity: 0.85 }}>${b}</span>
             </li>`).join('');
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1, background: 'var(--color-surface)' }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
-          <h2 style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '2.5rem' }}>${benefitsHeading}</h2>
+          <h2 style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 700, color: 'var(--color-text-on-surface)', marginBottom: '2.5rem' }}>${benefitsHeading}</h2>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             ${items}
           </ul>${compJsx}
@@ -358,8 +373,8 @@ function buildCtaSection(content, aesthetic, layout, componentName) {
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1, textAlign: 'center', background: 'var(--color-surface)' }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
-          <h2 style={{ fontSize: 'clamp(2rem, 6vw, 4rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '1rem' }}>${heading}</h2>
-          <p style={{ fontSize: '1.1rem', color: 'var(--color-text)', opacity: 0.65, maxWidth: '480px', margin: '0 auto 2.5rem', lineHeight: 1.65 }}>${subtext}</p>
+          <h2 style={{ fontSize: 'clamp(2rem, 6vw, 4rem)', fontWeight: 700, color: 'var(--color-text-on-surface)', marginBottom: '1rem' }}>${heading}</h2>
+          <p style={{ fontSize: '1.1rem', color: 'var(--color-text-on-surface)', opacity: 0.65, maxWidth: '480px', margin: '0 auto 2.5rem', lineHeight: 1.65 }}>${subtext}</p>
           <button style={{ padding: '1em 3em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', borderRadius: '${layout.borderRadius}', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', letterSpacing: '0.05em'${layout.btnShadow !== 'none' ? `, boxShadow: '${layout.btnShadow}'` : ''} }}>${button}</button>${compJsx}
         </div>
       </section>`;
@@ -504,10 +519,10 @@ function buildPricingSection(content, aesthetic, layout, componentName) {
   const cards = tiers.map((t, i) => `
             <div key="${i}" style={{ flex: '1 1 220px', padding: '2.5rem 2rem', border: t.highlight ? '1px solid var(--color-accent)' : '1px solid var(--color-border)', background: t.highlight ? 'var(--color-surface)' : 'transparent', position: 'relative' }}>
               ${t.highlight ? '<div style={{ position: \'absolute\', top: \'-1px\', left: \'50%\', transform: \'translateX(-50%)\', background: \'var(--color-accent)\', color: \'var(--color-bg)\', padding: \'0.25em 1em\', fontSize: \'0.7rem\', fontWeight: 700, letterSpacing: \'0.1em\' }}>POPULAR</div>' : ''}
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>${t.name}</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '${t.highlight ? 'var(--color-text-on-surface)' : 'var(--color-text)'}', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>${t.name}</h3>
               <div style={{ fontSize: '2.5rem', fontWeight: 700, color: t.highlight ? 'var(--color-accent)' : 'var(--color-text)', marginBottom: '1.5rem' }}>${t.price}<span style={{ fontSize: '0.9rem', fontWeight: 400, opacity: 0.6 }}>${t.period}</span></div>
               <ul style={{ listStyle: 'none', margin: '0 0 2rem', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                ${t.features.map(f => `<li style={{ fontSize: '0.9rem', color: 'var(--color-text)', opacity: 0.75 }}>✓ ${f}</li>`).join('')}
+                ${t.features.map(f => `<li style={{ fontSize: '0.9rem', color: '${t.highlight ? 'var(--color-text-on-surface)' : 'var(--color-text)'}', opacity: 0.75 }}>✓ ${f}</li>`).join('')}
               </ul>
               <button style={{ width: '100%', padding: '0.8em', background: t.highlight ? 'var(--color-accent)' : 'transparent', color: t.highlight ? 'var(--color-bg)' : 'var(--color-text)', border: t.highlight ? 'none' : '1px solid var(--color-text)', cursor: 'pointer', fontWeight: 600 }}>Get Started</button>
             </div>`).join('');
@@ -558,9 +573,9 @@ function buildContactSection(content, aesthetic, layout, componentName) {
               ${contactItems || '<p style={{ color: \'var(--color-text)\', opacity: 0.65 }}>Get in touch with us.</p>'}
             </div>
             <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input placeholder="Your name" style={{ padding: '0.85rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', fontSize: '0.9rem' }} />
-              <input type="email" placeholder="Email address" style={{ padding: '0.85rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', fontSize: '0.9rem' }} />
-              <textarea placeholder="Your message" rows={4} style={{ padding: '0.85rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', fontSize: '0.9rem', resize: 'vertical' }} />
+              <input placeholder="Your name" style={{ padding: '0.85rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-on-surface)', fontSize: '0.9rem' }} />
+              <input type="email" placeholder="Email address" style={{ padding: '0.85rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-on-surface)', fontSize: '0.9rem' }} />
+              <textarea placeholder="Your message" rows={4} style={{ padding: '0.85rem 1rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-on-surface)', fontSize: '0.9rem', resize: 'vertical' }} />
               <button type="submit" style={{ padding: '0.85em 2em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', cursor: 'pointer', fontWeight: 700, alignSelf: 'flex-start' }}>Send Message</button>
             </form>
           </div>${faqBlock}${compJsx}
@@ -635,11 +650,11 @@ const SECTION_BUILDERS = {
  * buildSinglePageSections(options)
  * Returns an array of JSX section strings for a single-page site.
  */
-function buildSinglePageSections({ content, styleDirection, selectedComponentNames, siteType, hasNav = false }) {
+function buildSinglePageSections({ content, styleDirection, selectedComponentNames, siteType, hasNav = false, designRules = {} }) {
   content = sanitizeContent(content);
   content._siteType = siteType || 'Landing';
   const aesthetic = (styleDirection && styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'Minimal';
-  const layout = getLayout(aesthetic);
+  const layout = getLayout(aesthetic, designRules);
   const sections = SITE_SECTIONS[siteType] || SITE_SECTIONS.Landing;
   const selectedNames = (selectedComponentNames || []);
   const usedComponents = new Set();
@@ -669,11 +684,11 @@ function buildSinglePageSections({ content, styleDirection, selectedComponentNam
  * Returns a complete TSX file string for a named page.
  * Used for multi-page sites.
  */
-function buildPageFile(pageName, sectionTypes, content, styleDirection, selectedComponentNames, siteType) {
+function buildPageFile(pageName, sectionTypes, content, styleDirection, selectedComponentNames, siteType, designRules = {}) {
   content = sanitizeContent(content);
   content._siteType = siteType || 'Landing';
   const aesthetic = (styleDirection && styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'Minimal';
-  const layout = getLayout(aesthetic);
+  const layout = getLayout(aesthetic, designRules);
   const selectedNames = selectedComponentNames || [];
 
   const importedComponents = new Set();
@@ -754,7 +769,7 @@ function assignComponentsToPages(pagesConfig, selectedNames) {
  * Components are distributed across pages rather than duplicated.
  * Returns array of { pageName, fileName, path, label } for router generation.
  */
-async function writePageFiles({ pagesConfig, content, styleDirection, selectedComponentNames, targetDir, resolvedPages = [] }) {
+async function writePageFiles({ pagesConfig, content, styleDirection, selectedComponentNames, targetDir, resolvedPages = [], designRules = {} }) {
   const pagesDir = path.join(targetDir, 'src', 'pages');
   await fs.mkdir(pagesDir, { recursive: true });
   const resolvedMap = new Map((resolvedPages || []).map(p => [p.id, p]));
@@ -803,6 +818,7 @@ async function writePageFiles({ pagesConfig, content, styleDirection, selectedCo
       pageResolved?.resolvedStyleDirection || styleDirection,
       pageComponents,
       siteType,
+      designRules,
     );
     const fileName = `${safeName}.tsx`;
     await fs.writeFile(path.join(pagesDir, fileName), fileContent, 'utf-8');

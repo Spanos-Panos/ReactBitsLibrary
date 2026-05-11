@@ -125,6 +125,7 @@
     display: inline-block;
     line-height: 1;
     will-change: transform;
+    color: var(--pill-text, var(--base, #000));
   }
   
   .pill .pill-label-hover {

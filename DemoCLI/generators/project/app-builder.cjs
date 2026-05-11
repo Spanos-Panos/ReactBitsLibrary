@@ -10,14 +10,13 @@
 const path = require('path');
 const fs   = require('fs/promises');
 const { getComponent, isNavComponent } = require('../shared/component-mapper.cjs');
+const { resolveLogoUriSync } = require('../shared/nav-build-helpers.cjs');
 const { buildSinglePageSections, writePageFiles } = require('./page-builder.cjs');
 const { buildContent } = require('./content-builder.cjs');
 
 const CURSOR_NAMES = new Set([
   'BlobCursor', 'Crosshair', 'ImageTrail', 'PixelTrail', 'SplashCursor', 'TargetCursor',
 ]);
-const DEFAULT_LOGO_DATA_URI = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 48%22%3E%3Crect width=%22160%22 height=%2248%22 rx=%2210%22 fill=%22%2311151a%22/%3E%3Ctext x=%2280%22 y=%2230%22 text-anchor=%22middle%22 fill=%22%23f8fafc%22 font-family=%22Inter,Arial,sans-serif%22 font-size=%2216%22 font-weight=%22700%22%3EBITFORGE%3C/text%3E%3C/svg%3E';
-
 /**
  * Splits selectedComponents into fixed (backgrounds + cursors), navs, and in-flow.
  * Nav components are rendered as fixed overlays in App.tsx, never passed to page-builder.
@@ -44,7 +43,7 @@ function classifyComponents(selectedComponents) {
 /**
  * Generates src/App.tsx for a single-page site.
  */
-async function buildSinglePageApp({ targetDir, selectedComponents, content, styleDirection }) {
+async function buildSinglePageApp({ targetDir, selectedComponents, content, styleDirection, designRules = {} }) {
   const { fixed, navs, inFlow } = classifyComponents(selectedComponents);
 
   // Single-page mode: drop nav components entirely. Their static JSX contains
@@ -63,6 +62,7 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
     selectedComponentNames: inFlowNames,
     siteType,
     hasNav,
+    designRules,
   });
 
   const renderedComponents = selectedComponents.filter(c => !navs.includes(c));
@@ -114,7 +114,14 @@ ${sections.join('\n')}
  * Builds nav JSX with items derived from the actual pages, not hardcoded placeholders.
  * Falls back to the static component-mapper JSX for unknown nav types.
  */
-function buildNavJsxForPages(navName, pages) {
+function buildNavJsxForPages(navName, pages, navContext) {
+  const ctx = navContext || {};
+  const designRules = ctx.designRules || {};
+  const clientBrief = ctx.clientBrief || {};
+  const targetDir = ctx.targetDir || '';
+  const logoUri = resolveLogoUriSync(designRules, clientBrief, targetDir, navName);
+  const logoProp = `logo={${JSON.stringify(logoUri)}}`;
+
   const items = pages.map((p, i) => ({
     label: p.pageName,
     href:  i === 0 ? '/' : p.path,
@@ -159,8 +166,12 @@ function buildNavJsxForPages(navName, pages) {
         .join(',\n');
       return `<div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 999, pointerEvents: 'auto' }}>
   <CardNav
-    logo="${DEFAULT_LOGO_DATA_URI}"
+    ${logoProp}
     logoAlt="Site logo"
+    baseColor="var(--color-text)"
+    menuColor="var(--color-bg)"
+    buttonBgColor="var(--color-accent)"
+    buttonTextColor="var(--color-bg)"
     items={[\n${itemsStr}\n    ]}
   />
 </div>`;
@@ -185,8 +196,12 @@ function buildNavJsxForPages(navName, pages) {
         .join(',\n');
       return `<nav style={{ position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 999, pointerEvents: 'auto' }}>
   <PillNav
-    logo="${DEFAULT_LOGO_DATA_URI}"
+    ${logoProp}
     logoAlt="Site logo"
+    baseColor="var(--color-text)"
+    pillColor="var(--color-surface)"
+    pillTextColor="var(--color-text-on-surface)"
+    hoveredPillTextColor="var(--color-accent)"
     items={[\n${itemsStr}\n    ]}
   />
 </nav>`;
@@ -213,7 +228,7 @@ function buildNavJsxForPages(navName, pages) {
 /**
  * Generates src/App.tsx for a multi-page site using react-router-dom.
  */
-async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief = {} }) {
+async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief = {}, designRules = {} }) {
   const { fixed, navs } = classifyComponents(selectedComponents);
 
   const hasNav = navs.length > 0;
@@ -245,8 +260,9 @@ async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clie
   }).join('\n');
 
   // Nav layer JSX — fixed overlays with links matching the actual pages
+  const navContext = { designRules, clientBrief, targetDir };
   const navLayers = navs.map(c => {
-    const jsx = buildNavJsxForPages(c.name, uniquePages);
+    const jsx = buildNavJsxForPages(c.name, uniquePages, navContext);
     return `        ${jsx}`;
   }).join('\n');
 
@@ -506,11 +522,12 @@ async function buildApp({ targetDir, selectedComponents, styleDirection, designR
       selectedComponentNames: inFlowNames,
       targetDir,
       resolvedPages,
+      designRules,
     });
 
-    await buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief });
+    await buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief, designRules });
   } else {
-    await buildSinglePageApp({ targetDir, selectedComponents, content, styleDirection });
+    await buildSinglePageApp({ targetDir, selectedComponents, content, styleDirection, designRules });
   }
 
   // Write Brief.md with the full project brief for reference

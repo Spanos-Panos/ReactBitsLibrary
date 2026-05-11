@@ -116,13 +116,13 @@ function buildMainLayout(navbarComponent, pages, navbarSrc, fixedComponents) {
         return `{ label: '${r.label}', bgColor: '${bg}', textColor: '#fff', links: [{ label: '${r.label}', href: '${r.href}', ariaLabel: 'Go to ${r.label}' }] }`;
       })
       .join(', ');
-    propsStr = ` logo="${DEFAULT_LOGO_DATA_URI}" logoAlt="Site logo" items={[${cardItemsLiteral}]}`;
+    propsStr = ` logo="${DEFAULT_LOGO_DATA_URI}" logoAlt="Site logo" baseColor="var(--color-text)" menuColor="var(--color-bg)" buttonBgColor="var(--color-accent)" buttonTextColor="var(--color-bg)" items={[${cardItemsLiteral}]}`;
   }
   if (navName === 'PillNav') {
     const pillItemsLiteral = routes
       .map(r => `{ label: '${r.label}', href: '${r.href}', ariaLabel: 'Go to ${r.label}' }`)
       .join(', ');
-    propsStr = ` logo="${DEFAULT_LOGO_DATA_URI}" logoAlt="Site logo" items={[${pillItemsLiteral}]}`;
+    propsStr = ` logo="${DEFAULT_LOGO_DATA_URI}" logoAlt="Site logo" baseColor="var(--color-text)" pillColor="var(--color-surface)" pillTextColor="var(--color-text-on-surface)" hoveredPillTextColor="var(--color-accent)" items={[${pillItemsLiteral}]}`;
   }
   if (navName === 'FlowingMenu') {
     const itemsLiteral = routes
