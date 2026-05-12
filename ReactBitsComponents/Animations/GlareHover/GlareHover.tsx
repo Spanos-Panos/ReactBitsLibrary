@@ -36,9 +36,16 @@ function buildRgbaFromHex(glareColor: string, glareOpacity: number): string | nu
 }
 
 function rgbCssToRgba(cssColor: string, opacity: number): string | null {
-  const m = cssColor.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
-  if (!m) return null;
-  return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${opacity})`;
+  const trimmed = (cssColor || "").trim();
+  const legacy = trimmed.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+  if (legacy) {
+    return `rgba(${legacy[1]}, ${legacy[2]}, ${legacy[3]}, ${opacity})`;
+  }
+  const space = trimmed.match(/^rgba?\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*[\d.]+\s*)?\)/i);
+  if (space) {
+    return `rgba(${space[1]}, ${space[2]}, ${space[3]}, ${opacity})`;
+  }
+  return null;
 }
 
 const GlareHover: React.FC<GlareHoverProps> = ({
@@ -69,7 +76,7 @@ const GlareHover: React.FC<GlareHoverProps> = ({
 
     const measureOn = (host: HTMLElement) => {
       const el = document.createElement("span");
-      el.setAttribute("style", "position:absolute;left:-9999px;pointer-events:none");
+      el.setAttribute("style", "position:absolute;left:-9999px;pointer-events:none;visibility:hidden");
       el.style.color = glareColor;
       host.appendChild(el);
       const c = getComputedStyle(el).color;
@@ -83,7 +90,15 @@ const GlareHover: React.FC<GlareHoverProps> = ({
     setFromVar(resolved);
   }, [fromHex, glareColor, glareOpacity]);
 
-  const rgba = fromHex ?? fromVar ?? glareColor;
+  // On very light themes, a bare accent or white reads as "nothing moves". Bias var()-based
+  // colors slightly toward a dark neutral so the gradient peak stays visible on white cards.
+  const rawRgba = fromHex ?? fromVar ?? glareColor;
+  const rgba =
+    fromHex !== null || fromVar !== null
+      ? rawRgba
+      : /\bvar\s*\(/i.test(String(glareColor).trim())
+        ? `color-mix(in srgb, ${glareColor} 65%, #0f172a 35%)`
+        : rawRgba;
 
   const vars: React.CSSProperties & { [k: string]: string } = {
     "--gh-width": width,
@@ -102,7 +117,7 @@ const GlareHover: React.FC<GlareHoverProps> = ({
       className={`glare-hover ${playOnce ? 'glare-hover--play-once' : ''} ${className}`}
       style={{ ...vars, ...style } as React.CSSProperties}
     >
-      {children}
+      <div className="glare-hover__inner">{children}</div>
     </div>
   );
 };

@@ -1,43 +1,68 @@
 .glare-hover {
-    width: var(--gh-width);
-    height: var(--gh-height);
-    background: var(--gh-bg);
-    border-radius: var(--gh-br);
-    border: 1px solid var(--gh-border);
-    overflow: hidden;
-    position: relative;
-    display: grid;
-    place-items: center;
-  }
-  
+  width: var(--gh-width);
+  height: var(--gh-height);
+  background: var(--gh-bg);
+  border-radius: var(--gh-br);
+  border: 1px solid var(--gh-border);
+  overflow: hidden;
+  position: relative;
+  display: grid;
+  place-items: stretch;
+  isolation: isolate;
+}
+
+.glare-hover__inner {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* Sheen: single background layer. Avoid rotate()+overflow:hidden (clips the effect). */
+.glare-hover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    var(--gh-angle),
+    hsla(0, 0%, 0%, 0) 0%,
+    hsla(220, 18%, 18%, 0.22) 36%,
+    var(--gh-rgba) 50%,
+    hsla(0, 0%, 100%, 0.48) 64%,
+    hsla(0, 0%, 0%, 0) 100%
+  );
+  background-size: var(--gh-size) var(--gh-size);
+  background-repeat: no-repeat;
+  background-position: -45% -45%;
+  transition: background-position var(--gh-duration) ease;
+}
+
+.glare-hover:hover {
+  cursor: pointer;
+}
+
+.glare-hover:hover::before {
+  background-position: 145% 145%;
+}
+
+@media (prefers-reduced-motion: reduce) {
   .glare-hover::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(var(--gh-angle),
-        hsla(0, 0%, 0%, 0) 60%,
-        var(--gh-rgba) 70%,
-        hsla(0, 0%, 0%, 0),
-        hsla(0, 0%, 0%, 0) 100%);
-    transition: var(--gh-duration) ease;
-    background-size: var(--gh-size) var(--gh-size), 100% 100%;
-    background-repeat: no-repeat;
-    background-position: -100% -100%, 0 0;
-  }
-  
-  .glare-hover:hover {
-    cursor: pointer;
-  }
-  
-  .glare-hover:hover::before {
-    background-position: 100% 100%, 0 0;
-  }
-  
-  .glare-hover--play-once::before {
     transition: none;
   }
-  
-  .glare-hover--play-once:hover::before {
-    transition: var(--gh-duration) ease;
-    background-position: 100% 100%, 0 0;
-  }
+}
+
+.glare-hover--play-once::before {
+  transition: none;
+}
+
+.glare-hover--play-once:hover::before {
+  transition: background-position var(--gh-duration) ease;
+  background-position: 145% 145%;
+}

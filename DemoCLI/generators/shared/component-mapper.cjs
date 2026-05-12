@@ -71,18 +71,19 @@ const COMPONENT_JSX_OVERRIDES = {
   GlareHover: `<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem 1rem' }}>
   <GlareHover
     width="min(100%, 520px)"
-    height="220px"
-    background="var(--color-surface)"
+    height="240px"
+    background="color-mix(in srgb, var(--color-surface) 86%, var(--color-text) 14%)"
     borderRadius="12px"
     borderColor="var(--color-border)"
-    glareColor="#ffffff"
-    glareOpacity={0.35}
-    glareAngle={-35}
-    glareSize={280}
-    transitionDuration={750}
+    glareColor="var(--color-accent)"
+    glareOpacity={0.55}
+    glareAngle={-38}
+    glareSize={185}
+    transitionDuration={720}
     playOnce={false}
+    style={{ position: 'relative', zIndex: 1, boxShadow: '0 12px 40px rgba(0,0,0,0.12)' }}
   >
-    <h2 style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', fontWeight: 700, color: 'var(--color-text-on-surface)', margin: 0, textAlign: 'center', padding: '0 1rem' }}>
+    <h2 style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', fontWeight: 700, color: 'var(--color-text-on-surface)', margin: 0, textAlign: 'center', padding: '0 1.25rem' }}>
       Hover this surface
     </h2>
   </GlareHover>
