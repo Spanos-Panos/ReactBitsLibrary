@@ -64,7 +64,7 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
         fromFontVariationSettings,
         toFontVariationSettings,
         containerRef,
-        radius = 50,
+        radius = 90,
         falloff = "linear",
         className = "",
         onClick,
@@ -123,7 +123,9 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
           return;
         }
         lastPositionRef.current = { x, y };
-        const containerRect = containerRef.current.getBoundingClientRect();
+        const containerEl = effectiveContainerRef.current;
+        if (!containerEl) return;
+        const containerRect = containerEl.getBoundingClientRect();
 
         letterRefs.current.forEach((letterRef, index) => {
             if (!letterRef) return;
@@ -169,7 +171,7 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>((p
             }}
             className={`${className} variable-proximity`}
             onClick={onClick}
-            style={{ display: "inline", ...style }}
+            style={{ display: "inline-block", maxWidth: "100%", ...style }}
             {...restProps}
         >
             {words.map((word, wordIndex) => (

@@ -1,5 +1,6 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
+import { Link, useInRouterContext } from 'react-router-dom';
 import './StaggeredMenu.css';
 
 export interface StaggeredMenuItem {
@@ -11,6 +12,25 @@ export interface StaggeredMenuItem {
 export interface StaggeredMenuSocialItem {
   label: string;
   link: string;
+}
+
+function StaggeredPanelLink({ it, idx }: { it: StaggeredMenuItem; idx: number }) {
+  const inRouter = useInRouterContext();
+  const internal = it.link.startsWith('/') && !it.link.startsWith('//');
+  const cls = 'sm-panel-item';
+  const label = <span className="sm-panel-itemLabel">{it.label}</span>;
+  if (inRouter && internal) {
+    return (
+      <Link to={it.link} className={cls} aria-label={it.ariaLabel} data-index={idx + 1}>
+        {label}
+      </Link>
+    );
+  }
+  return (
+    <a className={cls} href={it.link} aria-label={it.ariaLabel} data-index={idx + 1}>
+      {label}
+    </a>
+  );
 }
 
 export interface StaggeredMenuProps {
@@ -404,9 +424,7 @@ export const StaggeredMenu: React.FC<StaggeredMenuProps> = ({
             {items && items.length ? (
               items.map((it, idx) => (
                 <li className="sm-panel-itemWrap" key={it.label + idx}>
-                  <a className="sm-panel-item" href={it.link} aria-label={it.ariaLabel} data-index={idx + 1}>
-                    <span className="sm-panel-itemLabel">{it.label}</span>
-                  </a>
+                  <StaggeredPanelLink it={it} idx={idx} />
                 </li>
               ))
             ) : (

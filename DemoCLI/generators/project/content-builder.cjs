@@ -328,26 +328,83 @@ function buildContent(brief, siteType = 'Landing', enhancedPrompt = null) {
   return applyEnhancedOverrides(base, enhancedPrompt);
 }
 
+function isWorkLikePage(pageData) {
+  const type = pageData.type || 'custom';
+  if (type === 'work') return true;
+  const path = String(pageData.path || '').trim().toLowerCase().replace(/\/+$/, '');
+  return path === '/work' || path.endsWith('/work');
+}
+
+function excerptForCta(body, maxLen) {
+  if (!body || typeof body !== 'string') return '';
+  const one = body.replace(/\s+/g, ' ').trim();
+  if (one.length <= maxLen) return one;
+  return `${one.slice(0, maxLen - 1).trim()}…`;
+}
+
+/** About (and similar) should not reuse the same CTA headline/subtext as Work when both pages include a `cta` section. */
+function applyRouteScopedCta(result, pageData) {
+  if (!result || !result.cta) return;
+  if (isWorkLikePage(pageData)) return;
+
+  const pageType = pageData.type || 'custom';
+  if (pageType !== 'about') return;
+
+  const brand = result.brandName || 'Studio';
+  const seed =
+    String(brand).length + (pageData.id ? String(pageData.id).length : 0);
+
+  const headings = [
+    `How ${brand} thinks`,
+    `The principles behind ${brand}`,
+    `More about ${brand}`,
+  ];
+  const subFallback = [
+    'Values, craft, and the people behind the work — before we talk timelines.',
+    'We care as much about fit as output. Here is how we work with partners.',
+    'Context on who we are and what stays non-negotiable when we collaborate.',
+  ];
+  const i = seed % headings.length;
+  const excerpt = excerptForCta(result.about && result.about.body, 160);
+
+  result.cta = {
+    ...result.cta,
+    heading: headings[i],
+    subtext: excerpt || subFallback[i],
+  };
+}
+
+function cloneBasePageContent(baseContent) {
+  return {
+    brandName: baseContent.brandName,
+    hero: { ...baseContent.hero },
+    about: { ...baseContent.about },
+    features: { ...baseContent.features },
+    benefits: [...(baseContent.benefits || [])],
+    cta: { ...baseContent.cta },
+    contact: { ...baseContent.contact },
+    footer: { ...baseContent.footer },
+  };
+}
+
 /**
  * Merges page-specific content (from synthetic-client's page.content field)
  * over the base content object. Falls back gracefully to base if fields are absent.
  * Call this in writePageFiles for each page before passing content to buildPageFile.
  */
 function buildPageContent(baseContent, pageData) {
-  if (!pageData || !pageData.content) return baseContent;
+  if (!pageData) return baseContent;
+
+  if (!pageData.content) {
+    const result = cloneBasePageContent(baseContent);
+    applyRouteScopedCta(result, pageData);
+    return result;
+  }
+
   const pc = pageData.content;
   const pageType = pageData.type || 'custom';
 
-  const result = {
-    brandName: baseContent.brandName,
-    hero:     { ...baseContent.hero },
-    about:    { ...baseContent.about },
-    features: { ...baseContent.features },
-    benefits: [...(baseContent.benefits || [])],
-    cta:      { ...baseContent.cta },
-    contact:  { ...baseContent.contact },
-    footer:   { ...baseContent.footer },
-  };
+  const result = cloneBasePageContent(baseContent);
 
   // Page-specific headline / tagline override
   if (pc.pageTitle) result.hero.headline = pc.pageTitle;
@@ -426,6 +483,7 @@ function buildPageContent(baseContent, pageData) {
     }
   }
 
+  applyRouteScopedCta(result, pageData);
   return result;
 }
 

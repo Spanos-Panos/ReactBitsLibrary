@@ -17,15 +17,17 @@ const PAGE_POLICY = {
     requiredAny: [['services', 'features']],
   },
   pricing: {
-    allow: new Set(['hero', 'pricing', 'features', 'benefits', 'cta', 'contact']),
+    allow: new Set(['hero', 'pricing', 'features', 'benefits', 'cta']),
     requiredAny: [['pricing']],
   },
   contact: {
     allow: new Set(['hero', 'contact', 'about', 'cta']),
     requiredAny: [['contact']],
   },
+  // Work / one-off pages: never emit a full contact section here when a dedicated
+  // `contact` route exists — contact forms belong on `type: contact` only.
   custom: {
-    allow: new Set(['hero', 'about', 'features', 'benefits', 'services', 'work', 'pricing', 'cta', 'contact']),
+    allow: new Set(['hero', 'about', 'features', 'benefits', 'services', 'work', 'pricing', 'cta']),
     requiredAny: [['hero', 'features', 'about']],
   },
 };

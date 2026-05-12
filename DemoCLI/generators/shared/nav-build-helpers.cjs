@@ -36,6 +36,7 @@ function buildBrandLogoDataUri(brandName) {
 const NAV_DEFAULT_LOGO_PATH = {
   PillNav: '/ReactIcon.svg',
   CardNav: '/ReactIcon.svg',
+  StaggeredMenu: '/ReactIcon.svg',
 };
 
 /**

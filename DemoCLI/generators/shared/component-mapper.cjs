@@ -66,9 +66,29 @@ const COMPONENT_JSX_OVERRIDES = {
     initialPosition="center"
     peelDirection={0}
   />
+  </div>`,
+
+  GlareHover: `<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem 1rem' }}>
+  <GlareHover
+    width="min(100%, 520px)"
+    height="220px"
+    background="var(--color-surface)"
+    borderRadius="12px"
+    borderColor="var(--color-border)"
+    glareColor="#ffffff"
+    glareOpacity={0.35}
+    glareAngle={-35}
+    glareSize={280}
+    transitionDuration={750}
+    playOnce={false}
+  >
+    <h2 style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', fontWeight: 700, color: 'var(--color-text-on-surface)', margin: 0, textAlign: 'center', padding: '0 1rem' }}>
+      Hover this surface
+    </h2>
+  </GlareHover>
 </div>`,
 
-  StaggeredMenu: `<div style={{ position: 'fixed', top: 0, right: 0, zIndex: 999, pointerEvents: 'auto' }}>
+  StaggeredMenu: `<div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', zIndex: 999, pointerEvents: 'none' }}>
   <StaggeredMenu
     position="right"
     items={[

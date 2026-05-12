@@ -111,6 +111,10 @@ async function buildScaffold({
 
   // ── 3. Install all dependencies ──────────────────────────────────────────────
   notify(`Installing dependencies via ${packageManager}...`);
+  log(
+    `[Scaffolder] Resolving ${deps.size} packages (Three.js / motion stack is large). `
+    + 'First install or a cold npm cache often takes several minutes on Windows; this step is not stuck if the log is quiet.\n',
+  );
   await runCommand(`${packageManager} ${getInstallCmd(packageManager)}`, [], targetDir, log);
 
   // ── 4. Inject component source files ────────────────────────────────────────

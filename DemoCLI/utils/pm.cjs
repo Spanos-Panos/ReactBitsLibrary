@@ -9,6 +9,39 @@
 
 const fs = require('fs/promises');
 
+/**
+ * Pinned semver ranges for generated projects (avoid `latest` on every install —
+ * each `latest` forces a registry metadata fetch and slows cold installs a lot).
+ * Unknown / auto-detected deps still use `latest`.
+ */
+const SCAFFOLD_DEP_VERSIONS = {
+  'framer-motion': '^12.38.0',
+  motion: '^12.23.12',
+  gsap: '^3.14.2',
+  ogl: '^1.0.11',
+  '@react-three/fiber': '^9.5.0',
+  '@react-three/drei': '^10.7.6',
+  three: '^0.183.2',
+  maath: '^0.10.8',
+  'react-spring': '^10.0.1',
+  '@react-spring/three': '^10.0.1',
+  'react-icons': '^5.5.0',
+  meshline: '^3.3.1',
+  '@react-three/rapier': '^2.1.0',
+  'lucide-react': '^0.544.0',
+  clsx: '^2.1.1',
+  'tailwind-merge': '^3.3.1',
+  '@tailwindcss/vite': '^4.1.14',
+  tailwindcss: '^4.1.14',
+  postprocessing: '^6.37.8',
+  '@react-three/postprocessing': '^3.0.4',
+  'gl-matrix': '^3.4.3',
+  lenis: '^1.3.8',
+  'matter-js': '^0.20.0',
+  'motion-utils': '^12.23.6',
+  'react-router-dom': '^7.11.0',
+};
+
 function getScaffoldCmd(packageManager, projectName) {
   switch (packageManager) {
     case 'pnpm': return `pnpm create vite ${projectName} --template react-ts`;
@@ -19,7 +52,11 @@ function getScaffoldCmd(packageManager, projectName) {
 }
 
 function getInstallCmd(packageManager) {
-  return packageManager === 'npm' ? 'install --no-audit --no-fund' : 'install';
+  // --prefer-offline: reuse npm cache when possible (repeat generations much faster).
+  // --progress: npm often hides the progress bar when stdout is not a TTY (Electron spawn).
+  return packageManager === 'npm'
+    ? 'install --no-audit --no-fund --prefer-offline --progress'
+    : 'install';
 }
 
 /**
@@ -33,7 +70,7 @@ async function patchPackageJson(pkgJsonPath, deps, log = () => {}) {
     pkgJson.dependencies = pkgJson.dependencies || {};
     for (const dep of deps) {
       if (!pkgJson.dependencies[dep] && !pkgJson.devDependencies?.[dep]) {
-        pkgJson.dependencies[dep] = 'latest';
+        pkgJson.dependencies[dep] = SCAFFOLD_DEP_VERSIONS[dep] || 'latest';
       }
     }
     await fs.writeFile(pkgJsonPath, JSON.stringify(pkgJson, null, 2), 'utf-8');
@@ -42,4 +79,4 @@ async function patchPackageJson(pkgJsonPath, deps, log = () => {}) {
   }
 }
 
-module.exports = { getScaffoldCmd, getInstallCmd, patchPackageJson };
+module.exports = { getScaffoldCmd, getInstallCmd, patchPackageJson, SCAFFOLD_DEP_VERSIONS };

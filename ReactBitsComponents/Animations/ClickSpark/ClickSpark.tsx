@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, type CSSProperties } from "react";
 
 interface ClickSparkProps {
     sparkColor?: string;
@@ -8,6 +8,7 @@ interface ClickSparkProps {
     duration?: number;
     easing?: "linear" | "ease-in" | "ease-out" | "ease-in-out";
     extraScale?: number;
+    style?: CSSProperties;
     children?: React.ReactNode;
 }
 
@@ -26,11 +27,44 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
     duration = 400,
     easing = "ease-out",
     extraScale = 1.0,
+    style,
     children
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sparksRef = useRef<Spark[]>([]);
     const startTimeRef = useRef<number | null>(null);
+    /** Canvas 2D does not resolve CSS variables; resolve to rgb()/hex for visible strokes. */
+    const resolvedStrokeRef = useRef<string>(sparkColor);
+
+    useEffect(() => {
+        if (typeof document === "undefined") {
+            resolvedStrokeRef.current = sparkColor;
+            return;
+        }
+        if (!sparkColor || !sparkColor.includes("var(")) {
+            resolvedStrokeRef.current = sparkColor;
+            return;
+        }
+        const measureOn = (host: HTMLElement) => {
+            const el = document.createElement("span");
+            el.setAttribute("style", "position:absolute;left:-9999px;pointer-events:none");
+            el.style.color = sparkColor;
+            host.appendChild(el);
+            const c = getComputedStyle(el).color;
+            host.removeChild(el);
+            return c && c !== "rgba(0, 0, 0, 0)" ? c : "";
+        };
+        let resolved = measureOn(document.body) || measureOn(document.documentElement);
+        if (!resolved) {
+            const raw = getComputedStyle(document.documentElement)
+                .getPropertyValue("--color-accent")
+                .trim();
+            if (raw && (/^#/.test(raw) || /^rgb/i.test(raw))) {
+                resolved = raw;
+            }
+        }
+        resolvedStrokeRef.current = resolved || "#38bdf8";
+    }, [sparkColor]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -113,7 +147,7 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
                 const x2 = spark.x + (distance + lineLength) * Math.cos(spark.angle);
                 const y2 = spark.y + (distance + lineLength) * Math.sin(spark.angle);
 
-                ctx.strokeStyle = sparkColor;
+                ctx.strokeStyle = resolvedStrokeRef.current;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(x1, y1);
@@ -154,19 +188,21 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
     return (
         <div style={{
             display: "inline-block",
-            position: "relative"
+            position: "relative",
+            ...style,
         }}
         onClick={handleClick}
         >
+            {children}
             <canvas
                 ref={canvasRef}
                 style={{
-                   position:"absolute",
-                   inset:0,
-                   pointerEvents:"none"
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 99999,
+                    pointerEvents: "none",
                 }}
             />
-            {children}
         </div>
     );
 };

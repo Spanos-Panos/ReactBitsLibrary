@@ -17,6 +17,9 @@ const { buildContent } = require('./content-builder.cjs');
 const CURSOR_NAMES = new Set([
   'BlobCursor', 'Crosshair', 'ImageTrail', 'PixelTrail', 'SplashCursor', 'TargetCursor',
 ]);
+
+/** Wrapped once at App root so sparks work site-wide (not only on one section). */
+const GLOBAL_APP_WRAP_COMPONENTS = new Set(['ClickSpark']);
 /**
  * Splits selectedComponents into fixed (backgrounds + cursors), navs, and in-flow.
  * Nav components are rendered as fixed overlays in App.tsx, never passed to page-builder.
@@ -25,6 +28,7 @@ function classifyComponents(selectedComponents) {
   const fixed = [];
   const navs  = [];
   const inFlow = [];
+  const globalWrap = [];
 
   for (const comp of selectedComponents) {
     const isBackground = comp.category === 'Backgrounds';
@@ -33,18 +37,21 @@ function classifyComponents(selectedComponents) {
       fixed.push({ ...comp, zIndex: isBackground ? 0 : 9999, isCursor });
     } else if (isNavComponent(comp.name)) {
       navs.push({ ...comp, zIndex: 999, isNav: true });
+    } else if (GLOBAL_APP_WRAP_COMPONENTS.has(comp.name)) {
+      globalWrap.push({ ...comp });
     } else {
       inFlow.push(comp);
     }
   }
-  return { fixed, navs, inFlow };
+  return { fixed, navs, inFlow, globalWrap };
 }
 
 /**
  * Generates src/App.tsx for a single-page site.
  */
 async function buildSinglePageApp({ targetDir, selectedComponents, content, styleDirection, designRules = {} }) {
-  const { fixed, navs, inFlow } = classifyComponents(selectedComponents);
+  const { fixed, navs, inFlow, globalWrap } = classifyComponents(selectedComponents);
+  const hasClickSpark = globalWrap.some(c => c.name === 'ClickSpark');
 
   // Single-page mode: drop nav components entirely. Their static JSX contains
   // hardcoded multi-page links (Home/About/Services/Contact) that don't match
@@ -65,11 +72,15 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
     designRules,
   });
 
-  const renderedComponents = selectedComponents.filter(c => !navs.includes(c));
-  const allImports = renderedComponents
-    .filter(c => c.name && c.category)
-    .map(c => getComponent(c.name).importLine)
-    .join('\n');
+  const renderedComponents = selectedComponents.filter(
+    c => !navs.includes(c) && !GLOBAL_APP_WRAP_COMPONENTS.has(c.name),
+  );
+  const allImports = [
+    ...(hasClickSpark ? [getComponent('ClickSpark').importLine] : []),
+    ...renderedComponents
+      .filter(c => c.name && c.category)
+      .map(c => getComponent(c.name).importLine),
+  ].filter(Boolean).join('\n');
 
   // Fixed layer JSX (backgrounds + cursors) — backgrounds get scroll-locked full-viewport mounting
   const fixedLayers = fixed.map(c => {
@@ -92,18 +103,25 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
     ? `\n/* Single-page build: nav component(s) [${droppedNavs.join(', ')}] omitted to avoid fake multi-page links. */\n`
     : '';
 
+  const clickSparkAttrs = 'sparkColor="var(--color-accent)" sparkSize={12} sparkRadius={24} sparkCount={10} duration={420} style={{ display: \'block\', width: \'100%\', minHeight: \'100vh\' }}';
+
+  const clickSparkOpen = hasClickSpark
+    ? `      <ClickSpark ${clickSparkAttrs}>\n`
+    : '';
+  const clickSparkClose = hasClickSpark ? `      </ClickSpark>\n` : '';
+
   const appContent = `${allImports}
 ${droppedNavComment}
 export default function App() {
   return (
-    <div style={{ ${wrapperStyle} }}>
+${clickSparkOpen}    <div style={{ ${wrapperStyle} }}>
 ${fixedLayers ? `      {/* Fixed ambient layers */}\n${fixedLayers}\n` : ''}${navLayers ? `      {/* Navigation */}\n${navLayers}\n` : ''}
       {/* Page sections */}
       <div style={{ position: 'relative', zIndex: 40 }}>
 ${sections.join('\n')}
       </div>
     </div>
-  );
+${clickSparkClose}  );
 }
 `;
 
@@ -132,12 +150,16 @@ function buildNavJsxForPages(navName, pages, navContext) {
       const itemsStr = items
         .map(it => `      { label: '${it.label}', ariaLabel: 'Go to ${it.label.toLowerCase()}', link: '${it.href}' }`)
         .join(',\n');
+      const logoUrlProp = `logoUrl={${JSON.stringify(logoUri)}}`;
       // StaggeredMenu needs a full-viewport container (it relies on height: 100% + absolute panel layers).
-      // Use pointerEvents: 'none' on the wrapper so it doesn't block page interaction; the component
-      // enables pointer events on its actual interactive elements.
+      // Outer shell uses pointerEvents: 'none' so the viewport stays usable; .staggered-menu-wrapper sets pointer-events: auto.
       return `<div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', zIndex: 999, pointerEvents: 'none' }}>
   <StaggeredMenu
     position="right"
+    ${logoUrlProp}
+    menuButtonColor="var(--color-text)"
+    openMenuButtonColor="var(--color-text)"
+    accentColor="var(--color-accent)"
     items={[\n${itemsStr}\n    ]}
     displayItemNumbering={true}
   />
@@ -232,7 +254,8 @@ function buildNavJsxForPages(navName, pages, navContext) {
  * Generates src/App.tsx for a multi-page site using react-router-dom.
  */
 async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief = {}, designRules = {} }) {
-  const { fixed, navs } = classifyComponents(selectedComponents);
+  const { fixed, navs, globalWrap } = classifyComponents(selectedComponents);
+  const hasClickSpark = globalWrap.some(c => c.name === 'ClickSpark');
 
   const hasNav = navs.length > 0;
 
@@ -279,6 +302,8 @@ async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clie
     .map(c => getComponent(c.name).importLine)
     .join('\n');
 
+  const clickSparkImport = hasClickSpark ? `${getComponent('ClickSpark').importLine}\n` : '';
+
   // When no nav component is selected, auto-generate a NavLink-based navbar with active state.
   // Without this, multi-page sites have routes but no way to navigate between them.
   const needsAutoNav = !hasNav && uniquePages.length > 1;
@@ -312,15 +337,22 @@ function ScrollToTop() {
 }
 ` : '';
 
+  const clickSparkAttrs = 'sparkColor="var(--color-accent)" sparkSize={12} sparkRadius={24} sparkCount={10} duration={420} style={{ display: \'block\', width: \'100%\', minHeight: \'100vh\' }}';
+
+  const clickSparkOpen = hasClickSpark
+    ? `      <ClickSpark ${clickSparkAttrs}>\n`
+    : '';
+  const clickSparkClose = hasClickSpark ? `      </ClickSpark>\n` : '';
+
   const appContent = `${routerImport}
 ${fixedImports}
-${navImports}
+${clickSparkImport}${navImports}
 ${pageImports}
 ${scrollToTop}
 export default function App() {
   return (
     <BrowserRouter>
-${needsAutoNav ? '      <ScrollToTop />\n' : ''}      <div style={{ ${wrapperStyle} }}>
+${needsAutoNav ? '      <ScrollToTop />\n' : ''}${clickSparkOpen}      <div style={{ ${wrapperStyle} }}>
 ${fixedLayers ? `        {/* Fixed ambient layers */}\n${fixedLayers}\n` : ''}${autoNavJsx ? `${autoNavJsx}\n` : ''}${navLayers ? `        {/* Navigation */}\n${navLayers}\n` : ''}
         <div style={{ position: 'relative', zIndex: 40 }}>
         <Routes>
@@ -328,7 +360,7 @@ ${routeElements}
         </Routes>
         </div>
       </div>
-    </BrowserRouter>
+${clickSparkClose}    </BrowserRouter>
   );
 }
 `;
@@ -514,9 +546,8 @@ async function buildApp({ targetDir, selectedComponents, styleDirection, designR
   const isMultiPage = Array.isArray(pages) && pages.length > 1;
 
   if (isMultiPage) {
-    const inFlowNames = selectedComponents
-      .filter(c => c.category !== 'Backgrounds' && !CURSOR_NAMES.has(c.name) && !isNavComponent(c.name))
-      .map(c => c.name);
+    const { inFlow } = classifyComponents(selectedComponents);
+    const inFlowNames = inFlow.map(c => c.name);
 
     const pageInfo = await writePageFiles({
       pagesConfig: pages,

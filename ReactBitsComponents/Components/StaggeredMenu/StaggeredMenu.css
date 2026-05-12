@@ -3,6 +3,8 @@
   width: 100%;
   height: 100%;
   z-index: 40;
+  /* Parent nav shell may use pointer-events: none so page stays clickable; re-enable hits here. */
+  pointer-events: auto;
 }
 
 .staggered-menu-header {
@@ -339,4 +341,17 @@
   .staggered-menu-wrapper[data-open] .sm-logo-img {
     filter: invert(100%);
   }
+}
+
+/* Open state: light panel behind header — keep toggle + icon readable (not white-on-white). */
+.staggered-menu-wrapper[data-open] .staggered-menu-header .sm-toggle {
+  color: #0a0a0f !important;
+}
+
+.staggered-menu-wrapper[data-open] .staggered-menu-header .sm-icon-line {
+  background: #0a0a0f !important;
+}
+
+.staggered-menu-wrapper[data-open] .staggered-menu-header .sm-toggle:focus-visible {
+  outline-color: #0a0a0f;
 }

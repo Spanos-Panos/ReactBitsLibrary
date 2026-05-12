@@ -50,9 +50,9 @@ const SECTION_VARIANTS = {
   about:    [['about', 'features', 'cta'], ['about', 'benefits', 'contact'], ['about', 'work', 'contact']],
   services: [['services', 'features', 'pricing', 'contact'], ['services', 'work', 'contact'], ['hero', 'services', 'cta']],
   pricing:  [['pricing', 'cta'], ['hero', 'pricing', 'cta'], ['pricing', 'features', 'cta']],
-  work:     [['work', 'about', 'contact'], ['work', 'services', 'cta'], ['hero', 'work', 'contact']],
+  work:     [['work', 'about', 'cta'], ['work', 'services', 'cta'], ['hero', 'work', 'cta']],
   contact:  [['contact'], ['hero', 'contact'], ['about', 'contact']],
-  custom:   [['hero', 'features', 'cta'], ['hero', 'work', 'contact'], ['features', 'benefits', 'cta']],
+  custom:   [['hero', 'features', 'cta'], ['hero', 'work', 'cta'], ['features', 'benefits', 'cta']],
 };
 
 function pickSectionVariant(pageType, siteType, seedKey) {
