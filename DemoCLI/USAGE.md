@@ -42,6 +42,9 @@ node DemoCLI/synthetic-client/index.cjs --local --manual-components
 node DemoCLI/synthetic-client/index.cjs --local --archetype luxury --manual-components --preview
 # Alias: --no-preset-components
 
+# Custom commands
+node DemoCLI/synthetic-client/index.cjs --local --count 3 --guality high --no-preset-components
+
 # Full documentation
 node DemoCLI/synthetic-client/index.cjs --help
 ```
