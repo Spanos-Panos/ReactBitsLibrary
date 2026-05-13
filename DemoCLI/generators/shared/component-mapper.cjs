@@ -105,6 +105,60 @@ const COMPONENT_JSX_OVERRIDES = {
   Gradient Text
 </GradientText>`,
 
+  // Mansory: manifest demo uses <Masonry> tag + requires items array.
+  // Generated pages should never render an undefined <Masonry /> symbol.
+  Mansory: `<div style={{ width: '100%', height: 'min(520px, 70vh)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+  <Mansory
+    items={[
+      { id: "1", img: "/joker-landscape.jpg", height: 520, url: "#" },
+      { id: "2", img: "/joker-portrait.jpg", height: 340, url: "#" },
+      { id: "3", img: "/joker-square.jpg", height: 420, url: "#" },
+      { id: "4", img: "/joker-landscape.jpg", height: 360, url: "#" },
+      { id: "5", img: "/joker-portrait.jpg", height: 500, url: "#" },
+      { id: "6", img: "/joker-square.jpg", height: 320, url: "#" },
+      { id: "7", img: "/joker-landscape.jpg", height: 460, url: "#" },
+      { id: "8", img: "/joker-portrait.jpg", height: 380, url: "#" },
+    ]}
+    containerWidth="100%"
+    containerHeight="min(520px, 70vh)"
+    gap={12}
+    ease="power3.out"
+    duration={0.7}
+    stagger={0.03}
+    animateFrom="bottom"
+    scaleOnHover={true}
+    hoverScale={1.03}
+    blurToFocus={true}
+    colorShiftOnHover={false}
+  />
+</div>`,
+
+  // ColorBends: avoid demo pink/blue for monochrome/editorial briefs; use theme tokens.
+  ColorBends: `<div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+  <ColorBends
+    colors={[
+      'color-mix(in srgb, var(--color-text) 18%, var(--color-bg) 82%)',
+      'color-mix(in srgb, var(--color-primary) 22%, var(--color-bg) 78%)',
+      'color-mix(in srgb, var(--color-accent) 18%, var(--color-bg) 82%)',
+    ]}
+    rotation={90}
+    speed={0.18}
+    scale={1.35}
+    frequency={1}
+    warpStrength={0.9}
+    mouseInfluence={0}
+    noise={0.14}
+    parallax={0.45}
+    iterations={1}
+    intensity={1.25}
+    bandWidth={6}
+    transparent
+    autoRotate={0}
+    color="var(--color-accent)"
+    style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}
+  />
+</div>`,
+
   TiltedCard: `<div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 1rem' }}>
   <TiltedCard
     imageSrc="/joker-square.jpg"
@@ -441,7 +495,7 @@ const COMPONENT_JSX_OVERRIDES = {
     'rotate(5deg) translate(70px)',
     'rotate(-5deg) translate(150px)',
   ]}
-  enableHover={true}
+  enableHover={false}
 />`,
 
   // ScrollStack: requires a fixed-height overflow:hidden container to work with Lenis.

@@ -280,6 +280,7 @@ function resolveFont(fonts, role) {
  */
 function buildTokensCSS(designRules, styleDirection) {
   const aesthetic = ((styleDirection && styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'minimal').toLowerCase();
+  const colorStrategy = ((styleDirection && styleDirection.colorStrategy) || '').toLowerCase();
   const defaults = AESTHETIC_TOKEN_DEFAULTS[aesthetic] || AESTHETIC_TOKEN_DEFAULTS.minimal;
 
   const colors = (designRules && designRules.colors) || [];
@@ -297,6 +298,17 @@ function buildTokensCSS(designRules, styleDirection) {
       text = getContrastColor(bg);
     }
   } catch { /* non-hex colors (rgba, var()) — skip check */ }
+
+  // Very light monochromatic briefs can feel painfully bright. Keep the token value intact
+  // (so the brief stays truthful), but apply a subtle off-white mix to the actual body paint.
+  let appliedBodyBg = 'var(--color-bg)';
+  try {
+    if (colorStrategy === 'monochromatic' && typeof bg === 'string' && bg.trim().startsWith('#')) {
+      if (getContrastRatio(bg.trim(), '#ffffff') < 1.2) {
+        appliedBodyBg = "color-mix(in srgb, var(--color-bg) 94%, black)";
+      }
+    }
+  } catch { /* ignore */ }
 
   // Opaque surface composited over page bg so contrast math is valid (rgba(0,0,0,0.03) alone breaks hexToRgb).
   const surfaceOpaqueHex = resolveOpaqueSurfaceHex(bg, surfaceResolved);
@@ -339,7 +351,7 @@ ${fontLines}
 
 body {
   margin: 0;
-  background: var(--color-bg);
+  background: ${appliedBodyBg};
   color: var(--color-text);
   font-family: var(--font-body);
   min-height: 100vh;

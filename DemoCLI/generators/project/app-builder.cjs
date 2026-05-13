@@ -52,6 +52,7 @@ function classifyComponents(selectedComponents) {
 async function buildSinglePageApp({ targetDir, selectedComponents, content, styleDirection, designRules = {} }) {
   const { fixed, navs, inFlow, globalWrap } = classifyComponents(selectedComponents);
   const hasClickSpark = globalWrap.some(c => c.name === 'ClickSpark');
+  const hasTargetCursor = fixed.some(c => c.name === 'TargetCursor');
 
   // Single-page mode: drop nav components entirely. Their static JSX contains
   // hardcoded multi-page links (Home/About/Services/Contact) that don't match
@@ -76,6 +77,7 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
     c => !navs.includes(c) && !GLOBAL_APP_WRAP_COMPONENTS.has(c.name),
   );
   const allImports = [
+    ...(hasTargetCursor ? ["import { useEffect, useState } from 'react';"] : []),
     ...(hasClickSpark ? [getComponent('ClickSpark').importLine] : []),
     ...renderedComponents
       .filter(c => c.name && c.category)
@@ -87,6 +89,13 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
     const data = getComponent(c.name);
     const pointerEvents = 'none';
     const layerZ = c.isCursor ? 9999 : c.zIndex;
+    if (c.name === 'TargetCursor') {
+      return `      {showTargetCursor && (
+        <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: ${layerZ}, pointerEvents: '${pointerEvents}', transform: 'translateZ(0)' }}>
+          ${data.jsx}
+        </div>
+      )}`;
+    }
     return `      <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: ${layerZ}, pointerEvents: '${pointerEvents}', transform: 'translateZ(0)' }}>
         ${data.jsx}
       </div>`;
@@ -110,9 +119,38 @@ async function buildSinglePageApp({ targetDir, selectedComponents, content, styl
     : '';
   const clickSparkClose = hasClickSpark ? `      </ClickSpark>\n` : '';
 
+  const targetCursorGate = hasTargetCursor ? `
+  const [showTargetCursor, setShowTargetCursor] = useState(false);
+  useEffect(() => {
+    const onOver = (e) => {
+      try {
+        const el = e.target;
+        const isButton = el && typeof el.closest === 'function' && el.closest('button');
+        setShowTargetCursor(Boolean(isButton));
+      } catch {}
+    };
+    const onOut = (e) => {
+      try {
+        const to = e.relatedTarget;
+        const isButton = to && typeof to.closest === 'function' && to.closest('button');
+        setShowTargetCursor(Boolean(isButton));
+      } catch {
+        setShowTargetCursor(false);
+      }
+    };
+    window.addEventListener('pointerover', onOver, true);
+    window.addEventListener('pointerout', onOut, true);
+    return () => {
+      window.removeEventListener('pointerover', onOver, true);
+      window.removeEventListener('pointerout', onOut, true);
+    };
+  }, []);
+` : '';
+
   const appContent = `${allImports}
 ${droppedNavComment}
 export default function App() {
+${targetCursorGate}
   return (
 ${clickSparkOpen}    <div style={{ ${wrapperStyle} }}>
 ${fixedLayers ? `      {/* Fixed ambient layers */}\n${fixedLayers}\n` : ''}${navLayers ? `      {/* Navigation */}\n${navLayers}\n` : ''}
@@ -169,16 +207,28 @@ function buildNavJsxForPages(navName, pages, navContext) {
       const itemsStr = items
         .map(it => `      { label: '${it.label}', href: '${it.href}' }`)
         .join(',\n');
+      const aesthetics = ((ctx.styleDirection && ctx.styleDirection.aesthetics) || []);
+      const aesthetic = (aesthetics[0] || '').toLowerCase();
+      const colorStrategy = ((ctx.styleDirection && ctx.styleDirection.colorStrategy) || '').toLowerCase();
+      const isEditorialMono = aesthetic === 'editorial' && colorStrategy === 'monochromatic';
+
+      const particleCount = isEditorialMono ? 8 : 12;
+      const particleDistances = isEditorialMono ? '[64, 8]' : '[80, 10]';
+      const particleR = isEditorialMono ? 64 : 80;
+      const animationTime = isEditorialMono ? 520 : 400;
+      const timeVariance = isEditorialMono ? 140 : 200;
+      const colors = isEditorialMono ? '[1, 2, 1, 3]' : '[1, 2, 3, 1, 2, 3, 1, 4]';
+
       return `<nav style={{ position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 999, pointerEvents: 'auto' }}>
   <GooeyNav
     items={[\n${itemsStr}\n    ]}
-    particleCount={12}
-    particleDistances={[80, 10]}
-    particleR={80}
+    particleCount={${particleCount}}
+    particleDistances={${particleDistances}}
+    particleR={${particleR}}
     initialActiveIndex={0}
-    animationTime={400}
-    timeVariance={200}
-    colors={[1, 2, 3, 1, 2, 3, 1, 4]}
+    animationTime={${animationTime}}
+    timeVariance={${timeVariance}}
+    colors={${colors}}
   />
 </nav>`;
     }
@@ -256,6 +306,7 @@ function buildNavJsxForPages(navName, pages, navContext) {
 async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clientBrief = {}, designRules = {} }) {
   const { fixed, navs, globalWrap } = classifyComponents(selectedComponents);
   const hasClickSpark = globalWrap.some(c => c.name === 'ClickSpark');
+  const hasTargetCursor = fixed.some(c => c.name === 'TargetCursor');
 
   const hasNav = navs.length > 0;
 
@@ -280,6 +331,13 @@ async function buildMultiPageApp({ targetDir, selectedComponents, pageInfo, clie
     const data = getComponent(c.name);
     const pointerEvents = 'none';
     const layerZ = c.isCursor ? 9999 : c.zIndex;
+    if (c.name === 'TargetCursor') {
+      return `        {showTargetCursor && (
+          <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: ${layerZ}, pointerEvents: '${pointerEvents}', transform: 'translateZ(0)' }}>
+            ${data.jsx}
+          </div>
+        )}`;
+    }
     return `        <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: ${layerZ}, pointerEvents: '${pointerEvents}', transform: 'translateZ(0)' }}>
           ${data.jsx}
         </div>`;
@@ -325,6 +383,10 @@ ${autoNavLinks}
     ? `import { useEffect } from 'react';\nimport { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';`
     : `import { BrowserRouter, Routes, Route } from 'react-router-dom';`;
 
+  const routerImportFinal = hasTargetCursor
+    ? routerImport.replace(`import { useEffect } from 'react';`, `import { useEffect, useState } from 'react';`)
+    : routerImport;
+
   const wrapperStyle = (hasNav || needsAutoNav)
     ? `position: 'relative', minHeight: '100vh', paddingTop: '3.5rem', isolation: 'isolate', background: 'var(--color-bg)'`
     : `position: 'relative', minHeight: '100vh', isolation: 'isolate', background: 'var(--color-bg)'`;
@@ -337,6 +399,34 @@ function ScrollToTop() {
 }
 ` : '';
 
+  const targetCursorGate = hasTargetCursor ? `
+  const [showTargetCursor, setShowTargetCursor] = useState(false);
+  useEffect(() => {
+    const onOver = (e) => {
+      try {
+        const el = e.target;
+        const isButton = el && typeof el.closest === 'function' && el.closest('button');
+        setShowTargetCursor(Boolean(isButton));
+      } catch {}
+    };
+    const onOut = (e) => {
+      try {
+        const to = e.relatedTarget;
+        const isButton = to && typeof to.closest === 'function' && to.closest('button');
+        setShowTargetCursor(Boolean(isButton));
+      } catch {
+        setShowTargetCursor(false);
+      }
+    };
+    window.addEventListener('pointerover', onOver, true);
+    window.addEventListener('pointerout', onOut, true);
+    return () => {
+      window.removeEventListener('pointerover', onOver, true);
+      window.removeEventListener('pointerout', onOut, true);
+    };
+  }, []);
+` : '';
+
   const clickSparkAttrs = 'sparkColor="var(--color-accent)" sparkSize={12} sparkRadius={24} sparkCount={10} duration={420} style={{ display: \'block\', width: \'100%\', minHeight: \'100vh\' }}';
 
   const clickSparkOpen = hasClickSpark
@@ -344,12 +434,13 @@ function ScrollToTop() {
     : '';
   const clickSparkClose = hasClickSpark ? `      </ClickSpark>\n` : '';
 
-  const appContent = `${routerImport}
+  const appContent = `${routerImportFinal}
 ${fixedImports}
 ${clickSparkImport}${navImports}
 ${pageImports}
 ${scrollToTop}
 export default function App() {
+${targetCursorGate}
   return (
     <BrowserRouter>
 ${needsAutoNav ? '      <ScrollToTop />\n' : ''}${clickSparkOpen}      <div style={{ ${wrapperStyle} }}>
