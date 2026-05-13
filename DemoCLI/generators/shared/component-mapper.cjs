@@ -38,11 +38,51 @@ function isNavComponent(name) {
 const COMPONENT_JSX_OVERRIDES = {
   LogoLoop: `<LogoLoop
   logos={[
-    { node: <span style={{ fontSize: '1.8rem', opacity: 0.8 }}>◈</span>, title: "Design" },
-    { node: <span style={{ fontSize: '1.8rem', opacity: 0.8 }}>◉</span>, title: "Build" },
-    { node: <span style={{ fontSize: '1.8rem', opacity: 0.8 }}>◎</span>, title: "Ship" },
-    { node: <span style={{ fontSize: '1.8rem', opacity: 0.8 }}>◆</span>, title: "Scale" },
-    { node: <span style={{ fontSize: '1.8rem', opacity: 0.8 }}>◇</span>, title: "Grow" },
+    { title: 'Studio', node: (
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: 'color-mix(in srgb, var(--color-surface) 88%, var(--color-text) 12%)', border: '1px solid var(--color-border)', display: 'grid', placeItems: 'center' }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ color: 'var(--color-text-on-surface)' }}>
+          <path d="M7 12h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          <path d="M12 7v10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        </svg>
+      </div>
+    )},
+    { title: 'Brand', node: (
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: 'color-mix(in srgb, var(--color-surface) 88%, var(--color-text) 12%)', border: '1px solid var(--color-border)', display: 'grid', placeItems: 'center' }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ color: 'var(--color-accent)' }}>
+          <path d="M12 2l2.6 6.4L21 9l-5 4.2L17.4 21 12 17.7 6.6 21 8 13.2 3 9l6.4-.6L12 2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    )},
+    { title: 'Product', node: (
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: 'color-mix(in srgb, var(--color-surface) 88%, var(--color-text) 12%)', border: '1px solid var(--color-border)', display: 'grid', placeItems: 'center' }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ color: 'var(--color-text-on-surface)' }}>
+          <path d="M7 7h10v10H7z" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M9.5 9.5h5v5h-5z" fill="currentColor" opacity="0.12"/>
+        </svg>
+      </div>
+    )},
+    { title: 'Platform', node: (
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: 'color-mix(in srgb, var(--color-surface) 88%, var(--color-text) 12%)', border: '1px solid var(--color-border)', display: 'grid', placeItems: 'center' }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ color: 'var(--color-primary)' }}>
+          <path d="M12 2v7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+          <path d="M12 15v7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+          <path d="M2 12h7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+          <path d="M15 12h7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+          <path d="M8.2 8.2l-2.1-2.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+          <path d="M17.9 17.9l-2.1-2.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+          <path d="M15.8 8.2l2.1-2.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+          <path d="M6.1 17.9l2.1-2.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+        </svg>
+      </div>
+    )},
+    { title: 'Labs', node: (
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: 'color-mix(in srgb, var(--color-surface) 88%, var(--color-text) 12%)', border: '1px solid var(--color-border)', display: 'grid', placeItems: 'center' }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ color: 'var(--color-accent)' }}>
+          <path d="M10 2v6l-5.6 9.7A2.5 2.5 0 0 0 6.6 21h10.8a2.5 2.5 0 0 0 2.2-3.3L14 8V2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+          <path d="M8.2 14.3h7.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" opacity="0.65"/>
+        </svg>
+      </div>
+    )},
   ]}
   speed={60}
   direction="left"
@@ -53,6 +93,39 @@ const COMPONENT_JSX_OVERRIDES = {
   fadeOutColor="var(--color-bg)"
   verticalPosition="center"
 />`,
+
+  GradientText: `<GradientText
+  colors={[
+    'color-mix(in srgb, var(--color-primary) 92%, white 8%)',
+    'color-mix(in srgb, var(--color-accent) 92%, white 8%)',
+    'color-mix(in srgb, var(--color-primary) 92%, white 8%)',
+  ]}
+  animationSpeed={10}
+>
+  Gradient Text
+</GradientText>`,
+
+  TiltedCard: `<div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 1rem' }}>
+  <TiltedCard
+    imageSrc="/joker-square.jpg"
+    altText="Featured visual"
+    captionText="Featured highlight"
+    containerHeight="300px"
+    containerWidth="300px"
+    imageHeight="300px"
+    imageWidth="300px"
+    rotateAmplitude={12}
+    scaleOnHover={1.2}
+    showMobileWarning={false}
+    showTooltip={true}
+    displayOverlayContent={true}
+    overlayContent={
+      <p className="tilted-card-demo-text" style={{ margin: 0 }}>
+        Preview
+      </p>
+    }
+  />
+</div>`,
 
   StickerPeel: `<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
   <StickerPeel
@@ -208,11 +281,11 @@ const COMPONENT_JSX_OVERRIDES = {
 </div>`,
 
   SpotlightCard: `<div style={{ maxWidth: '860px', margin: '0 auto', padding: '1rem' }}>
-  <style>{\`.generated-spotlight-card.card-spotlight{position:relative!important;top:auto!important;left:auto!important;transform:none!important;width:100%!important;height:auto!important;min-height:220px!important;}\`}</style>
-  <SpotlightCard className="generated-spotlight-card" spotlightColor="rgba(101, 202, 228, 0.38)">
-    <div style={{ color: 'var(--color-text)', textAlign: 'left' }}>
-      <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.35rem', color: 'var(--color-text)' }}>Focused Value</h3>
-      <p style={{ margin: 0, opacity: 0.78, lineHeight: 1.7, color: 'var(--color-text)' }}>Use this spotlight area for one key message, offer, or product highlight.</p>
+  <style>{\`.generated-spotlight-card.card-spotlight{position:relative!important;top:auto!important;left:auto!important;transform:none!important;width:100%!important;height:auto!important;min-height:220px!important;background-color:var(--color-surface)!important;border-color:var(--color-border)!important;color:var(--color-text-on-surface)!important;}\`}</style>
+  <SpotlightCard className="generated-spotlight-card" spotlightColor="color-mix(in srgb, var(--color-accent) 45%, transparent)">
+    <div style={{ color: 'var(--color-text-on-surface)', textAlign: 'left' }}>
+      <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.35rem', color: 'var(--color-text-on-surface)' }}>Focused Value</h3>
+      <p style={{ margin: 0, opacity: 0.88, lineHeight: 1.7, color: 'var(--color-text-on-surface)' }}>Use this spotlight area for one key message, offer, or product highlight.</p>
     </div>
   </SpotlightCard>
 </div>`,

@@ -269,9 +269,54 @@ function withContentText(compName, jsx, text) {
     .replace(/\btext='[^']*'/, replacement);
 }
 
+/** Wrap CountUp when it lost section-slot matching so it sits with real copy (CTA / benefits / hero / contact). */
+function buildCountUpEmbedMarkup(content, variant = 'on-surface') {
+  const jsx = getComponent('CountUp').jsx;
+  const brand = content.brandName || 'your brand';
+  const titleColor = variant === 'on-bg' ? 'var(--color-text)' : 'var(--color-text-on-surface)';
+  const subtleColor = variant === 'on-bg' ? 'var(--color-text)' : 'var(--color-text-on-surface)';
+  return `\n          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.14em', color: '${titleColor}', opacity: 0.55, marginBottom: '0.35rem' }}>At a glance</p>
+            <div style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'baseline', color: '${titleColor}', fontWeight: 700 }}>
+              ${jsx}
+            </div>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.82rem', color: '${subtleColor}', opacity: 0.72 }}>Momentum that compounds — built around ${brand}</p>
+          </div>`;
+}
+
+/**
+ * If CountUp was selected but no section claimed it, embed it into the first matching section
+ * (cta → benefits → hero → contact) instead of isolating it in the bottom showcase strip.
+ */
+function maybeEmbedOrphanCountUp(sectionJsxList, sections, picks, selectedNames, usedComponents, content, aesthetic, layout, hasNavFirstSection) {
+  if (!selectedNames.includes('CountUp') || usedComponents.has('CountUp')) return;
+
+  const order = ['cta', 'benefits', 'hero', 'contact'];
+  for (const type of order) {
+    const idx = sections.indexOf(type);
+    if (idx === -1 || sectionJsxList[idx] == null) continue;
+
+    const variant = type === 'hero' ? 'on-bg' : 'on-surface';
+    const markup = buildCountUpEmbedMarkup(content, variant);
+
+    if (type === 'cta') {
+      sectionJsxList[idx] = buildCtaSection(content, aesthetic, layout, picks[idx], markup);
+    } else if (type === 'benefits') {
+      sectionJsxList[idx] = buildBenefitsSection(content, aesthetic, layout, picks[idx], markup);
+    } else if (type === 'hero') {
+      sectionJsxList[idx] = buildHeroSection(content, aesthetic, layout, picks[idx], idx === 0 ? hasNavFirstSection : false, markup);
+    } else if (type === 'contact') {
+      sectionJsxList[idx] = buildContactSection(content, aesthetic, layout, picks[idx], markup);
+    }
+
+    usedComponents.add('CountUp');
+    return;
+  }
+}
+
 // ── Section builders ──────────────────────────────────────────────────────────
 
-function buildHeroSection(content, aesthetic, layout, componentName, hasNav = false) {
+function buildHeroSection(content, aesthetic, layout, componentName, hasNav = false, countUpEmbed = '') {
   const { headline, subheadline, cta, ctaSecondary } = content.hero;
   const align = layout.heroAlign === 'center' ? 'center' : 'left';
   const comp = componentName ? getComponent(componentName) : null;
@@ -301,7 +346,7 @@ function buildHeroSection(content, aesthetic, layout, componentName, hasNav = fa
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: '${align === 'center' ? 'center' : 'flex-start'}' }}>
               <button style={{ padding: '0.85em 2.2em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', borderRadius: '${layout.borderRadius}', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', letterSpacing: '0.05em'${layout.btnShadow !== 'none' ? `, boxShadow: '${layout.btnShadow}'` : ''} }}>${cta}</button>
               <button style={{ padding: '0.85em 2.2em', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-text)', borderRadius: '${layout.borderRadius}', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem' }}>${ctaSecondary}</button>
-            </div>${compJsx}
+            </div>${countUpEmbed}${compJsx}
           </div>
         </div>
       </section>`;
@@ -341,7 +386,7 @@ function buildFeaturesSection(content, aesthetic, layout, componentName) {
       </section>`;
 }
 
-function buildBenefitsSection(content, aesthetic, layout, componentName) {
+function buildBenefitsSection(content, aesthetic, layout, componentName, countUpEmbed = '') {
   const { benefits } = content;
   const brandName = content.brandName || '';
   const siteType = content._siteType || 'Landing';
@@ -367,6 +412,7 @@ function buildBenefitsSection(content, aesthetic, layout, componentName) {
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1, background: 'var(--color-surface)' }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
           <h2 style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 700, color: 'var(--color-text-on-surface)', marginBottom: '2.5rem' }}>${benefitsHeading}</h2>
+          ${countUpEmbed}
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             ${items}
           </ul>${compJsx}
@@ -374,7 +420,7 @@ function buildBenefitsSection(content, aesthetic, layout, componentName) {
       </section>`;
 }
 
-function buildCtaSection(content, aesthetic, layout, componentName) {
+function buildCtaSection(content, aesthetic, layout, componentName, countUpEmbed = '') {
   const { heading, subtext, button } = content.cta;
   const comp = componentName ? getComponent(componentName) : null;
   const compJsx = comp && !comp.isFixed
@@ -383,6 +429,7 @@ function buildCtaSection(content, aesthetic, layout, componentName) {
 
   return `      <section style={{ padding: '${layout.sectionPad}', position: 'relative', zIndex: 1, textAlign: 'center', background: 'var(--color-surface)' }}>
         <div ${innerContainer(layout.maxWidth, aesthetic)}>
+          ${countUpEmbed}
           <h2 style={{ fontSize: 'clamp(2rem, 6vw, 4rem)', fontWeight: 700, color: 'var(--color-text-on-surface)', marginBottom: '1rem' }}>${heading}</h2>
           <p style={{ fontSize: '1.1rem', color: 'var(--color-text-on-surface)', opacity: 0.65, maxWidth: '480px', margin: '0 auto 2.5rem', lineHeight: 1.65 }}>${subtext}</p>
           <button style={{ padding: '1em 3em', background: 'var(--color-accent)', color: 'var(--color-bg)', border: 'none', borderRadius: '${layout.borderRadius}', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', letterSpacing: '0.05em'${layout.btnShadow !== 'none' ? `, boxShadow: '${layout.btnShadow}'` : ''} }}>${button}</button>${compJsx}
@@ -595,7 +642,7 @@ function buildPricingSection(content, aesthetic, layout, componentName) {
       </section>`;
 }
 
-function buildContactSection(content, aesthetic, layout, componentName) {
+function buildContactSection(content, aesthetic, layout, componentName, countUpEmbed = '') {
   const { heading, email, phone, location } = content.contact;
   const faqs = content.faqs;
   const socialLinks = (content.footer && content.footer.socialLinks) || {};
@@ -631,6 +678,7 @@ function buildContactSection(content, aesthetic, layout, componentName) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '4rem' }}>
             <div>
               <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 700, color: 'var(--color-text)', marginBottom: '2rem', lineHeight: 1.1 }}>${heading}</h2>
+              ${countUpEmbed}
               ${contactItems || '<p style={{ color: \'var(--color-text)\', opacity: 0.65 }}>Get in touch with us.</p>'}
               ${socialBlock}
             </div>
@@ -723,24 +771,33 @@ function buildSinglePageSections({ content, styleDirection, selectedComponentNam
   const sections = SITE_SECTIONS[siteType] || SITE_SECTIONS.Landing;
   const selectedNames = (selectedComponentNames || []);
   const usedComponents = new Set();
+  const aestheticLower = aesthetic.toLowerCase();
 
-  const sectionJsxList = sections.map((sectionType, idx) => {
+  const picks = sections.map((sectionType) => {
     const compName = findComponentForSection(sectionType, selectedNames, usedComponents);
     if (compName) usedComponents.add(compName);
+    return compName || null;
+  });
+
+  const sectionJsxList = sections.map((sectionType, idx) => {
     const builder = SECTION_BUILDERS[sectionType];
     if (!builder) return null;
-    // Pass hasNav only to the first section (hero) to reduce its top padding
-    return builder(content, aesthetic.toLowerCase(), layout, compName || null, idx === 0 ? hasNav : false);
+    if (sectionType === 'hero') {
+      return builder(content, aestheticLower, layout, picks[idx], idx === 0 ? hasNav : false);
+    }
+    return builder(content, aestheticLower, layout, picks[idx]);
   }).filter(Boolean);
+
+  maybeEmbedOrphanCountUp(sectionJsxList, sections, picks, selectedNames, usedComponents, content, aestheticLower, layout, hasNav);
 
   // Inject any in-flow components that didn't match any section hint
   const unplaced = selectedNames.filter(n => !usedComponents.has(n) && !getComponent(n).isFixed);
   if (unplaced.length > 0) {
-    const showcase = buildShowcaseSection(unplaced, aesthetic.toLowerCase(), layout);
+    const showcase = buildShowcaseSection(unplaced, aestheticLower, layout);
     if (showcase) sectionJsxList.push(showcase);
   }
 
-  const footer = buildFooterSection(content, aesthetic.toLowerCase(), layout, false);
+  const footer = buildFooterSection(content, aestheticLower, layout, false);
   return [...sectionJsxList, footer];
 }
 
@@ -755,27 +812,43 @@ function buildPageFile(pageName, sectionTypes, content, styleDirection, selected
   const aesthetic = (styleDirection && styleDirection.aesthetics && styleDirection.aesthetics[0]) || 'Minimal';
   const layout = getLayout(aesthetic, designRules);
   const selectedNames = selectedComponentNames || [];
+  const aestheticLower = aesthetic.toLowerCase();
 
   const importedComponents = new Set();
   const usedComponents = new Set();
-  const sectionBlocks = sectionTypes.map(sectionType => {
+
+  const picks = sectionTypes.map((sectionType) => {
     const compName = findComponentForSection(sectionType, selectedNames, usedComponents);
-    if (compName) { importedComponents.add(compName); usedComponents.add(compName); }
+    if (compName) {
+      importedComponents.add(compName);
+      usedComponents.add(compName);
+    }
+    return compName || null;
+  });
+
+  const sectionBlocks = sectionTypes.map((sectionType, idx) => {
     const builder = SECTION_BUILDERS[sectionType];
-    return builder ? builder(content, aesthetic.toLowerCase(), layout, compName || null) : null;
+    if (!builder) return null;
+    if (sectionType === 'hero') {
+      return builder(content, aestheticLower, layout, picks[idx], false);
+    }
+    return builder(content, aestheticLower, layout, picks[idx]);
   }).filter(Boolean);
+
+  maybeEmbedOrphanCountUp(sectionBlocks, sectionTypes, picks, selectedNames, usedComponents, content, aestheticLower, layout, false);
+  if (usedComponents.has('CountUp')) importedComponents.add('CountUp');
 
   // Inject any in-flow components that didn't match any section hint
   const unplaced = selectedNames.filter(n => !usedComponents.has(n) && !getComponent(n).isFixed);
   if (unplaced.length > 0) {
-    const showcase = buildShowcaseSection(unplaced, aesthetic.toLowerCase(), layout);
+    const showcase = buildShowcaseSection(unplaced, aestheticLower, layout);
     if (showcase) {
       for (const n of unplaced) importedComponents.add(n);
       sectionBlocks.push(showcase);
     }
   }
 
-  const footer = buildFooterSection(content, aesthetic.toLowerCase(), layout, true);
+  const footer = buildFooterSection(content, aestheticLower, layout, true);
 
   const importLines = Array.from(importedComponents)
     .map(n => {

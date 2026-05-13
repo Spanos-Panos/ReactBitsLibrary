@@ -4,7 +4,12 @@
  * Produces aesthetic-specific CSS that is always injected — never depends on AI.
  */
 
-const { getContrastColor, getContrastRatio } = require('../../utils/colorContrast.cjs');
+const {
+  getContrastColor,
+  getContrastRatio,
+  resolveOpaqueSurfaceHex,
+  resolveTextHex,
+} = require('../../utils/colorContrast.cjs');
 
 const AESTHETIC_GLOBALS = {
   minimal: `
@@ -293,14 +298,18 @@ function buildTokensCSS(designRules, styleDirection) {
     }
   } catch { /* non-hex colors (rgba, var()) — skip check */ }
 
-  // Body copy on tinted cards (--color-surface) must not collapse into the surface tint
-  let textOnSurface = text;
+  // Opaque surface composited over page bg so contrast math is valid (rgba(0,0,0,0.03) alone breaks hexToRgb).
+  const surfaceOpaqueHex = resolveOpaqueSurfaceHex(bg, surfaceResolved);
+  const textHex = resolveTextHex(text, defaults.text);
+
+  // Body copy on cards must contrast with the *painted* surface, not the raw rgba token.
+  let textOnSurface = textHex;
   try {
-    if (getContrastRatio(surfaceResolved, text) < 4.5) {
-      textOnSurface = getContrastColor(surfaceResolved);
+    if (getContrastRatio(surfaceOpaqueHex, textHex) < 4.5) {
+      textOnSurface = getContrastColor(surfaceOpaqueHex);
     }
   } catch {
-    textOnSurface = text;
+    textOnSurface = textHex;
   }
 
   const headingFont = resolveFont(fonts, 'heading');
@@ -322,7 +331,7 @@ function buildTokensCSS(designRules, styleDirection) {
   --color-secondary: ${defaults.secondary};
   --color-accent: ${accent};
   --color-border: ${defaults.border};
-  --color-surface: ${surfaceResolved};
+  --color-surface: ${surfaceOpaqueHex};
   --color-text-on-surface: ${textOnSurface};
   --max-width: 1280px;
 ${fontLines}

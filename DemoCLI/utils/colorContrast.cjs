@@ -10,7 +10,112 @@ function hexToRgb(hex) {
   let h = hex.replace('#', '');
   if (h.length === 3) h = h.split('').map(c => c + c).join('');
   const n = parseInt(h, 16);
+  if (!Number.isFinite(n)) return { r: 0, g: 0, b: 0 };
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function clamp255(x) {
+  return Math.max(0, Math.min(255, Math.round(x)));
+}
+
+/**
+ * Parse hex, rgb(), rgba() (comma or CSS Color 4 space syntax). Returns null if unsupported.
+ * @param {string} str
+ * @returns {{ r: number, g: number, b: number, a: number } | null}
+ */
+function parseCssColorToRgba(str) {
+  if (!str || typeof str !== 'string') return null;
+  const s = str.trim();
+  if (!s) return null;
+
+  if (s.startsWith('#')) {
+    const { r, g, b } = hexToRgb(s);
+    return { r, g, b, a: 1 };
+  }
+
+  const legacy = s.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)/i);
+  if (legacy) {
+    const a = legacy[4] !== undefined ? parseFloat(legacy[4]) : 1;
+    return {
+      r: parseFloat(legacy[1]),
+      g: parseFloat(legacy[2]),
+      b: parseFloat(legacy[3]),
+      a: Number.isFinite(a) ? Math.max(0, Math.min(1, a)) : 1,
+    };
+  }
+
+  const space = s.match(/^rgba?\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.%]+)\s*)?\)/i);
+  if (space) {
+    let a = 1;
+    if (space[4] !== undefined) {
+      const raw = space[4].trim();
+      a = raw.endsWith('%') ? parseFloat(raw) / 100 : parseFloat(raw);
+    }
+    return {
+      r: parseFloat(space[1]),
+      g: parseFloat(space[2]),
+      b: parseFloat(space[3]),
+      a: Number.isFinite(a) ? Math.max(0, Math.min(1, a)) : 1,
+    };
+  }
+
+  return null;
+}
+
+function rgbaToHex(r, g, b) {
+  return `#${[r, g, b].map((c) => clamp255(c).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Alpha-composite `top` over opaque `bottom` (bottom.a ignored; treated as 1).
+ * @param {{ r: number, g: number, b: number, a?: number }} bottom
+ * @param {{ r: number, g: number, b: number, a: number }} top
+ */
+function compositeOver(bottom, top) {
+  const a = Number.isFinite(top.a) ? Math.max(0, Math.min(1, top.a)) : 1;
+  const r = top.r * a + bottom.r * (1 - a);
+  const g = top.g * a + bottom.g * (1 - a);
+  const b = top.b * a + bottom.b * (1 - a);
+  return { r, g, b, a: 1 };
+}
+
+/**
+ * Opaque hex for card/surface tokens: composites translucent rgba over page background.
+ * Falls back to a slight tint of bg when parsing fails.
+ * @param {string} bgCss
+ * @param {string} surfaceCss
+ * @returns {string} #rrggbb
+ */
+function resolveOpaqueSurfaceHex(bgCss, surfaceCss) {
+  const fallbackBg = '#fafafa';
+  const bg = parseCssColorToRgba(bgCss) || parseCssColorToRgba(fallbackBg);
+  const surf = parseCssColorToRgba(surfaceCss);
+  if (!surf) {
+    const tinted = compositeOver(bg, { r: 0, g: 0, b: 0, a: 0.06 });
+    return rgbaToHex(tinted.r, tinted.g, tinted.b);
+  }
+  if (surf.a >= 0.999) {
+    return rgbaToHex(surf.r, surf.g, surf.b);
+  }
+  const out = compositeOver(bg, surf);
+  return rgbaToHex(out.r, out.g, out.b);
+}
+
+/**
+ * @param {string} textCss
+ * @param {string} fallbackHex
+ * @returns {string} #rrggbb
+ */
+function resolveTextHex(textCss, fallbackHex) {
+  const t = parseCssColorToRgba(textCss);
+  if (t && t.a >= 0.999) return rgbaToHex(t.r, t.g, t.b);
+  if (t && t.a < 1) {
+    const fb = parseCssColorToRgba(fallbackHex) || { r: 17, g: 17, b: 17, a: 1 };
+    const out = compositeOver(fb, t);
+    return rgbaToHex(out.r, out.g, out.b);
+  }
+  const fb = parseCssColorToRgba(fallbackHex);
+  return fb ? rgbaToHex(fb.r, fb.g, fb.b) : '#111111';
 }
 
 function toLinear(c) {
@@ -228,4 +333,9 @@ module.exports = {
   buildColorGuidanceSection,
   COLOR_PROP_MAP,
   CSS_INHERITING_COMPONENTS,
+  parseCssColorToRgba,
+  resolveOpaqueSurfaceHex,
+  resolveTextHex,
+  rgbaToHex,
+  compositeOver,
 };
