@@ -618,14 +618,14 @@ function buildPricingSection(content, aesthetic, layout, componentName) {
   ];
 
   const cards = tiers.map((t, i) => `
-            <div key="${i}" style={{ flex: '1 1 220px', padding: '2.5rem 2rem', border: t.highlight ? '1px solid var(--color-accent)' : '1px solid var(--color-border)', background: t.highlight ? 'var(--color-surface)' : 'transparent', position: 'relative' }}>
+            <div key="${i}" style={{ flex: '1 1 220px', padding: '2.5rem 2rem', border: ${t.highlight ? "'1px solid var(--color-accent)'" : "'1px solid var(--color-border)'"}, background: ${t.highlight ? "'var(--color-surface)'" : "'transparent'"}, position: 'relative' }}>
               ${t.highlight ? '<div style={{ position: \'absolute\', top: \'-1px\', left: \'50%\', transform: \'translateX(-50%)\', background: \'var(--color-accent)\', color: \'var(--color-bg)\', padding: \'0.25em 1em\', fontSize: \'0.7rem\', fontWeight: 700, letterSpacing: \'0.1em\' }}>POPULAR</div>' : ''}
               <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '${t.highlight ? 'var(--color-text-on-surface)' : 'var(--color-text)'}', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>${t.name}</h3>
-              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: t.highlight ? 'var(--color-accent)' : 'var(--color-text)', marginBottom: '1.5rem' }}>${t.price}<span style={{ fontSize: '0.9rem', fontWeight: 400, opacity: 0.6 }}>${t.period}</span></div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 700, color: ${t.highlight ? "'var(--color-accent)'" : "'var(--color-text)'"}, marginBottom: '1.5rem' }}>${t.price}<span style={{ fontSize: '0.9rem', fontWeight: 400, opacity: 0.6 }}>${t.period}</span></div>
               <ul style={{ listStyle: 'none', margin: '0 0 2rem', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 ${t.features.map(f => `<li style={{ fontSize: '0.9rem', color: '${t.highlight ? 'var(--color-text-on-surface)' : 'var(--color-text)'}', opacity: 0.75 }}>✓ ${f}</li>`).join('')}
               </ul>
-              <button style={{ width: '100%', padding: '0.8em', background: t.highlight ? 'var(--color-accent)' : 'transparent', color: t.highlight ? 'var(--color-bg)' : 'var(--color-text)', border: t.highlight ? 'none' : '1px solid var(--color-text)', cursor: 'pointer', fontWeight: 600 }}>Get Started</button>
+              <button style={{ width: '100%', padding: '0.8em', background: ${t.highlight ? "'var(--color-accent)'" : "'transparent'"}, color: ${t.highlight ? "'var(--color-bg)'" : "'var(--color-text)'"}, border: ${t.highlight ? "'none'" : "'1px solid var(--color-text)'"}, cursor: 'pointer', fontWeight: 600 }}>Get Started</button>
             </div>`).join('');
 
   const compJsx = comp && !comp.isFixed

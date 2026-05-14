@@ -14,6 +14,9 @@ const fs = require('fs/promises');
  * each `latest` forces a registry metadata fetch and slows cold installs a lot).
  * Unknown / auto-detected deps still use `latest`.
  */
+/** Vite 8+ pins `rolldown` to exact `1.0.0`; some npm mirrors / timing return ETARGET. Force a flexible range. */
+const ROLLDOWN_OVERRIDE = '^1.0.1';
+
 const SCAFFOLD_DEP_VERSIONS = {
   'framer-motion': '^12.38.0',
   motion: '^12.23.12',
@@ -73,6 +76,17 @@ async function patchPackageJson(pkgJsonPath, deps, log = () => {}) {
         pkgJson.dependencies[dep] = SCAFFOLD_DEP_VERSIONS[dep] || 'latest';
       }
     }
+    // npm / pnpm / bun (Yarn 2+): flatten transitive rolldown to a published semver range
+    const prevOv = pkgJson.overrides && typeof pkgJson.overrides === 'object' && !Array.isArray(pkgJson.overrides)
+      ? pkgJson.overrides
+      : {};
+    pkgJson.overrides = { ...prevOv, rolldown: ROLLDOWN_OVERRIDE };
+    // Yarn v1
+    const prevRes = pkgJson.resolutions && typeof pkgJson.resolutions === 'object' && !Array.isArray(pkgJson.resolutions)
+      ? pkgJson.resolutions
+      : {};
+    pkgJson.resolutions = { ...prevRes, rolldown: ROLLDOWN_OVERRIDE };
+
     await fs.writeFile(pkgJsonPath, JSON.stringify(pkgJson, null, 2), 'utf-8');
   } catch (e) {
     log(`Warning: Could not patch package.json: ${e.message}\n`);
