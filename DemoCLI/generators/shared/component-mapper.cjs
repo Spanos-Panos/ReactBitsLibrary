@@ -36,6 +36,22 @@ function isNavComponent(name) {
 }
 
 const COMPONENT_JSX_OVERRIDES = {
+  LogoutButton: `<div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 1rem' }}>
+  <LogoutButton />
+</div>`,
+
+  CoockiesCard: `<div style={{ position: 'fixed', bottom: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10000, pointerEvents: 'auto', width: '100%', display: 'flex', justifyContent: 'center', padding: '0 1rem' }}>
+  <CoockiesCard />
+</div>`,
+
+  ModernRevealCard: `<div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 1rem' }}>
+  <ModernRevealCard />
+</div>`,
+
+  NeumorphismCard: `<div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 1rem' }}>
+  <NeumorphismCard />
+</div>`,
+
   LogoLoop: `<LogoLoop
   logos={[
     { title: 'Studio', node: (

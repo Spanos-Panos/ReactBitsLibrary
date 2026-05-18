@@ -4,10 +4,12 @@ import AnimatedList from "../../showcase/UIComponents/AnimatedList/AnimatedList"
 import { getWeight } from "../../shared/data/componentRoles";
 
 const CATEGORY_ORDER = [
-  { id: "Components",     label: "Components" },
-  { id: "Animations",     label: "Animations" },
-  { id: "TextAnimations", label: "Text Animations" },
-  { id: "Backgrounds",    label: "Backgrounds" },
+  { id: "Components",       label: "Components" },
+  { id: "Animations",       label: "Animations" },
+  { id: "TextAnimations",   label: "Text Animations" },
+  { id: "Backgrounds",      label: "Backgrounds" },
+  { id: "UniversalButtons", label: "Universal · Buttons" },
+  { id: "UniversalCards",   label: "Universal · Cards" },
 ];
 
 interface ComponentListPaneProps {

@@ -7,3 +7,8 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process; npm run dev
 
 --/ Kill all node project running /--
 taskkill /F /IM node.exe
+
+
+
+text to continue 
+take a look at the whole project / codebase , now i want to focus on the generations without the help of ai , like with project generations with ai support off . so what i will do is to create 3 websites , i will fix those and in the end when im done editing thosee to fit my "final product" level i will provide you the source so we can improve our generator. 

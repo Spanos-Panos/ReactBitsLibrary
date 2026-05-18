@@ -2,6 +2,30 @@
 const fs = require('fs/promises');
 const { runCommand } = require('../../utils/spawn.cjs');
 const { getScaffoldCmd, getInstallCmd, patchPackageJson } = require('../../utils/pm.cjs');
+const { extractComponentDepsFromFiles } = require('../shared/extract-component-deps.cjs');
+
+const DEMO_BASE_DEPS = [
+  'framer-motion', 'motion', 'motion-utils',
+  'gsap', 'ogl', '@react-three/fiber', '@react-three/drei',
+  'three', 'lucide-react', 'clsx', 'tailwind-merge', 'react-icons',
+];
+
+const DEMO_TAILWIND_DEPS = ['@tailwindcss/vite', 'tailwindcss'];
+
+function filesUseTailwind(componentFiles, usageCode = '') {
+  const sample = [
+    usageCode,
+    ...(componentFiles || []).map((f) => f.content || ''),
+  ].join('\n');
+  return /\bclassName\s*=/.test(sample)
+    && /\b(bg-|text-|flex|rounded|hover:|max-w-|min-h-|items-|justify-|p-\d|px-|py-|w-\d)/.test(sample);
+}
+
+const DEMO_BASE_DEPS_SET = new Set([
+  'react', 'react-dom', 'react/jsx-runtime', 'react-dom/client',
+  'vite', '@vitejs/plugin-react', 'typescript', '@types/react', '@types/react-dom',
+  ...DEMO_BASE_DEPS,
+]);
 
 /**
  * Legacy generator for single-component demos.
@@ -23,13 +47,18 @@ async function generateViteReact(options) {
   notify(`Scaffolding single-component demo project '${projectName}'...`);
   await runCommand(getScaffoldCmd(packageManager, projectName), [], parentDir, log);
 
-  // 2. Deps — mirrors BASE_DEPS in scaffolder so all ReactBits imports resolve
+  // 2. Deps — base set + auto-detect from injected component source (e.g. styled-components)
   notify('Configuring dependencies...');
-  const deps = [
-    'framer-motion', 'motion', 'motion-utils',
-    'gsap', 'ogl', '@react-three/fiber', '@react-three/drei',
-    'three', 'lucide-react', 'clsx', 'tailwind-merge', 'react-icons',
-  ];
+  const needsTailwind = filesUseTailwind(componentFiles, usageCode);
+  const deps = new Set(DEMO_BASE_DEPS);
+  if (needsTailwind) {
+    for (const pkg of DEMO_TAILWIND_DEPS) deps.add(pkg);
+    log('[Demo] Tailwind classes detected — adding tailwindcss + @tailwindcss/vite\n');
+  }
+  for (const pkg of extractComponentDepsFromFiles(componentFiles, DEMO_BASE_DEPS_SET)) {
+    deps.add(pkg);
+    log(`[Demo] Auto-detected component dep: ${pkg}\n`);
+  }
   await patchPackageJson(path.join(targetDir, 'package.json'), deps, msg => log(`[Demo] ${msg}`));
 
   // 3. Install
@@ -99,11 +128,28 @@ async function generateViteReact(options) {
     scrollbarCss = `\n*::-webkit-scrollbar { width: 6px; } *::-webkit-scrollbar-thumb { background: ${scrollbarStyle.thumb || '#555'}; border-radius: 3px; }`;
   }
 
-  await fs.writeFile(
-    path.join(targetDir, 'src', 'index.css'),
-    `body { margin: 0; background: #000; color: #fff; min-height: 100vh; font-family: sans-serif; }${scrollbarCss}`,
-    'utf-8',
-  );
+  const indexCss = needsTailwind
+    ? `@import "tailwindcss";\n\nbody { margin: 0; min-height: 100vh; font-family: system-ui, sans-serif; }${scrollbarCss}\n`
+    : `body { margin: 0; background: #000; color: #fff; min-height: 100vh; font-family: sans-serif; }${scrollbarCss}`;
+
+  await fs.writeFile(path.join(targetDir, 'src', 'index.css'), indexCss, 'utf-8');
+
+  if (needsTailwind) {
+    try {
+      const viteConfig = `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+})
+`;
+      await fs.writeFile(path.join(targetDir, 'vite.config.ts'), viteConfig, 'utf-8');
+      log('[Demo] Patched vite.config.ts for Tailwind\n');
+    } catch (e) {
+      log(`[Demo] Warning: Could not patch vite.config.ts: ${e.message}\n`);
+    }
+  }
 
   // 7. Remove Vite boilerplate
   for (const f of [

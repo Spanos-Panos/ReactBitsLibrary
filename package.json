@@ -39,6 +39,7 @@
       "electron/**/*",
       "DemoCLI/**/*",
       "ReactBitsComponents/**/*",
+      "UniversalComponents/**/*",
       "src/reactbits-manifest.json",
       "package.json"
     ],

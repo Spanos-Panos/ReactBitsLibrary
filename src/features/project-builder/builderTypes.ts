@@ -6,6 +6,7 @@ export interface ComponentItem {
   name: string;
   category: string;
   usageMarkdown: string;
+  library?: 'reactbits' | 'universal';
 }
 
 export type FontRole = 'heading' | 'body' | 'accent' | '';

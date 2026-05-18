@@ -14,8 +14,12 @@ const fs = require('fs/promises');
  * each `latest` forces a registry metadata fetch and slows cold installs a lot).
  * Unknown / auto-detected deps still use `latest`.
  */
-/** Vite 8+ pins `rolldown` to exact `1.0.0`; some npm mirrors / timing return ETARGET. Force a flexible range. */
-const ROLLDOWN_OVERRIDE = '^1.0.1';
+/**
+ * Vite 8+ pulls `rolldown` transitively. npm `overrides` must resolve with `--prefer-offline`
+ * (used during scaffold install): `^1.0.1` fails ETARGET when the local packument only has 1.0.0.
+ * `^1.0.0` matches 1.0.0 from cache and 1.0.1+ when the registry is fresh.
+ */
+const ROLLDOWN_OVERRIDE = '^1.0.0';
 
 const SCAFFOLD_DEP_VERSIONS = {
   'framer-motion': '^12.38.0',
@@ -43,6 +47,7 @@ const SCAFFOLD_DEP_VERSIONS = {
   'matter-js': '^0.20.0',
   'motion-utils': '^12.23.6',
   'react-router-dom': '^7.11.0',
+  'styled-components': '^6.1.19',
 };
 
 function getScaffoldCmd(packageManager, projectName) {

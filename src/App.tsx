@@ -29,16 +29,19 @@ import { resolvePageIntents } from "./shared/lib/pageConfigResolver";
 
 const CATEGORY_LIMITS: Record<string, number> = {
   Backgrounds: 1, TextAnimations: 3, Animations: 3, Components: 5,
+  UniversalButtons: 5, UniversalCards: 5,
 };
 
 /** Shown in project panel assembly as `n / max` selected. */
 const MAX_SELECTED_COMPONENTS_TOTAL = 10;
 
 const PILL_NAV_ITEMS = [
-  { id: 'Components',     label: 'Components' },
-  { id: 'Animations',     label: 'Animations' },
-  { id: 'TextAnimations', label: 'Text Animations' },
-  { id: 'Backgrounds',    label: 'Backgrounds' },
+  { id: 'Components',       label: 'Components' },
+  { id: 'Animations',       label: 'Animations' },
+  { id: 'TextAnimations',   label: 'Text Animations' },
+  { id: 'Backgrounds',      label: 'Backgrounds' },
+  { id: 'UniversalButtons', label: 'Universal · Buttons' },
+  { id: 'UniversalCards',   label: 'Universal · Cards' },
 ];
 
 const CARD_NAV_ITEMS = [
@@ -261,7 +264,11 @@ function App() {
   const buildEnhancePayload = async (preloadedComponents?: ComponentContext[]) => {
     const componentsWithContext = preloadedComponents ?? await Promise.all(
       selectedComponents.map(async (comp) => {
-        try { return await window.reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id); }
+        try {
+          return await window.reactBitsApi.getComponentFullContext(
+            comp.category, comp.name, comp.id, comp.library ?? 'reactbits',
+          );
+        }
         catch (e) {
           console.warn(`Failed to gather context for ${comp.name}`, e);
           return { id: comp.id, name: comp.name, category: comp.category, files: [], usage: '', install: '' };
@@ -417,7 +424,9 @@ function App() {
             enhancerQualityScore: effectiveEnhancerQualityScore,
             performanceProfile,
           },
-          selectedComponents: await Promise.all(selectedComponents.map(c => window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id))),
+          selectedComponents: await Promise.all(selectedComponents.map(c =>
+            window.reactBitsApi.getComponentFullContext(c.category, c.name, c.id, c.library ?? 'reactbits'),
+          )),
           enhancedPrompt: effectiveEnhancedPrompt,
         }, null, taskId);
       } else {
@@ -618,7 +627,11 @@ function App() {
 
     const componentsWithFiles = await Promise.all(
       selectedComponents.map(async (comp) => {
-        try { return await window.reactBitsApi.getComponentFullContext(comp.category, comp.name, comp.id); }
+        try {
+          return await window.reactBitsApi.getComponentFullContext(
+            comp.category, comp.name, comp.id, comp.library ?? 'reactbits',
+          );
+        }
         catch { return { id: comp.id, name: comp.name, category: comp.category, files: [], usage: '', install: '' }; }
       })
     );

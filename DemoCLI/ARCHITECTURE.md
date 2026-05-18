@@ -73,14 +73,15 @@ index.cjs → generators/demo/vite-react.cjs
 ```
 
 Steps:
+
 1. Scaffold Vite+React+TS project
 2. Merge a fixed dep list (framer-motion, motion, motion-utils, gsap, ogl, three, …)
 3. Install deps
 4. Inject the single component's source files into `src/components/`
 5. Build `src/App.tsx` from the component's `usageMarkdown`:
-   - Rewrite import path to match the injected location
-   - If usage code has no `export default`, wrap it — splitting at the first `<` line so
-     `const`/`let` declarations go into the function body (not inside the JSX return)
+  - Rewrite import path to match the injected location
+  - If usage code has no `export default`, wrap it — splitting at the first `<` line so
+  `const`/`let` declarations go into the function body (not inside the JSX return)
 6. Write minimal `index.css` + `App.css`
 7. Remove Vite boilerplate
 
@@ -94,13 +95,14 @@ index.cjs → project/scaffolder → project/content-builder → project/app-bui
 ```
 
 Steps:
+
 1. **Scaffolder** — full project skeleton + all deps installed
 2. **Content builder** — clientBrief → structured content object
 3. **App builder** — writes App.tsx (single) or page files (multi-page)
 4. **Brief writer** — ensures Brief.md exists in project root
 5. **TypeScript check** — errors captured, never aborts
 6. **AI Reviewer** (if `aiSupport`) — writes REVIEWER_BRIEF.md, runs two pass review
-   (makeover → quality gates → polish if gates fail), then deletes REVIEWER_BRIEF.md
+  (makeover → quality gates → polish if gates fail), then deletes REVIEWER_BRIEF.md
 
 ---
 
@@ -129,19 +131,22 @@ utils/spawn.cjs
 ### Session 1 — Demo Generator Bug Fixes
 
 **Problem 1: `motion/react` not resolved**
+
 - `vite-react.cjs` installed `framer-motion` but not `motion` (the standalone package).
 - 17 ReactBits components import from `motion/react`.
 - Fix: added `'motion'` and `'motion-utils'` to the dep list.
 
 **Problem 2: `images is not defined` ReferenceError**
+
 - Usage code wrapping logic put ALL non-import lines (including `const images = [...]`)
-  inside the JSX `return()`. JavaScript cannot have `const` declarations inside JSX.
+inside the JSX `return()`. JavaScript cannot have `const` declarations inside JSX.
 - Fix: rewritten to split at the first `<` line. Everything before it goes into the
-  function body as declarations; everything from it onward goes into `return()`.
+function body as declarations; everything from it onward goes into `return()`.
 
 **Problem 3: `PlasmaWave is not defined` ReferenceError**
+
 - `ReactBitsComponents/Backgrounds/Ballpit/UsageBallpit.md` contained PlasmaWave's
-  JSX (entire overlay structure) instead of Ballpit's own usage.
+JSX (entire overlay structure) instead of Ballpit's own usage.
 - The generated `App.tsx` imported `Ballpit` but rendered `<PlasmaWave>` — never imported.
 - Fix: corrected `UsageBallpit.md` and the inline `usageMarkdown` in `reactbits-manifest.json`.
 
@@ -150,11 +155,13 @@ utils/spawn.cjs
 ### Session 2 — Generator Codebase Restructure
 
 **Phase 1 — Shared utilities**
+
 - Created `utils/pm.cjs` with `getScaffoldCmd`, `getInstallCmd`, `patchPackageJson`.
-  Previously each generator had its own inline version of all three.
+Previously each generator had its own inline version of all three.
 - `vite-react.cjs` and `scaffolder.cjs` now import from this shared module.
 
 **Phase 2 — Extract from `index.cjs`**
+
 - `ensureBriefFile` (170 lines) → `generators/project/brief-writer.cjs`
 - `buildBriefContext` + `writeReviewerBrief` (75 lines) → `generators/project/reviewer-brief.cjs`
 - `index.cjs` shrunk from 669 → 348 lines.
@@ -162,6 +169,7 @@ utils/spawn.cjs
 - Extracted `makeIpcEmitters()` helper to remove duplicated `onProgress`/`onLog` setup.
 
 **Phase 3 — Directory restructure**
+
 - `generators/` flat layout → three subdirectories with clear ownership:
   - `generators/demo/` — single-component demo path
   - `generators/project/` — full project pipeline
@@ -170,3 +178,4 @@ utils/spawn.cjs
 - `component-mapper.cjs` manifest path adjusted from `../../src/` to `../../../src/`.
 - `style-builder.cjs` colorContrast path adjusted from `../utils/` to `../../utils/`.
 - `scaffolder.cjs` joker-assets path adjusted from `'..', 'joker-assets'` to `'..', '..', 'joker-assets'`.
+

@@ -3,16 +3,24 @@ const path = require("path");
 const fs = require("fs");
 
 const reactBitsRoot = path.join(__dirname, "..", "ReactBitsComponents");
+const universalRoot = path.join(__dirname, "..", "UniversalComponents");
+
+function resolveComponentDir(category, name, library = "reactbits") {
+  if (library === "universal") {
+    return path.join(universalRoot, category, name);
+  }
+  return path.join(reactBitsRoot, category, name);
+}
 
 contextBridge.exposeInMainWorld("reactBitsApi", {
-  getItems() { return loadReactBitsItems(); },
+  getItems() { return loadCatalogItems(); },
   getDiagnostics() { return getDiagnostics(); },
-  getComponentFiles(category, name) {
-    const compDir = path.join(reactBitsRoot, category, name);
+  getComponentFiles(category, name, library = "reactbits") {
+    const compDir = resolveComponentDir(category, name, library);
     const files = safeReadDir(compDir);
     const result = [];
     for (const f of files) {
-      if (f.isFile() && !f.name.startsWith("Usage")) {
+      if (f.isFile() && !f.name.startsWith("Usage") && !f.name.endsWith("Install.md")) {
         try {
           const content = fs.readFileSync(path.join(compDir, f.name), "utf-8");
           result.push({ name: f.name, content });
@@ -21,10 +29,9 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
     }
     return result;
   },
-  getComponentFullContext(category, name, id) {
-    const compDir = path.join(reactBitsRoot, category, name);
-    
-    // 1. Get Source Files
+  getComponentFullContext(category, name, id, library = "reactbits") {
+    const compDir = resolveComponentDir(category, name, library);
+
     const files = [];
     const entries = safeReadDir(compDir);
     for (const entry of entries) {
@@ -36,23 +43,21 @@ contextBridge.exposeInMainWorld("reactBitsApi", {
       }
     }
 
-    // 2. Get Usage Markdown
     let usage = "";
     try {
       usage = fs.readFileSync(path.join(compDir, `Usage${name}.md`), "utf-8");
     } catch {
       try {
-        usage = fs.readFileSync(path.join(compDir, `Usage.md`), "utf-8");
+        usage = fs.readFileSync(path.join(compDir, "Usage.md"), "utf-8");
       } catch {}
     }
 
-    // 3. Get Install Markdown
     let install = "";
     try {
       install = fs.readFileSync(path.join(compDir, `${name}Install.md`), "utf-8");
     } catch {}
 
-    return { id, name, category, files, usage, install };
+    return { id, name, category, library, files, usage, install };
   },
   generatePlayground(...args) {
     const [payloadOrCategory] = args;
@@ -152,11 +157,11 @@ function safeReadDir(dirPath) {
   }
 }
 
-function buildItemFromUsageFile(category, usageFile) {
+function buildItemFromUsageFile(root, library, category, usageFile) {
   const baseName = path.basename(usageFile, path.extname(usageFile));
   const name = baseName.replace(/^Usage/, "");
   const id = `${category}/${name}`;
-  const fullPath = path.join(reactBitsRoot, category, name, usageFile);
+  const fullPath = path.join(root, category, name, usageFile);
 
   let usage = "";
   try {
@@ -169,15 +174,17 @@ function buildItemFromUsageFile(category, usageFile) {
     id,
     name,
     category,
+    library,
     usageMarkdown: usage,
+    relativePath: path.relative(path.join(__dirname, ".."), fullPath).replace(/\\/g, "/"),
   };
 }
 
-function loadReactBitsItems() {
-  const categories = ["Components", "Animations", "Backgrounds", "TextAnimations"];
+function loadCatalogItems() {
   const items = [];
+  const reactCategories = ["Components", "Animations", "Backgrounds", "TextAnimations"];
 
-  for (const category of categories) {
+  for (const category of reactCategories) {
     const categoryDir = path.join(reactBitsRoot, category);
     const entries = safeReadDir(categoryDir);
 
@@ -187,7 +194,22 @@ function loadReactBitsItems() {
       const files = safeReadDir(dirPath);
       const usageFile = files.find((f) => f.isFile() && f.name.startsWith("Usage") && f.name.endsWith(".md"));
       if (!usageFile) continue;
-      items.push(buildItemFromUsageFile(category, usageFile.name));
+      items.push(buildItemFromUsageFile(reactBitsRoot, "reactbits", category, usageFile.name));
+    }
+  }
+
+  if (fs.existsSync(universalRoot)) {
+    const groups = safeReadDir(universalRoot).filter((e) => e.isDirectory());
+    for (const group of groups) {
+      const groupDir = path.join(universalRoot, group.name);
+      const entries = safeReadDir(groupDir).filter((e) => e.isDirectory());
+      for (const entry of entries) {
+        const dirPath = path.join(groupDir, entry.name);
+        const files = safeReadDir(dirPath);
+        const usageFile = files.find((f) => f.isFile() && f.name.startsWith("Usage") && f.name.endsWith(".md"));
+        if (!usageFile) continue;
+        items.push(buildItemFromUsageFile(universalRoot, "universal", group.name, usageFile.name));
+      }
     }
   }
 
@@ -213,11 +235,13 @@ function getDiagnostics() {
     };
   });
 
-  const items = loadReactBitsItems();
+  const items = loadCatalogItems();
 
   return {
     rootPath: reactBitsRoot,
     rootExists: fs.existsSync(reactBitsRoot),
+    universalRoot,
+    universalRootExists: fs.existsSync(universalRoot),
     itemsCount: items.length,
     categories,
   };

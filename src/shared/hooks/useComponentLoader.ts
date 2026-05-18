@@ -22,7 +22,11 @@ export function useComponentLoader() {
       setComponentFiles([]);
       return;
     }
-    let files = window.reactBitsApi.getComponentFiles(selected.category, selected.name);
+    let files = window.reactBitsApi.getComponentFiles(
+      selected.category,
+      selected.name,
+      selected.library ?? 'reactbits',
+    );
     files = files
       .filter(f => !f.name.endsWith('.md'))
       .sort((a, b) => {
@@ -46,7 +50,8 @@ export function useComponentLoader() {
       setRawInstallMarkdown('');
       return;
     }
-    const installPath = `ReactBitsComponents/${selected.id}/${selected.name}Install.md`;
+    const root = selected.library === 'universal' ? 'UniversalComponents' : 'ReactBitsComponents';
+    const installPath = `${root}/${selected.id}/${selected.name}Install.md`;
     fetch(installPath)
       .then(res => res.text())
       .then(text => {

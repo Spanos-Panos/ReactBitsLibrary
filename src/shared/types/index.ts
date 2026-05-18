@@ -47,12 +47,16 @@ export interface ComponentFile {
   content: string;
 }
 
+export type ComponentLibrary = 'reactbits' | 'universal';
+
 export interface ReactBitsItem {
   id: string;
   name: string;
   category: string;
   usageMarkdown: string;
   relativePath: string;
+  /** Defaults to reactbits when omitted (legacy manifest entries). */
+  library?: ComponentLibrary;
 }
 
 export interface ParsedInstallData {

@@ -15,6 +15,7 @@ const fs   = require('fs/promises');
 const { runCommand } = require('../../utils/spawn.cjs');
 const { getScaffoldCmd, getInstallCmd, patchPackageJson } = require('../../utils/pm.cjs');
 const { buildTokensCSS, buildGlobalsCSS, buildGoogleFontsLink } = require('../shared/style-builder.cjs');
+const { extractComponentDeps } = require('../shared/extract-component-deps.cjs');
 
 const BASE_DEPS = [
   'framer-motion', 'motion', 'gsap', 'ogl',
@@ -39,32 +40,6 @@ const BASE_DEPS_SET = new Set([
   'react-router-dom',
   ...BASE_DEPS,
 ]);
-
-/**
- * Scans every injected component file's content for external import statements
- * and returns a Set of package names that are NOT already in BASE_DEPS_SET.
- * This ensures any component with unusual dependencies (postprocessing, etc.) gets them installed.
- */
-function extractComponentDeps(selectedComponents) {
-  const extra = new Set();
-  for (const comp of selectedComponents) {
-    if (!comp.files) continue;
-    for (const file of comp.files) {
-      if (!file.content) continue;
-      // Match: import ... from 'pkg'  OR  import 'pkg'
-      const matches = file.content.matchAll(/\bimport\s+(?:type\s+)?(?:[^'"]*\s+from\s+)?['"]([^'"]+)['"]/g);
-      for (const [, pkg] of matches) {
-        if (pkg.startsWith('.') || pkg.startsWith('/')) continue;
-        // Normalise to root package name (handles @scope/pkg/subpath and pkg/subpath)
-        const root = pkg.startsWith('@')
-          ? pkg.split('/').slice(0, 2).join('/')
-          : pkg.split('/')[0];
-        if (!BASE_DEPS_SET.has(root)) extra.add(root);
-      }
-    }
-  }
-  return extra;
-}
 
 /**
  * buildScaffold(options)
@@ -101,7 +76,7 @@ async function buildScaffold({
   if (isMultiPage) deps.add('react-router-dom');
 
   // Auto-detect extra deps by scanning all injected component file contents
-  const componentDeps = extractComponentDeps(selectedComponents);
+  const componentDeps = extractComponentDeps(selectedComponents, BASE_DEPS_SET);
   for (const dep of componentDeps) {
     deps.add(dep);
     log(`[Scaffolder] Auto-detected component dep: ${dep}\n`);

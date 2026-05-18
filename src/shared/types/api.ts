@@ -6,6 +6,7 @@ export interface ComponentContext {
   id: string;
   name: string;
   category: string;
+  library?: import('./index').ComponentLibrary;
   files: ComponentFile[];
   usage: string;
   install: string;
@@ -159,8 +160,13 @@ export interface GeneratePlaygroundLegacyArgs {
 export interface ReactBitsApi {
   getItems(): ReactBitsItem[];
   getDiagnostics(): unknown;
-  getComponentFiles(category: string, name: string): ComponentFile[];
-  getComponentFullContext(category: string, name: string, id: string): Promise<ComponentContext>;
+  getComponentFiles(category: string, name: string, library?: import('./index').ComponentLibrary): ComponentFile[];
+  getComponentFullContext(
+    category: string,
+    name: string,
+    id: string,
+    library?: import('./index').ComponentLibrary,
+  ): Promise<ComponentContext>;
   generatePlayground(payload: GeneratePlaygroundPayload, _legacyPlaceholder: null, taskId: string): Promise<GenerateResult>;
   generatePlayground(
     category: string,
